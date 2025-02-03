@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能大棚管理系统</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        .data-container {
+            margin: 20px;
+        }
+        .export-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .datetime-picker {
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>智能大棚管理系统</h1>
+    <div class="data-container">
+        <h2>最新数据</h2>
+        <p>土壤湿度: <span id="soil-moisture">N/A</span> %</p>
+        <p>空气温度: <span id="air-temperature">N/A</span> °C</p>
+        <p>空气湿度: <span id="air-humidity">N/A</span> %</p>
+        <p>土壤营养成分: <span id="soil-nutrients">N/A</span></p>
+    </div>
+
+    <div class="datetime-picker">
+        <label for="start-time">开始时间:</label>
+        <input type="datetime-local" id="start-time" name="start-time">
+    </div>
+    <div class="datetime-picker">
+        <label for="end-time">结束时间:</label>
+        <input type="datetime-local" id="end-time" name="end-time">
+    </div>
+    <div class="datetime-picker">
+        <label for="format">导出格式:</label>
+        <select id="format" name="format">
+            <option value="csv">CSV</option>
+            <option value="excel">Excel</option>
+        </select>
+    </div>
+
+    <button class="export-button" onclick="exportData()">导出数据</button>
+
+    <!-- 新增按钮，用于跳转到数据统计页面 -->
+    <button class="export-button" onclick="window.location.href='http://localhost:8501'">数据统计</button>
+
+    <script>
+        function fetchData() {
+            fetch('/data')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('soil-moisture').textContent = data.soil_moisture;
+                    document.getElementById('air-temperature').textContent = data.air_temperature;
+                    document.getElementById('air-humidity').textContent = data.air_humidity;
+                    document.getElementById('soil-nutrients').textContent = data.soil_nutrients;
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        }
+
+        // 初始加载数据
+        fetchData();
+
+        // 每分钟刷新一次数据
+        setInterval(fetchData, 60000);
+
+        function exportData() {
+            const start_time = document.getElementById('start-time').value;
+            const end_time = document.getElementById('end-time').value;
+            const format = document.getElementById('format').value;
+
+            if (!start_time || !end_time) {
+                alert("请提供开始时间和结束时间");
+                return;
+            }
+
+            const url = `/export?start_time=${encodeURIComponent(start_time)}&end_time=${encodeURIComponent(end_time)}&format=${encodeURIComponent(format)}`;
+            window.location.href = url;
+        }
+    </script>
+</body>
+</html>
