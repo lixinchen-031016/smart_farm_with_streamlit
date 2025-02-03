@@ -163,5 +163,4 @@ def main():
         st.success("随机数据已生成并保存到数据库中！", icon="✅")
 
 if __name__ == '__main__':
-    init_db()  # 初始化数据库表
     main()  # 修改: 直接调用main函数
