@@ -162,7 +162,6 @@ def main():
             generate_random_data()
             st.session_state['last_generated_time'] = current_time
             st.success("随机数据已生成并保存到数据库中！", icon="✅")
-            st.experimental_rerun()  # 刷新页面以显示最新数据
         time.sleep(60)  # 每分钟检查一次
 
 if __name__ == '__main__':
