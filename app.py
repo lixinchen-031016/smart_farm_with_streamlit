@@ -155,12 +155,15 @@ def main():
                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             )
 
-    # 添加定时任务逻辑，每分钟生成一次随机数据
-    current_time = datetime.now()
-    if 'last_generated_time' not in st.session_state or (current_time - st.session_state['last_generated_time']).total_seconds() >= 60:
-        generate_random_data()
-        st.session_state['last_generated_time'] = current_time
-        st.success("随机数据已生成并保存到数据库中！", icon="✅")
+    # 添加定时任务逻辑，每分钟生成一次随机数据并刷新页面
+    while True:
+        current_time = datetime.now()
+        if 'last_generated_time' not in st.session_state or (current_time - st.session_state['last_generated_time']).total_seconds() >= 60:
+            generate_random_data()
+            st.session_state['last_generated_time'] = current_time
+            st.success("随机数据已生成并保存到数据库中！", icon="✅")
+            st.experimental_rerun()  # 刷新页面以显示最新数据
+        time.sleep(60)  # 每分钟检查一次
 
 if __name__ == '__main__':
     main()  # 修改: 直接调用main函数
