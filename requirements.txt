@@ -64,3 +64,4 @@ streamlit_extras
 openpyxl
 statsmodels
 scikit-learn
+redis  # 添加: 添加Redis库到依赖

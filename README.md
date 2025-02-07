@@ -11,10 +11,10 @@ git clone https://github.com/lixinchen-031016/smart_farm_with_streamlit.git
 
 3.使用ls查看文件夹内文件
 
-4.在包含 docker-compose.yml 文件的目录下执行以下命令来启动服务：
+4. 在包含 docker-compose.yml 文件的目录下执行以下命令来启动服务：
 docker-compose up
 
-5.等待拉取MySQL镜像和制作智慧大棚镜像
+5. 等待拉取MySQL镜像、Redis镜像和制作智慧大棚镜像
 
 6.如果存在网络问题，修改镜像源配置文件
 sudo mkdir -p /etc/docker

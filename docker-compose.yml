@@ -8,6 +8,8 @@ services:
     depends_on:
       db:
         condition: service_healthy  # 确保db服务健康后再启动web服务
+      redis:
+        condition: service_started  # 确保redis服务启动后再启动web服务
     environment:
       - DATABASE_URL=mysql+pymysql://root:0000@db:3306/intelligent_farm  # 确保主机名和端口正确
   db:
@@ -24,6 +26,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+  redis:
+    image: redis:latest  # 添加: Redis服务
 
 volumes:
   db_data:

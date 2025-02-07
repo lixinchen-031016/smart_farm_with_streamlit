@@ -1,18 +1,15 @@
-import numpy as np
-import pandas as pd
-from datetime import datetime
 import io
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 import random
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-import matplotlib.dates as mdates
-from scipy.interpolate import UnivariateSpline  # 添加Smooth平滑拟合算法所需的库
-import streamlit as st
-from sqlalchemy import Column, Integer, Float, DateTime, String
-from sqlalchemy.ext.declarative import declarative_base
 import time  # 导入time模块
+from datetime import datetime
+
+import pandas as pd
+import redis  # 添加: 引入Redis库
+import streamlit as st
+from sqlalchemy import Column, Integer, Float, DateTime
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 # 创建基类
 Base = declarative_base()
@@ -41,6 +38,8 @@ engine = create_engine('mysql+pymysql://root:0000@db/intelligent_farm')
 Session = sessionmaker(bind=engine)
 session = Session()
 
+# 初始化Redis连接
+redis_client = redis.StrictRedis(host='redis', port=6379, db=0)  # 添加: 初始化Redis连接
 
 def generate_random_data():
     """
@@ -63,7 +62,20 @@ def generate_random_data():
     soil_moist = SoilMoisture(value=soil_moisture, timestamp=current_time)
     soil_nutri = SoilNutrient(value=soil_nutrient, timestamp=current_time)
 
-    # 添加数据到数据库会话并提交
+    # 将数据存储到Redis中
+    redis_client.set(f'air_temp_hum:{current_time}', f'{temperature},{humidity}')
+    redis_client.set(f'soil_moist:{current_time}', soil_moisture)
+    redis_client.set(f'soil_nutri:{current_time}', soil_nutrient)
+
+    # 从Redis中读取数据并添加到数据库会话
+    air_temp_hum_data = redis_client.get(f'air_temp_hum:{current_time}').decode('utf-8').split(',')
+    soil_moist_data = float(redis_client.get(f'soil_moist:{current_time}').decode('utf-8'))
+    soil_nutri_data = float(redis_client.get(f'soil_nutri:{current_time}').decode('utf-8'))
+
+    air_temp_hum = AirTemperatureHumidity(temperature=float(air_temp_hum_data[0]), humidity=float(air_temp_hum_data[1]), timestamp=current_time)
+    soil_moist = SoilMoisture(value=soil_moist_data, timestamp=current_time)
+    soil_nutri = SoilNutrient(value=soil_nutri_data, timestamp=current_time)
+
     session.add(air_temp_hum)
     session.add(soil_moist)
     session.add(soil_nutri)
