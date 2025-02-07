@@ -28,6 +28,8 @@ services:
       start_period: 30s
   redis:
     image: redis:latest  # 添加: Redis服务
+    ports:
+      - "6379:6379"
 
 volumes:
   db_data:
