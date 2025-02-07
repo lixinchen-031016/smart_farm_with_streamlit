@@ -3,6 +3,7 @@ sudo apt-get update && sudo apt-get install docker.io
 apt  install docker-compose
 sudo apt update && sudo apt install git
 使用docker ps测试docker是否已安装
+如果清华源不可用，使用阿里源https://mirrors.aliyun.com/pypi/simple/替换dockerfile里面清华源网址
 
 使用git命令将智能农场文件拉取下来
 git clone https://github.com/lixinchen-031016/smart_farm_with_streamlit.git
