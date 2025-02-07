@@ -14,6 +14,8 @@ services:
       - DATABASE_URL=mysql+pymysql://root:0000@db:3306/intelligent_farm  # 确保主机名和端口正确
   db:
     image: mysql:8.0
+    ports:
+      - "3306:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=0000
     volumes:
