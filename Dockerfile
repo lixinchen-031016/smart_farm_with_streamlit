@@ -13,8 +13,6 @@ RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua
 # 暴露应用端口
 EXPOSE 8502
 
-# 启动 MySQL 服务（假设 MySQL 镜像已包含在内）
-# RUN service mysql start
 
 # 运行应用
 CMD ["streamlit", "run", "app.py", "--server.port", "8502"]
