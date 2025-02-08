@@ -15,9 +15,8 @@ import redis  # 添加: 引入Redis库
 import sqlalchemy
 import streamlit as st
 from plotly.colors import n_colors
-from sqlalchemy import Column, Integer, Float, DateTime, String, LargeBinary  # 修改: 将Binary替换为LargeBinary
+from sqlalchemy import Column, Integer, Float, DateTime, String  # 修改: 将Binary替换为LargeBinary
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from streamlit_extras.metric_cards import style_metric_cards
 from streamlit_option_menu import option_menu
