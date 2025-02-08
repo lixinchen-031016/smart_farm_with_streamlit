@@ -1,3 +1,4 @@
+import bcrypt  # 添加: 引入bcrypt库
 import base64
 import io
 import json
@@ -103,8 +104,8 @@ def login():
     username = st.text_input("用户名")
     password = st.text_input("密码", type="password")
     if st.button("登录"):
-        user = session.query(User).filter_by(username=username, password=password).first()
-        if user:
+        user = session.query(User).filter_by(username=username).first()
+        if user and bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):  # 修改: 使用bcrypt验证密码
             st.session_state['logged_in'] = True
             st.session_state['username'] = username
             user.last_login_time = datetime.now()
@@ -129,7 +130,8 @@ def register():
             if existing_user:
                 st.error("用户名已存在")
             else:
-                new_user = User(username=username, password=password, last_login_time=datetime.now())
+                hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())  # 修改: 使用bcrypt加密密码
+                new_user = User(username=username, password=hashed_password.decode('utf-8'), last_login_time=datetime.now())
                 session.add(new_user)
                 session.commit()
                 st.success("注册成功，请登录")
