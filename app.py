@@ -52,7 +52,7 @@ class User(Base):
     last_login_time = Column(DateTime, nullable=False)
 
 # MySQL数据库连接配置
-engine = create_engine('mysql+pymysql://root:0000@localhost/intelligent_farm')
+engine = create_engine('mysql+pymysql://root:0000@db/intelligent_farm')
 Session = sessionmaker(bind=engine)
 session = Session()
 
