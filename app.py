@@ -12,9 +12,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
 import redis  # 添加: 引入Redis库
+import sqlalchemy
 import streamlit as st
 from plotly.colors import n_colors
-from sqlalchemy import Column, Integer, Float, DateTime
+from sqlalchemy import Column, Integer, Float, DateTime, String, LargeBinary  # 修改: 将Binary替换为LargeBinary
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -22,7 +23,7 @@ from streamlit_extras.metric_cards import style_metric_cards
 from streamlit_option_menu import option_menu
 
 # 创建基类
-Base = declarative_base()
+Base = sqlalchemy.orm.declarative_base()
 
 class AirTemperatureHumidity(Base):
     __tablename__ = 'intelligent_farm_airtemperaturehumidity'  # 修改表名
@@ -43,8 +44,15 @@ class SoilNutrient(Base):
     value = Column(Float)
     timestamp = Column(DateTime)
 
+class User(Base):
+    __tablename__ = 'user'
+    id = Column(Integer, primary_key=True)
+    username = Column(String(255), nullable=False)
+    password = Column(String(255), nullable=False)
+    last_login_time = Column(DateTime, nullable=False)
+
 # MySQL数据库连接配置
-engine = create_engine('mysql+pymysql://root:0000@db/intelligent_farm')
+engine = create_engine('mysql+pymysql://root:0000@localhost/intelligent_farm')
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -91,9 +99,48 @@ def generate_random_data():
     session.add(soil_nutri)
     session.commit()
 
+def login():
+    st.title("登录")
+    username = st.text_input("用户名")
+    password = st.text_input("密码", type="password")
+    if st.button("登录"):
+        user = session.query(User).filter_by(username=username, password=password).first()
+        if user:
+            st.session_state['logged_in'] = True
+            st.session_state['username'] = username
+            user.last_login_time = datetime.now()
+            session.commit()
+            st.experimental_set_query_params(page="data_preview")
+        else:
+            st.error("用户名或密码错误")
+    
+    if st.button("注册"):
+        st.experimental_set_query_params(page="register")
 
-# Streamlit应用逻辑
+def register():
+    st.title("注册")
+    username = st.text_input("用户名")
+    password = st.text_input("密码", type="password")
+    confirm_password = st.text_input("确认密码", type="password")
+    if st.button("注册"):
+        if password != confirm_password:
+            st.error("密码不一致")
+        else:
+            existing_user = session.query(User).filter_by(username=username).first()
+            if existing_user:
+                st.error("用户名已存在")
+            else:
+                new_user = User(username=username, password=password, last_login_time=datetime.now())
+                session.add(new_user)
+                session.commit()
+                st.success("注册成功，请登录")
+                st.experimental_set_query_params(page="login")
+
 def data_preview():
+    if not st.session_state.get('logged_in'):
+        st.experimental_set_query_params(page="login")
+        return
+
     st.title("智能农场数据监控")
 
     # 数据展示
@@ -204,6 +251,10 @@ def read_file(uploaded_file):
 
 # 数据概览函数
 def data_overview():
+    if not st.session_state.get('logged_in'):
+        st.experimental_set_query_params(page="login")
+        return
+
     st.title("数据概览")
     uploaded_file = st.file_uploader("选择文件", type=["csv", "xlsx", "xls", "json"])
 
@@ -247,6 +298,10 @@ def data_overview():
 
 # 数据清洗函数
 def data_cleaning():
+    if not st.session_state.get('logged_in'):
+        st.experimental_set_query_params(page="login")
+        return
+
     st.title("数据清洗")
     if 'data' not in st.session_state:
         st.warning("请先在数据概览页面上传数据")
@@ -285,6 +340,10 @@ def data_cleaning():
 
 # 数据分析函数
 def data_analysis():
+    if not st.session_state.get('logged_in'):
+        st.experimental_set_query_params(page="login")
+        return
+
     st.title("数据分析")
     if 'data' not in st.session_state:
         st.warning("请先在数据概览页面上传数据")
@@ -307,6 +366,10 @@ def data_analysis():
 
 # 数据可视化函数
 def data_visualization():
+    if not st.session_state.get('logged_in'):
+        st.experimental_set_query_params(page="login")
+        return
+
     st.title("数据可视化")
     if 'data' not in st.session_state:
         st.warning("请先在数据概览页面上传数据")
@@ -432,6 +495,10 @@ def data_visualization():
 
 # 高级分析函数
 def advanced_analysis():
+    if not st.session_state.get('logged_in'):
+        st.experimental_set_query_params(page="login")
+        return
+
     st.title("高级分析")
     if 'data' not in st.session_state:
         st.warning("请先在数据概览页面上传数据")
@@ -455,6 +522,10 @@ def advanced_analysis():
 
 # 使用说明函数
 def show_instructions():
+    if not st.session_state.get('logged_in'):
+        st.experimental_set_query_params(page="login")
+        return
+
     st.title("使用说明")
     st.markdown("""
     1. **数据导入**：在"数据概览"页面上传您的 CSV、Excel 或 JSON 文件。
@@ -465,32 +536,43 @@ def show_instructions():
     
     如需更多帮助，请参阅 [GitHub 仓库](https://github.com/lixinchen-031016/data-visualization-tool_for_smart_farm)。
     """)
+
 def main():
-    with st.sidebar:
-        selected = option_menu(
-        menu_title="主菜单",
-        options=["实时数据预览","数据概览", "数据清洗", "数据分析", "可视化", "高级分析", "使用说明"],
-        icons=["table", "tools", "bar-chart", "graph-up", "gear-fill", "question-circle"],
-        menu_icon="cast",
-        default_index=0,
-        )
+    if 'logged_in' not in st.session_state:
+        st.session_state['logged_in'] = False
 
-# 主内容区
-    if selected == "数据概览":
-        data_overview()
-    elif selected == "数据清洗":
-        data_cleaning()
-    elif selected == "数据分析":
-        data_analysis()
-    elif selected == "可视化":
-        data_visualization()
-    elif selected == "高级分析":
-        advanced_analysis()
-    elif selected == "使用说明":
-        show_instructions()
-    elif selected == "实时数据预览":
-        data_preview()
+    params = st.experimental_get_query_params()
+    page = params.get("page", ["login"])[0]
 
+    if page == "login":
+        login()
+    elif page == "register":
+        register()
+    else:
+        with st.sidebar:
+            selected = option_menu(
+                menu_title="主菜单",
+                options=["实时数据预览","数据概览", "数据清洗", "数据分析", "可视化", "高级分析", "使用说明"],
+                icons=["table", "tools", "bar-chart", "graph-up", "gear-fill", "question-circle"],
+                menu_icon="cast",
+                default_index=0,
+            )
+
+        # 主内容区
+        if selected == "数据概览":
+            data_overview()
+        elif selected == "数据清洗":
+            data_cleaning()
+        elif selected == "数据分析":
+            data_analysis()
+        elif selected == "可视化":
+            data_visualization()
+        elif selected == "高级分析":
+            advanced_analysis()
+        elif selected == "使用说明":
+            show_instructions()
+        elif selected == "实时数据预览":
+            data_preview()
 
 if __name__ == '__main__':
     main()  # 修改: 直接调用main函数
