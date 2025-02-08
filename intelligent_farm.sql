@@ -11,7 +11,7 @@
  Target Server Version : 80300
  File Encoding         : 65001
 
- Date: 08/02/2025 14:15:37
+ Date: 08/02/2025 20:34:43
 */
 
 SET NAMES utf8mb4;
@@ -43,7 +43,7 @@ CREATE TABLE `intelligent_farm_airtemperaturehumidity`  (
   `humidity` double NOT NULL,
   `timestamp` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 659 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 660 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of intelligent_farm_airtemperaturehumidity
@@ -717,7 +717,7 @@ CREATE TABLE `intelligent_farm_soilmoisture`  (
   `value` double NOT NULL,
   `timestamp` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 659 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 660 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of intelligent_farm_soilmoisture
@@ -1391,7 +1391,7 @@ CREATE TABLE `intelligent_farm_soilnutrient`  (
   `value` double NOT NULL,
   `timestamp` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 659 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 660 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of intelligent_farm_soilnutrient
@@ -2102,6 +2102,7 @@ CREATE TABLE `user`  (
 -- Records of user
 -- ----------------------------
 INSERT INTO `user` VALUES (4, '', '', '2025-02-08 14:07:03');
-INSERT INTO `user` VALUES (5, 'lxc12138', '123456', '2025-02-08 14:14:35');
+INSERT INTO `user` VALUES (5, 'lxc12138', '123456', '2025-02-08 14:22:30');
+INSERT INTO `user` VALUES (6, 'lixinchen', '$2b$12$U.9yDI45VFTuQ/zOSda4AekDwNlLWjUpo53.EI7nuJioTwAoSDxZ2', '2025-02-08 20:31:53');
 
 SET FOREIGN_KEY_CHECKS = 1;
