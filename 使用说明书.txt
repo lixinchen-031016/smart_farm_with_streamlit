@@ -19,7 +19,7 @@ docker-compose up
 
 6.如果存在网络问题，修改镜像源配置文件
 sudo mkdir -p /etc/docker
-sudo tee /etc/docker/daemon.json <<-'EOF'
+sudo vim /etc/docker/daemon.json
 {
     "registry-mirrors": [
         "https://0vmzj3q6.mirror.aliyuncs.com",
@@ -37,7 +37,7 @@ sudo tee /etc/docker/daemon.json <<-'EOF'
     	"https://mirror.ccs.tencentyun.com"
     ]
 }
-EOF
+
 sudo systemctl daemon-reload
 sudo systemctl restart docker
 
