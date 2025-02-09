@@ -8,7 +8,7 @@ WORKDIR /app
 COPY . /app
 
 # 安装依赖
-RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 
 # 暴露应用端口
 EXPOSE 8502

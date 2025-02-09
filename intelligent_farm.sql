@@ -2101,8 +2101,6 @@ CREATE TABLE `user`  (
 -- ----------------------------
 -- Records of user
 -- ----------------------------
-INSERT INTO `user` VALUES (4, '', '', '2025-02-08 14:07:03');
-INSERT INTO `user` VALUES (5, 'lxc12138', '123456', '2025-02-08 14:22:30');
 INSERT INTO `user` VALUES (6, 'lixinchen', '$2b$12$U.9yDI45VFTuQ/zOSda4AekDwNlLWjUpo53.EI7nuJioTwAoSDxZ2', '2025-02-08 20:31:53');
 
 SET FOREIGN_KEY_CHECKS = 1;
