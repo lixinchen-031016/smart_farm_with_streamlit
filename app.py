@@ -12,6 +12,7 @@ import plotly
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
+import psutil
 import sqlalchemy
 import streamlit as st
 from plotly.colors import n_colors
@@ -45,10 +46,11 @@ class SoilNutrient(Base):
 
 class User(Base):
     __tablename__ = 'user'
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)  # 修改: 设置id字段为自增
     username = Column(String(255), nullable=False)
     password = Column(String(255), nullable=False)
     last_login_time = Column(DateTime, nullable=False)
+    role = Column(String(50), nullable=False, default='user')  # 添加: 用户角色字段
 
 # MySQL数据库连接配置
 engine = create_engine('mysql+pymysql://root:0000@db/intelligent_farm')
@@ -89,16 +91,21 @@ def generate_random_data():
 
 def login():
     st.title("登录")
-    username = st.text_input("用户名")
-    password = st.text_input("密码", type="password")
+    username = st.text_input("用户名", key="login_username")  # 添加: 唯一key
+    password = st.text_input("密码", type="password", key="login_password")  # 添加: 唯一key
+    user_type = st.radio("选择登录类型", ["用户", "管理员"], index=0)  # 添加: 选择登录类型
     if st.button("登录"):
         user = session.query(User).filter_by(username=username).first()
-        if user and bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):  # 修改: 使用bcrypt验证密码
+        if user and bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
             st.session_state['logged_in'] = True
             st.session_state['username'] = username
+            st.session_state['role'] = user.role  # 添加: 存储用户角色
             user.last_login_time = datetime.now()
             session.commit()
-            st.experimental_set_query_params(page="data_preview")
+            if user.role == 'admin':
+                st.experimental_set_query_params(page="user_management")  # 添加: 管理员登录后跳转到用户管理页面
+            else:
+                st.experimental_set_query_params(page="data_preview")
         else:
             st.error("用户名或密码错误")
     
@@ -107,9 +114,9 @@ def login():
 
 def register():
     st.title("注册")
-    username = st.text_input("用户名")
-    password = st.text_input("密码", type="password")
-    confirm_password = st.text_input("确认密码", type="password")
+    username = st.text_input("用户名", key="register_username")  # 添加: 唯一key
+    password = st.text_input("密码", type="password", key="register_password")  # 添加: 唯一key
+    confirm_password = st.text_input("确认密码", type="password", key="confirm_password")  # 添加: 唯一key
     if st.button("注册"):
         if password != confirm_password:
             st.error("密码不一致")
@@ -526,6 +533,184 @@ def show_instructions():
     如需更多帮助，请参阅 [GitHub 仓库](https://github.com/lixinchen-031016/data-visualization-tool_for_smart_farm)。
     """)
 
+def user_management():
+    if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
+        st.experimental_set_query_params(page="login")
+        return
+
+    st.title("用户管理")
+
+    # 添加用户
+    st.header("添加用户")
+    new_username = st.text_input("新用户名", key="new_username")  # 添加: 唯一key
+    new_password = st.text_input("新密码", type="password", key="new_password")  # 添加: 唯一key
+    new_role = st.selectbox("角色", ["user", "admin"])
+    if st.button("添加用户"):
+        existing_user = session.query(User).filter_by(username=new_username).first()
+        if existing_user:
+            st.error("用户名已存在")
+        else:
+            hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+            new_user = User(username=new_username, password=hashed_password.decode('utf-8'), last_login_time=datetime.now(), role=new_role)
+            session.add(new_user)
+            session.commit()
+            st.success("用户添加成功")
+
+    # 用户列表
+    st.header("用户列表")
+    users = session.query(User).all()
+    user_data = [(user.id, user.username, user.role) for user in users]
+    df = pd.DataFrame(user_data, columns=['ID', '用户名', '角色'])
+    st.dataframe(df)
+
+    # 编辑和删除用户
+    user_id = st.number_input("输入要编辑或删除的用户ID", min_value=1, step=1, key="user_id")  # 添加: 唯一key
+    action = st.selectbox("选择操作", ["编辑", "删除"])
+    if action == "编辑":
+        user = session.query(User).filter_by(id=user_id).first()
+        if user:
+            new_username = st.text_input("新用户名", value=user.username, key="edit_username")  # 添加: 唯一key
+            new_password = st.text_input("新密码", type="password", key="edit_password")  # 添加: 唯一key
+            new_role = st.selectbox("角色", ["uesr", "admin"], index=["user", "admin"].index(user.role))
+            if st.button("保存更改"):
+                user.username = new_username
+                if new_password:
+                    user.password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                user.role = new_role
+                session.commit()
+                st.success("用户信息已更新")
+        else:
+            st.error("用户不存在")
+    elif action == "删除":
+        if st.button("确认删除"):
+            user = session.query(User).filter_by(id=user_id).first()
+            if user:
+                session.delete(user)
+                session.commit()
+                st.success("用户已删除")
+            else:
+                st.error("用户不存在")
+
+def system_monitoring():
+    if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
+        st.experimental_set_query_params(page="login")
+        return
+
+    st.title("系统监控")
+    st.write("服务器资源使用情况：")
+
+    # 获取CPU使用情况
+    cpu_usage = psutil.cpu_percent(interval=1)
+    st.write(f"CPU 使用率: {cpu_usage}%")
+
+    # 获取内存使用情况
+    memory = psutil.virtual_memory()
+    st.write(f"内存使用率: {memory.percent}%")
+    st.write(f"已用内存: {memory.used / (1024 ** 3):.2f} GB")
+    st.write(f"可用内存: {memory.available / (1024 ** 3):.2f} GB")
+
+    # 获取磁盘使用情况
+    disk = psutil.disk_usage('/')
+    st.write(f"磁盘使用率: {disk.percent}%")
+    st.write(f"已用磁盘空间: {disk.used / (1024 ** 3):.2f} GB")
+    st.write(f"可用磁盘空间: {disk.free / (1024 ** 3):.2f} GB")
+
+    st.write("传感器和设备连接状态：")
+    # 这里可以添加具体的传感器状态检查代码
+
+def data_backup():
+    if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
+        st.experimental_set_query_params(page="login")
+        return
+
+    st.title("数据备份")
+
+    # 添加开始和结束时间选择器
+    start_time = st.date_input("选择开始时间")
+    end_time = st.date_input("选择结束时间")
+
+    if st.button("执行备份"):
+        # 根据时间范围查询数据
+        query = session.query(
+            AirTemperatureHumidity.timestamp.label('timestamp'),
+            AirTemperatureHumidity.temperature,
+            AirTemperatureHumidity.humidity,
+            SoilMoisture.value.label('soil_moisture'),
+            SoilNutrient.value.label('soil_nutrient')
+        ).outerjoin(
+            SoilMoisture, AirTemperatureHumidity.timestamp == SoilMoisture.timestamp
+        ).outerjoin(
+            SoilNutrient, AirTemperatureHumidity.timestamp == SoilNutrient.timestamp
+        ).filter(
+            AirTemperatureHumidity.timestamp >= start_time,
+            AirTemperatureHumidity.timestamp <= end_time
+        ).order_by(
+            AirTemperatureHumidity.timestamp
+        )
+
+        data = query.all()
+        df = pd.DataFrame(data, columns=[
+            'timestamp',
+            'temperature',
+            'humidity',
+            'soil_moisture',
+            'soil_nutrient'
+        ])
+
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+        # 将数据导出为SQL文件
+        sql_file = io.StringIO()
+        for _, row in df.iterrows():
+            sql_file.write(f"INSERT INTO intelligent_farm_airtemperaturehumidity (temperature, humidity, timestamp) VALUES ({row['temperature']}, {row['humidity']}, '{row['timestamp']}');\n")
+            sql_file.write(f"INSERT INTO intelligent_farm_soilmoisture (value, timestamp) VALUES ({row['soil_moisture']}, '{row['timestamp']}');\n")
+            sql_file.write(f"INSERT INTO intelligent_farm_soilnutrient (value, timestamp) VALUES ({row['soil_nutrient']}, '{row['timestamp']}');\n")
+            sql_file.write(f"\n")
+        sql_file.seek(0)
+
+        # 将StringIO对象转换为字节流
+        sql_bytes = sql_file.getvalue().encode('utf-8')
+
+        # 提供下载链接
+        st.download_button(
+            label="下载SQL文件",
+            data=sql_bytes,
+            file_name='backup.sql',
+            mime='application/sql',
+        )
+
+        st.success("数据已备份")
+
+def data_restore():
+    if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
+        st.experimental_set_query_params(page="login")
+        return
+
+    st.title("数据恢复")
+    uploaded_file = st.file_uploader("选择备份文件", type=["sql"])
+    if uploaded_file is not None:
+        if st.button("恢复数据"):
+            # 读取上传的SQL文件内容
+            sql_script = uploaded_file.read().decode('utf-8')
+            
+            # 将SQL脚本拆分为单个SQL语句
+            sql_statements = sql_script.split(';')
+            
+            # 执行SQL脚本
+            try:
+                with engine.connect() as connection:
+                    for statement in sql_statements:
+                        statement = statement.strip()
+                        if statement:  # 确保语句不为空
+                            # 检查并处理nan值
+                            if 'nan' in statement:
+                                # 删除包含nan的语句
+                                continue
+                            connection.execute(sqlalchemy.text(statement))
+                st.success("数据已恢复")
+            except Exception as e:
+                st.error(f"恢复数据时出错: {e}")
+
 def main():
     if 'logged_in' not in st.session_state:
         st.session_state['logged_in'] = False
@@ -539,10 +724,13 @@ def main():
         register()
     else:
         with st.sidebar:
+            options = ["实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化", "高级分析", "使用说明"]
+            if st.session_state.get('role') == 'admin':
+                options.extend(["用户管理", "系统监控", "数据备份", "数据恢复"])
             selected = option_menu(
                 menu_title="主菜单",
-                options=["实时数据预览","数据概览", "数据清洗", "数据分析", "可视化", "高级分析", "使用说明"],
-                icons=["table", "tools", "bar-chart", "graph-up", "gear-fill", "question-circle"],
+                options=options,
+                icons=["table", "tools", "bar-chart", "graph-up", "gear-fill", "question-circle", "person-check", "cpu", "save", "cloud-upload"],
                 menu_icon="cast",
                 default_index=0,
             )
@@ -562,6 +750,14 @@ def main():
             show_instructions()
         elif selected == "实时数据预览":
             data_preview()
+        elif selected == "用户管理":
+            user_management()
+        elif selected == "系统监控":
+            system_monitoring()
+        elif selected == "数据备份":
+            data_backup()
+        elif selected == "数据恢复":
+            data_restore()
 
 if __name__ == '__main__':
-    main()  # 修改: 直接调用main函数
+    main()
