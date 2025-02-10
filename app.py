@@ -12,7 +12,6 @@ import plotly
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
-import redis  # 添加: 引入Redis库
 import sqlalchemy
 import streamlit as st
 from plotly.colors import n_colors
@@ -57,7 +56,6 @@ Session = sessionmaker(bind=engine)
 session = Session()
 
 # 初始化Redis连接
-redis_client = redis.StrictRedis(host='redis', port=6379, db=0)  # 添加: 初始化Redis连接
 
 def generate_random_data():
     """
@@ -81,18 +79,8 @@ def generate_random_data():
     soil_nutri = SoilNutrient(value=soil_nutrient, timestamp=current_time)
 
     # 将数据存储到Redis中
-    redis_client.set(f'air_temp_hum:{current_time}', f'{temperature},{humidity}')
-    redis_client.set(f'soil_moist:{current_time}', soil_moisture)
-    redis_client.set(f'soil_nutri:{current_time}', soil_nutrient)
 
     # 从Redis中读取数据并添加到数据库会话
-    air_temp_hum_data = redis_client.get(f'air_temp_hum:{current_time}').decode('utf-8').split(',')
-    soil_moist_data = float(redis_client.get(f'soil_moist:{current_time}').decode('utf-8'))
-    soil_nutri_data = float(redis_client.get(f'soil_nutri:{current_time}').decode('utf-8'))
-
-    air_temp_hum = AirTemperatureHumidity(temperature=float(air_temp_hum_data[0]), humidity=float(air_temp_hum_data[1]), timestamp=current_time)
-    soil_moist = SoilMoisture(value=soil_moist_data, timestamp=current_time)
-    soil_nutri = SoilNutrient(value=soil_nutri_data, timestamp=current_time)
 
     session.add(air_temp_hum)
     session.add(soil_moist)
