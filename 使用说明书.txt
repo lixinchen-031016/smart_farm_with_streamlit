@@ -49,4 +49,4 @@ docker-compose up
 
 8.需要进入数据库容器运行intelligent_farm.sql才能正常使用
 
-git clone -b login-register_data-visualization_with_redis_inside --single-branch https://github.com/lixinchen-031016/smart_farm_with_streamlit.git
+git clone -b login-register_with_data-visualization_inside --single-branch https://github.com/lixinchen-031016/smart_farm_with_streamlit.git

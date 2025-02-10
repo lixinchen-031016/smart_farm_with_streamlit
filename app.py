@@ -530,7 +530,7 @@ def show_instructions():
     4. **数据可视化**：使用"可视化"页面创建各种图表。
     5. **高级分析**：在"高级分析"页面进行更深入的数据探索。
     
-    如需更多帮助，请参阅 [GitHub 仓库](https://github.com/lixinchen-031016/data-visualization-tool_for_smart_farm)。
+    如需更多帮助，请参阅 [GitHub 仓库](https://github.com/lixinchen-031016/smart_farm_with_streamlit)。
     """)
 
 def user_management():
