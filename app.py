@@ -57,9 +57,8 @@ engine = create_engine('mysql+pymysql://root:0000@db/intelligent_farm')
 Session = sessionmaker(bind=engine)
 session = Session()
 
-# 初始化Redis连接
 
-def generate_random_data():
+'''def generate_random_data():
     """
     生成随机环境数据并保存到数据库。
 
@@ -80,14 +79,11 @@ def generate_random_data():
     soil_moist = SoilMoisture(value=soil_moisture, timestamp=current_time)
     soil_nutri = SoilNutrient(value=soil_nutrient, timestamp=current_time)
 
-    # 将数据存储到Redis中
-
-    # 从Redis中读取数据并添加到数据库会话
-
     session.add(air_temp_hum)
     session.add(soil_moist)
     session.add(soil_nutri)
     session.commit()
+'''
 
 def login():
     st.title("登录")
@@ -221,13 +217,14 @@ def data_preview():
             )
 
     # 添加定时任务逻辑，每分钟生成一次随机数据并刷新页面
-    while True:
+'''   while True:
         current_time = datetime.now()
         if 'last_generated_time' not in st.session_state or (current_time - st.session_state['last_generated_time']).total_seconds() >= 60:
             generate_random_data()
             st.session_state['last_generated_time'] = current_time
             st.success("随机数据已生成并保存到数据库中！", icon="✅")
         time.sleep(60)  # 每分钟检查一次
+'''
 
 # 定义 read_file 函数
 def read_file(uploaded_file):
@@ -615,8 +612,6 @@ def system_monitoring():
     st.write(f"已用磁盘空间: {disk.used / (1024 ** 3):.2f} GB")
     st.write(f"可用磁盘空间: {disk.free / (1024 ** 3):.2f} GB")
 
-    st.write("传感器和设备连接状态：")
-    # 这里可以添加具体的传感器状态检查代码
 
 def data_backup():
     if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
