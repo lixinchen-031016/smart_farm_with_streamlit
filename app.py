@@ -57,34 +57,6 @@ engine = create_engine('mysql+pymysql://root:0000@db/intelligent_farm')
 Session = sessionmaker(bind=engine)
 session = Session()
 
-
-'''def generate_random_data():
-    """
-    生成随机环境数据并保存到数据库。
-
-    本函数生成随机的温度、湿度、土壤湿度和土壤养分值，
-    并将这些数据连同当前时间戳一起保存到相应的数据库模型中。
-    """
-    # 生成随机环境数据
-    temperature = round(random.uniform(20.0, 28.0), 2)  # 修改: 缩小温度范围
-    humidity = round(random.uniform(40.0, 60.0), 2)  # 修改: 缩小湿度范围
-    soil_moisture = round(random.uniform(30.0, 70.0), 2)  # 修改: 缩小土壤湿度范围
-    soil_nutrient = round(random.uniform(1.0, 4.0), 2)  # 修改: 缩小土壤养分范围
-
-    # 获取当前时间戳
-    current_time = datetime.now()  # 添加: 获取当前时间戳
-
-    # 创建数据对象
-    air_temp_hum = AirTemperatureHumidity(temperature=temperature, humidity=humidity, timestamp=current_time)
-    soil_moist = SoilMoisture(value=soil_moisture, timestamp=current_time)
-    soil_nutri = SoilNutrient(value=soil_nutrient, timestamp=current_time)
-
-    session.add(air_temp_hum)
-    session.add(soil_moist)
-    session.add(soil_nutri)
-    session.commit()
-'''
-
 def login():
     st.title("登录")
     username = st.text_input("用户名", key="login_username")  # 添加: 唯一key
@@ -128,6 +100,12 @@ def register():
                 st.success("注册成功，请登录")
                 st.experimental_set_query_params(page="login")
 
+def fetch_latest_data(session):
+    air_temp_hum = session.query(AirTemperatureHumidity).order_by(AirTemperatureHumidity.timestamp.desc()).first()
+    soil_moist = session.query(SoilMoisture).order_by(SoilMoisture.timestamp.desc()).first()
+    soil_nutri = session.query(SoilNutrient).order_by(SoilNutrient.timestamp.desc()).first()
+    return air_temp_hum, soil_moist, soil_nutri
+
 def data_preview():
     if not st.session_state.get('logged_in'):
         st.experimental_set_query_params(page="login")
@@ -135,18 +113,15 @@ def data_preview():
 
     st.title("智能农场数据监控")
 
-    # 数据展示
+    # 添加更新数据按钮
     st.header("最新数据")
-    with session.begin():
-        air_temp_hum = session.query(AirTemperatureHumidity).order_by(AirTemperatureHumidity.timestamp.desc()).first()
-        soil_moist = session.query(SoilMoisture).order_by(SoilMoisture.timestamp.desc()).first()
-        soil_nutri = session.query(SoilNutrient).order_by(SoilNutrient.timestamp.desc()).first()
-
-    st.write(f"空气温度: {air_temp_hum.temperature} °C")
-    st.write(f"空气湿度: {air_temp_hum.humidity} %")
-    st.write(f"土壤湿度: {soil_moist.value} %")
-    st.write(f"土壤养分: {soil_nutri.value}")
-    st.write(f"时间戳: {air_temp_hum.timestamp}")
+    if st.button("更新数据"):
+        air_temp_hum, soil_moist, soil_nutri = fetch_latest_data(session)
+        st.write(f"空气温度: {air_temp_hum.temperature} °C")
+        st.write(f"空气湿度: {air_temp_hum.humidity} %")
+        st.write(f"土壤湿度: {soil_moist.value} %")
+        st.write(f"土壤养分: {soil_nutri.value}")
+        st.write(f"时间戳: {air_temp_hum.timestamp}")
 
     # 添加数据导出逻辑
     st.header("数据导出")
@@ -215,16 +190,6 @@ def data_preview():
                 file_name='data.xlsx',
                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             )
-
-    # 添加定时任务逻辑，每分钟生成一次随机数据并刷新页面
-'''   while True:
-        current_time = datetime.now()
-        if 'last_generated_time' not in st.session_state or (current_time - st.session_state['last_generated_time']).total_seconds() >= 60:
-            generate_random_data()
-            st.session_state['last_generated_time'] = current_time
-            st.success("随机数据已生成并保存到数据库中！", icon="✅")
-        time.sleep(60)  # 每分钟检查一次
-'''
 
 # 定义 read_file 函数
 def read_file(uploaded_file):
