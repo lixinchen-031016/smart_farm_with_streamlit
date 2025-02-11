@@ -28,9 +28,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-  redis:
-    image: redis:latest  # 添加: Redis服务
-    command: ["redis-server", "--bind", "0.0.0.0", "--protected-mode", "no"]  # 修改: 添加关闭保护模式的参数
 
 volumes:
   db_data:
