@@ -11,27 +11,11 @@
  Target Server Version : 80300
  File Encoding         : 65001
 
- Date: 08/02/2025 20:34:43
+ Date: 11/02/2025 01:20:10
 */
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
-
--- ----------------------------
--- Table structure for air_temperature_humidity
--- ----------------------------
-DROP TABLE IF EXISTS `air_temperature_humidity`;
-CREATE TABLE `air_temperature_humidity`  (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `temperature` float NOT NULL,
-  `humidity` float NOT NULL,
-  `timestamp` datetime NULL DEFAULT NULL,
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of air_temperature_humidity
--- ----------------------------
 
 -- ----------------------------
 -- Table structure for intelligent_farm_airtemperaturehumidity
@@ -707,6 +691,22 @@ INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (656, 22.82, 52.34,
 INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (657, 25.38, 53.57, '2025-02-03 14:58:48');
 INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (658, 21.71, 55.49, '2025-02-03 15:20:00');
 INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (659, 26.87, 55.95, '2025-02-03 15:20:19');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (660, 20.32, 53.4, '2025-02-10 22:42:06');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (661, 20.28, 56.21, '2025-02-10 22:50:35');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (662, 27.33, 43.29, '2025-02-10 22:58:31');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (663, 22.8, 54.42, '2025-02-10 23:02:09');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (664, 26.44, 48.91, '2025-02-10 23:42:51');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (665, 25.41, 55.6, '2025-02-10 23:43:28');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (666, 24.8, 59.71, '2025-02-10 23:51:56');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (667, 24.2, 56.45, '2025-02-11 00:16:37');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (1624, 25.83, 41.07, '2025-02-11 00:20:40');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (1625, 23.17, 55.66, '2025-02-11 00:21:40');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (1626, 23.04, 55.81, '2025-02-11 00:22:40');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (1627, 21.22, 45.77, '2025-02-11 00:23:19');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (1628, 22.81, 55.04, '2025-02-11 00:24:19');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (1629, 25.55, 44.94, '2025-02-11 00:25:19');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (1630, 24.85, 40.22, '2025-02-11 00:26:19');
+INSERT INTO `intelligent_farm_airtemperaturehumidity` VALUES (1631, 21.94, 44.22, '2025-02-11 00:27:09');
 
 -- ----------------------------
 -- Table structure for intelligent_farm_soilmoisture
@@ -1381,6 +1381,22 @@ INSERT INTO `intelligent_farm_soilmoisture` VALUES (656, 52.74, '2025-02-03 14:5
 INSERT INTO `intelligent_farm_soilmoisture` VALUES (657, 67.52, '2025-02-03 14:58:48');
 INSERT INTO `intelligent_farm_soilmoisture` VALUES (658, 30.58, '2025-02-03 15:20:00');
 INSERT INTO `intelligent_farm_soilmoisture` VALUES (659, 30.44, '2025-02-03 15:20:19');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (660, 57.58, '2025-02-10 22:42:06');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (661, 50.53, '2025-02-10 22:50:35');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (662, 51.06, '2025-02-10 22:58:31');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (663, 39.84, '2025-02-10 23:02:09');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (664, 32.03, '2025-02-10 23:42:51');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (665, 44.66, '2025-02-10 23:43:28');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (666, 59.68, '2025-02-10 23:51:56');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (667, 52.46, '2025-02-11 00:16:37');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (1622, 36.14, '2025-02-11 00:20:40');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (1623, 39.77, '2025-02-11 00:21:40');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (1624, 69.17, '2025-02-11 00:22:40');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (1625, 59.08, '2025-02-11 00:23:19');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (1626, 31.61, '2025-02-11 00:24:19');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (1627, 41.89, '2025-02-11 00:25:19');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (1628, 56.65, '2025-02-11 00:26:19');
+INSERT INTO `intelligent_farm_soilmoisture` VALUES (1629, 51.17, '2025-02-11 00:27:09');
 
 -- ----------------------------
 -- Table structure for intelligent_farm_soilnutrient
@@ -2055,36 +2071,22 @@ INSERT INTO `intelligent_farm_soilnutrient` VALUES (656, 3.16, '2025-02-03 14:55
 INSERT INTO `intelligent_farm_soilnutrient` VALUES (657, 2.9, '2025-02-03 14:58:48');
 INSERT INTO `intelligent_farm_soilnutrient` VALUES (658, 2.3, '2025-02-03 15:20:00');
 INSERT INTO `intelligent_farm_soilnutrient` VALUES (659, 2.26, '2025-02-03 15:20:19');
-
--- ----------------------------
--- Table structure for soil_moisture
--- ----------------------------
-DROP TABLE IF EXISTS `soil_moisture`;
-CREATE TABLE `soil_moisture`  (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `value` float NOT NULL,
-  `timestamp` datetime NULL DEFAULT NULL,
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of soil_moisture
--- ----------------------------
-
--- ----------------------------
--- Table structure for soil_nutrient
--- ----------------------------
-DROP TABLE IF EXISTS `soil_nutrient`;
-CREATE TABLE `soil_nutrient`  (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `value` float NOT NULL,
-  `timestamp` datetime NULL DEFAULT NULL,
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
-
--- ----------------------------
--- Records of soil_nutrient
--- ----------------------------
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (660, 1.04, '2025-02-10 22:42:06');
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (661, 1.01, '2025-02-10 22:50:35');
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (662, 2.68, '2025-02-10 22:58:31');
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (663, 2.74, '2025-02-10 23:02:09');
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (664, 1.52, '2025-02-10 23:42:51');
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (665, 2.43, '2025-02-10 23:43:28');
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (666, 2.25, '2025-02-10 23:51:56');
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (667, 1.43, '2025-02-11 00:16:37');
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (1622, 3.7, '2025-02-11 00:20:40');
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (1623, 3.95, '2025-02-11 00:21:40');
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (1624, 2.2, '2025-02-11 00:22:40');
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (1625, 3.74, '2025-02-11 00:23:19');
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (1626, 1.05, '2025-02-11 00:24:19');
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (1627, 3.32, '2025-02-11 00:25:19');
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (1628, 3.61, '2025-02-11 00:26:19');
+INSERT INTO `intelligent_farm_soilnutrient` VALUES (1629, 3.22, '2025-02-11 00:27:09');
 
 -- ----------------------------
 -- Table structure for user
@@ -2095,12 +2097,14 @@ CREATE TABLE `user`  (
   `username` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   `last_login_time` timestamp NOT NULL,
+  `role` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 7 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of user
 -- ----------------------------
-INSERT INTO `user` VALUES (6, 'lixinchen', '$2b$12$U.9yDI45VFTuQ/zOSda4AekDwNlLWjUpo53.EI7nuJioTwAoSDxZ2', '2025-02-08 20:31:53');
+INSERT INTO `user` VALUES (6, 'lixinchen', '$2b$12$U.9yDI45VFTuQ/zOSda4AekDwNlLWjUpo53.EI7nuJioTwAoSDxZ2', '2025-02-11 00:27:08', 'admin');
+INSERT INTO `user` VALUES (7, 'lxc', '$2b$12$oYiQQW2RD9SBoS3Br.NmzOv54xp769dKXooDMP77oucOdx5ozAL2q', '2025-02-11 00:23:19', 'user');
 
 SET FOREIGN_KEY_CHECKS = 1;
