@@ -1,17 +1,17 @@
 /*
  Navicat Premium Data Transfer
 
- Source Server         : root
+ Source Server         : lxc
  Source Server Type    : MySQL
- Source Server Version : 80300
- Source Host           : localhost:3306
+ Source Server Version : 80027
+ Source Host           : 121.40.70.56:3306
  Source Schema         : intelligent_farm
 
  Target Server Type    : MySQL
- Target Server Version : 80300
+ Target Server Version : 80027
  File Encoding         : 65001
 
- Date: 11/02/2025 01:20:10
+ Date: 11/02/2025 14:10:01
 */
 
 SET NAMES utf8mb4;
@@ -27,7 +27,7 @@ CREATE TABLE `intelligent_farm_airtemperaturehumidity`  (
   `humidity` double NOT NULL,
   `timestamp` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 660 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1632 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of intelligent_farm_airtemperaturehumidity
@@ -717,7 +717,7 @@ CREATE TABLE `intelligent_farm_soilmoisture`  (
   `value` double NOT NULL,
   `timestamp` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 660 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1630 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of intelligent_farm_soilmoisture
@@ -1407,7 +1407,7 @@ CREATE TABLE `intelligent_farm_soilnutrient`  (
   `value` double NOT NULL,
   `timestamp` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 660 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1630 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of intelligent_farm_soilnutrient
@@ -2099,12 +2099,14 @@ CREATE TABLE `user`  (
   `last_login_time` timestamp NOT NULL,
   `role` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 7 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 10 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of user
 -- ----------------------------
-INSERT INTO `user` VALUES (6, 'lixinchen', '$2b$12$U.9yDI45VFTuQ/zOSda4AekDwNlLWjUpo53.EI7nuJioTwAoSDxZ2', '2025-02-11 00:27:08', 'admin');
+INSERT INTO `user` VALUES (6, 'lixinchen', '$2b$12$U.9yDI45VFTuQ/zOSda4AekDwNlLWjUpo53.EI7nuJioTwAoSDxZ2', '2025-02-11 06:08:47', 'admin');
 INSERT INTO `user` VALUES (7, 'lxc', '$2b$12$oYiQQW2RD9SBoS3Br.NmzOv54xp769dKXooDMP77oucOdx5ozAL2q', '2025-02-11 00:23:19', 'user');
+INSERT INTO `user` VALUES (8, 'admin1', '$2b$12$BGab77gOZl.j/prjoI6xBu9xTHD8dheuoztyQ2WJgm3e53nN/zoaG', '2025-02-11 06:09:03', 'admin');
+INSERT INTO `user` VALUES (9, 'user1', '$2b$12$pQDpG6QxmDcdgIMYybGHNePRQeE7xFT2dwoobM9oTXCbpdCJypHAK', '2025-02-11 06:09:15', 'user');
 
 SET FOREIGN_KEY_CHECKS = 1;
