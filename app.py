@@ -42,6 +42,12 @@ class SoilNutrient(Base):
     value = Column(Float)
     timestamp = Column(DateTime)
 
+class LightIntensity(Base):
+    __tablename__ = 'intelligent_farm_light_intensity'  # 添加表名
+    id = Column(Integer, primary_key=True)
+    value = Column(Float)
+    timestamp = Column(DateTime)
+
 class User(Base):
     __tablename__ = 'user'
     id = Column(Integer, primary_key=True, autoincrement=True)  # 修改: 设置id字段为自增
@@ -102,7 +108,8 @@ def fetch_latest_data(session):
     air_temp_hum = session.query(AirTemperatureHumidity).order_by(AirTemperatureHumidity.timestamp.desc()).first()
     soil_moist = session.query(SoilMoisture).order_by(SoilMoisture.timestamp.desc()).first()
     soil_nutri = session.query(SoilNutrient).order_by(SoilNutrient.timestamp.desc()).first()
-    return air_temp_hum, soil_moist, soil_nutri
+    light_intens = session.query(LightIntensity).order_by(LightIntensity.timestamp.desc()).first()  # 添加光照强度查询
+    return air_temp_hum, soil_moist, soil_nutri, light_intens  # 添加光照强度返回值
 
 def data_preview():
     if not st.session_state.get('logged_in'):
@@ -114,12 +121,13 @@ def data_preview():
     # 添加更新数据按钮
     st.header("最新数据")
     if st.button("更新数据"):
-        air_temp_hum, soil_moist, soil_nutri = fetch_latest_data(session)
+        air_temp_hum, soil_moist, soil_nutri, light_intens = fetch_latest_data(session)  # 添加光照强度
         st.write(f"空气温度: {air_temp_hum.temperature} °C")
         st.write(f"空气湿度: {air_temp_hum.humidity} %")
         st.write(f"土壤湿度: {soil_moist.value} %")
         st.write(f"土壤养分: {soil_nutri.value}")
-        st.write(f"时间戳: {air_temp_hum.timestamp}")
+        st.write(f"光照强度: {light_intens.value}")  # 添加光照强度显示
+        st.write(f"数据获取时间: {air_temp_hum.timestamp}")
 
     # 添加数据导出逻辑
     st.header("数据导出")
