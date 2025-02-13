@@ -125,7 +125,7 @@ def data_preview():
         st.write(f"空气温度: {air_temp_hum.temperature} °C")
         st.write(f"空气湿度: {air_temp_hum.humidity} %")
         st.write(f"土壤湿度: {soil_moist.value} %")
-        st.write(f"土壤养分: {soil_nutri.value}")
+        st.write(f"土壤无机盐含量: {soil_nutri.value}")
         st.write(f"光照强度: {light_intens.value}")  # 添加光照强度显示
         st.write(f"数据获取时间: {air_temp_hum.timestamp}")
 
