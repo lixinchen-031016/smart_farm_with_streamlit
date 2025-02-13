@@ -1,12 +1,10 @@
-import bcrypt  # 添加: 引入bcrypt库
 import base64
 import io
 import json
-import random
-import time  # 导入time模块
 from datetime import datetime
 from io import BytesIO
 
+import bcrypt  # 添加: 引入bcrypt库
 import pandas as pd
 import plotly
 import plotly.express as px
