@@ -170,6 +170,7 @@ sudo systemctl restart docker
 - `SoilMoisture`：存储土壤湿度数据。
 - `SoilNutrient`：存储土壤养分数据。
 - `User`：存储用户信息（用户名、密码、角色等）。
+- `LightIntensity`：存储光照强度数据。
 
 ### 架构设计
 - 前端：基于Streamlit构建，提供用户友好的界面。
