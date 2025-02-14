@@ -11,7 +11,7 @@
  Target Server Version : 80300
  File Encoding         : 65001
 
- Date: 13/02/2025 22:02:56
+ Date: 14/02/2025 19:44:50
 */
 
 SET NAMES utf8mb4;
@@ -2794,7 +2794,7 @@ CREATE TABLE `user`  (
 -- ----------------------------
 -- Records of user
 -- ----------------------------
-INSERT INTO `user` VALUES (6, 'lixinchen', '$2b$12$U.9yDI45VFTuQ/zOSda4AekDwNlLWjUpo53.EI7nuJioTwAoSDxZ2', '2025-02-11 13:00:12', 'admin');
-INSERT INTO `user` VALUES (7, 'lxc', '$2b$12$oYiQQW2RD9SBoS3Br.NmzOv54xp769dKXooDMP77oucOdx5ozAL2q', '2025-02-11 00:23:19', 'user');
+INSERT INTO `user` VALUES (6, 'lixinchen', '$2b$12$U.9yDI45VFTuQ/zOSda4AekDwNlLWjUpo53.EI7nuJioTwAoSDxZ2', '2025-02-14 19:34:21', 'admin');
+INSERT INTO `user` VALUES (7, 'lxc', '$2b$12$oYiQQW2RD9SBoS3Br.NmzOv54xp769dKXooDMP77oucOdx5ozAL2q', '2025-02-14 19:36:28', 'user');
 
 SET FOREIGN_KEY_CHECKS = 1;
