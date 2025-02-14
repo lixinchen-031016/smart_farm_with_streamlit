@@ -64,6 +64,5 @@ streamlit_extras
 openpyxl
 statsmodels
 scikit-learn
-redis
 bcrypt
 psutil
