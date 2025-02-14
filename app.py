@@ -677,6 +677,64 @@ def data_restore():
             except Exception as e:
                 st.error(f"恢复数据时出错: {e}")
 
+def data_prediction():
+    if not st.session_state.get('logged_in'):
+        st.experimental_set_query_params(page="login")
+        return
+
+    st.title("数据预测")
+
+    # 选择预测的数据类型
+    data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度"])
+
+    # 选择预测模型
+    model_type = st.selectbox("选择预测模型", ["ARIMA", "SARIMA"])  # 添加模型选择
+
+    # 设置预测的时间范围
+    prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
+
+    if st.button("开始预测"):
+        # 获取历史数据
+        if data_type == "空气温度":
+            query = session.query(AirTemperatureHumidity.timestamp, AirTemperatureHumidity.temperature).order_by(AirTemperatureHumidity.timestamp)
+        elif data_type == "空气湿度":
+            query = session.query(AirTemperatureHumidity.timestamp, AirTemperatureHumidity.humidity).order_by(AirTemperatureHumidity.timestamp)
+        elif data_type == "土壤湿度":
+            query = session.query(SoilMoisture.timestamp, SoilMoisture.value).order_by(SoilMoisture.timestamp)
+
+        data = query.all()
+        df = pd.DataFrame(data, columns=['timestamp', 'value'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df.set_index('timestamp', inplace=True)
+
+        # 使用选择的模型进行预测
+        if model_type == "ARIMA":
+            from statsmodels.tsa.arima.model import ARIMA
+            model = ARIMA(df['value'], order=(5,1,0))
+        elif model_type == "SARIMA":
+            from statsmodels.tsa.statespace.sarimax import SARIMAX
+            model = SARIMAX(df['value'], order=(5,1,0), seasonal_order=(1,1,1,12))  # 示例季节性参数
+
+        model_fit = model.fit()
+        forecast = model_fit.forecast(steps=prediction_days)
+
+        # 生成预测结果图表
+        forecast_dates = pd.date_range(start=df.index[-1], periods=prediction_days+1, freq='D')[1:]
+        forecast_df = pd.DataFrame({'timestamp': forecast_dates, 'value': forecast})
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=df.index, y=df['value'], mode='lines', name='历史数据'))
+        fig.add_trace(go.Scatter(x=forecast_df['timestamp'], y=forecast_df['value'], mode='lines', name='预测数据'))
+        fig.update_layout(
+            title=f"{data_type} 预测结果",
+            xaxis_title="时间",
+            yaxis_title="值",
+            legend_title="数据类型"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.success("预测完成")
+
 def main():
     if 'logged_in' not in st.session_state:
         st.session_state['logged_in'] = False
@@ -693,10 +751,11 @@ def main():
             options = ["实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化", "高级分析", "使用说明"]
             if st.session_state.get('role') == 'admin':
                 options.extend(["用户管理", "系统监控", "数据备份", "数据恢复"])
+            options.append("数据预测")  # 添加数据预测菜单项
             selected = option_menu(
                 menu_title="主菜单",
                 options=options,
-                icons=["table", "tools", "bar-chart", "graph-up", "gear-fill", "question-circle", "person-check", "cpu", "save", "cloud-upload"],
+                icons=["table", "tools", "bar-chart", "graph-up", "gear-fill", "question-circle", "person-check", "cpu", "save", "cloud-upload","cloud-upload", "table"],
                 menu_icon="cast",
                 default_index=0,
             )
@@ -724,6 +783,8 @@ def main():
             data_backup()
         elif selected == "数据恢复":
             data_restore()
+        elif selected == "数据预测":
+            data_prediction()
 
 if __name__ == '__main__':
     main()

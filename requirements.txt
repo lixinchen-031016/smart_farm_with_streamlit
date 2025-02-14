@@ -28,7 +28,7 @@ MarkupSafe==2.1.5
 mdurl==0.1.2
 more-itertools==10.5.0
 narwhals==1.8.1
-numpy==2.1.1
+numpy
 packaging==24.1
 pillow==10.4.0
 plotly==5.24.1
