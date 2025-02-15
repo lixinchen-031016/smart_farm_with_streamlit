@@ -5,6 +5,8 @@ from datetime import datetime
 from io import BytesIO
 
 import bcrypt  # 添加: 引入bcrypt库
+import os
+from openai import OpenAI  # 添加: 引入OpenAI库
 import pandas as pd
 import plotly
 import plotly.express as px
@@ -60,6 +62,12 @@ class User(Base):
 engine = create_engine('mysql+pymysql://root:0000@db/intelligent_farm')
 Session = sessionmaker(bind=engine)
 session = Session()
+
+# 创建OpenAI客户端
+client = OpenAI(
+    api_key="sk-6e4e147032d54b8e8951f712b1e0b305",
+    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+)
 
 def login():
     st.title("登录")
@@ -735,6 +743,44 @@ def data_prediction():
 
         st.success("预测完成")
 
+def ai_data_analysis_and_prediction():
+    if not st.session_state.get('logged_in'):
+        st.experimental_set_query_params(page="login")
+        return
+
+    st.title("AI数据分析及预测")
+    uploaded_file = st.file_uploader("选择文件", type=["csv", "xlsx", "xls", "json"])
+
+    if uploaded_file is not None:
+        data = read_file(uploaded_file)
+        if data is not None:
+            st.success("文件读取成功")
+            st.session_state['data'] = data
+
+            # 调用Qwen2.5 API进行数据分析和预测
+            if st.button("开始分析和预测"):
+                # 将数据转换为JSON格式
+                data_json = data.to_json(orient='records')
+
+                # 调用API
+                completion = client.chat.completions.create(
+                    model="qwen2.5-14b-instruct-1m",
+                    messages=[
+                        {'role': 'system', 'content': 'You are a helpful assistant.'},
+                        {'role': 'user', 'content': f'我在甘肃种植花牛苹果，这是我的智能大棚监测数据，请对以下数据进行分析和预测未来1-30天的趋势，并给出操作建议。\n数据如下：\n{data_json}'}
+                    ],
+                )
+
+                # 解析API响应
+                response = completion.model_dump_json()
+                response_data = json.loads(response)
+
+                analysis = response_data.get('choices', [{}])[0].get('message', {}).get('content', '')
+
+                # 显示分析结果
+                st.subheader("数据分析预测结果")
+                st.write(analysis)
+
 def main():
     if 'logged_in' not in st.session_state:
         st.session_state['logged_in'] = False
@@ -751,7 +797,7 @@ def main():
             options = ["实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化", "高级分析", "使用说明"]
             if st.session_state.get('role') == 'admin':
                 options.extend(["用户管理", "系统监控", "数据备份", "数据恢复"])
-            options.append("数据预测")  # 添加数据预测菜单项
+            options.append("AI数据分析及预测")  # 添加AI数据分析及预测菜单项
             selected = option_menu(
                 menu_title="主菜单",
                 options=options,
@@ -783,8 +829,10 @@ def main():
             data_backup()
         elif selected == "数据恢复":
             data_restore()
-        elif selected == "数据预测":
+        elif selected == "本地数据预测":
             data_prediction()
+        elif selected == "AI数据分析及预测":  # 添加AI数据分析及预测页面
+            ai_data_analysis_and_prediction()
 
 if __name__ == '__main__':
     main()
