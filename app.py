@@ -748,7 +748,7 @@ def ai_data_analysis_and_prediction():
         st.experimental_set_query_params(page="login")
         return
 
-    st.title("AI数据分析及预测")
+    st.title("AI数据处理")
     uploaded_file = st.file_uploader("选择文件", type=["csv", "xlsx", "xls", "json"])
 
     if uploaded_file is not None:
@@ -757,18 +757,24 @@ def ai_data_analysis_and_prediction():
             st.success("文件读取成功")
             st.session_state['data'] = data
 
+            # 使用 st.text_area 组件用于输入用户消息
+            user_message = st.text_area("请输入上传数据相关的问题或指示：", key="user_message")
+
             # 调用Qwen2.5 API进行数据分析和预测
-            if st.button("开始分析和预测"):
+            if st.button("开始分析"):
                 # 将数据转换为JSON格式
                 data_json = data.to_json(orient='records')
+
+                # 构建 messages 参数
+                messages = [
+                    {'role': 'system', 'content': 'You are a helpful assistant.'},
+                    {'role': 'user', 'content': f'{user_message}\n数据如下：\n{data_json}'},
+                ]
 
                 # 调用API
                 completion = client.chat.completions.create(
                     model="qwen2.5-14b-instruct-1m",
-                    messages=[
-                        {'role': 'system', 'content': 'You are a helpful assistant.'},
-                        {'role': 'user', 'content': f'我在甘肃种植花牛苹果，这是我的智能大棚监测数据，请对以下数据进行分析和预测未来1-30天的趋势，并给出操作建议。\n数据如下：\n{data_json}'}
-                    ],
+                    messages=messages,
                 )
 
                 # 解析API响应
@@ -797,11 +803,11 @@ def main():
             options = ["实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化", "高级分析", "使用说明"]
             if st.session_state.get('role') == 'admin':
                 options.extend(["用户管理", "系统监控", "数据备份", "数据恢复"])
-            options.append("AI数据分析及预测")  # 添加AI数据分析及预测菜单项
+            options.append("AI数据处理")  # 添加AI数据分析及预测菜单项
             selected = option_menu(
                 menu_title="主菜单",
                 options=options,
-                icons=["table", "tools", "bar-chart", "graph-up", "gear-fill", "question-circle", "person-check", "cpu", "save", "cloud-upload","cloud-upload", "table"],
+                icons=["table", "tools", "bar-chart", "graph-up", "gear-fill", "question-circle", "person-check", "save","cpu", "cloud-upload","cloud-upload", "table"],
                 menu_icon="cast",
                 default_index=0,
             )
@@ -831,7 +837,7 @@ def main():
             data_restore()
         elif selected == "本地数据预测":
             data_prediction()
-        elif selected == "AI数据分析及预测":  # 添加AI数据分析及预测页面
+        elif selected == "AI数据处理":  # 添加AI数据分析及预测页面
             ai_data_analysis_and_prediction()
 
 if __name__ == '__main__':
