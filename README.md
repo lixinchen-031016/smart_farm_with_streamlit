@@ -37,6 +37,8 @@
 - **数据分析**：提供描述性统计和相关性分析。
 - **数据可视化**：创建各种图表（如散点图、线图、柱状图等）。
 - **高级分析**：进行数据分组和聚合分析。
+- **本地数据分析预测**：使用机器学习模型进行数据预测。
+- **AI Integration**：与通义qwen2.5模型 API集成，提供智能分析功能。
 
 ### 管理员功能：
 - **用户管理**：添加、编辑和删除用户。
@@ -70,6 +72,8 @@
     - SQLAlchemy
     - bcrypt
     - psutil
+    - numpy
+    - openai
 - 数据库：MySQL 8.0及以上版本
 - 运行平台：本地Docker环境或云服务器（如AWS、Azure、阿里云）中Docker环境
 
@@ -164,6 +168,8 @@ sudo systemctl restart docker
     - `psutil`：用于系统监控。
     - `sqlalchemy`：用于数据库操作。
     - `streamlit`：用于构建Web应用程序。
+    - `openai`：用于AI集成。
+    - `numpy`：用于数值计算。
 
 ### 数据库模型
 - `AirTemperatureHumidity`：存储空气温度和湿度数据。
@@ -197,6 +203,7 @@ sudo systemctl restart docker
 ## 10. 贡献者
 
 感谢所有为本项目做出贡献的开发者和测试人员！
+- [Xinchen Li](https://github.com/lixinchen-031016)
 
 ---
 
