@@ -80,7 +80,7 @@
 ---
 
 ## 6. 安装与部署
-
+### 提醒：请确保app.py已添加自己的apikey！
 ### 步骤 1：安装必要工具
 在云服务器中安装以下工具：
 ```bash
@@ -143,6 +143,10 @@ sudo systemctl restart docker
 
 运行 `intelligent_farm.sql` 脚本完成数据库初始化。
 
+### 步骤 7：修改自己的api调用网址
+在 `app.py` 文件中，找到 `api_key = "YOUR_API_KEY"` 并替换为实际的API密钥。
+在 `app.py` 文件中，找到 `base_url = "YOUR_BASE_URL"` 并替换为实际的API提供商的URL。
+在 `app.py` 文件中，找到 `model="YOUR_MODEL"` 并替换为所需的模型名称。
 ---
 
 ## 7. 使用方法
@@ -203,8 +207,7 @@ sudo systemctl restart docker
 ## 10. 贡献者
 
 感谢所有为本项目做出贡献的开发者和测试人员！
-- [Xinchen Li](https://github.com/lixinchen-031016)
-
+- [XinChen Li](https://github.com/lixinchen-031016)
 ---
 
 如果您有任何问题或建议，请随时联系我们！
