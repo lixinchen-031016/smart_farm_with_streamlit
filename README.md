@@ -144,9 +144,9 @@ sudo systemctl restart docker
 运行 `intelligent_farm.sql` 脚本完成数据库初始化。
 
 ### 步骤 7：修改自己的api调用网址
-在 `app.py` 文件中，找到 `api_key = "YOUR_API_KEY"` 并替换为实际的API密钥。
-在 `app.py` 文件中，找到 `base_url = "YOUR_BASE_URL"` 并替换为实际的API提供商的URL。
-在 `app.py` 文件中，找到 `model="YOUR_MODEL"` 并替换为所需的模型名称。
+- 在 `app.py` 文件中，找到 `api_key = "YOUR_API_KEY"` 并替换为实际的API密钥。
+- 在 `app.py` 文件中，找到 `base_url = "YOUR_BASE_URL"` 并替换为实际的API提供商的URL。
+- 在 `app.py` 文件中，找到 `model="YOUR_MODEL"` 并替换为所需的模型名称。
 ---
 
 ## 7. 使用方法
