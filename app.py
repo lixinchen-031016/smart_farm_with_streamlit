@@ -65,7 +65,7 @@ session = Session()
 
 # 创建OpenAI客户端
 client = OpenAI(
-    api_key="sk-6e4e147032d54b8e8951f712b1e0b305",
+    api_key="your_api_key",
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 
