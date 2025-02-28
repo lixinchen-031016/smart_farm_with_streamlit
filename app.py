@@ -152,11 +152,14 @@ def data_preview():
             AirTemperatureHumidity.temperature,
             AirTemperatureHumidity.humidity,
             SoilMoisture.value.label('soil_moisture'),
-            SoilNutrient.value.label('soil_nutrient')
+            SoilNutrient.value.label('soil_nutrient'),
+            LightIntensity.value.label('light_intensity')  # 添加光照强度
         ).outerjoin(
             SoilMoisture, AirTemperatureHumidity.timestamp == SoilMoisture.timestamp
         ).outerjoin(
             SoilNutrient, AirTemperatureHumidity.timestamp == SoilNutrient.timestamp
+        ).outerjoin(
+            LightIntensity, AirTemperatureHumidity.timestamp == LightIntensity.timestamp  # 添加光照强度
         ).filter(
             AirTemperatureHumidity.timestamp >= start_time,
             AirTemperatureHumidity.timestamp <= end_time
@@ -170,7 +173,8 @@ def data_preview():
             'temperature',
             'humidity',
             'soil_moisture',
-            'soil_nutrient'
+            'soil_nutrient',
+            'light_intensity'  # 添加光照强度
         ])
 
         df['timestamp'] = pd.to_datetime(df['timestamp'])
@@ -610,11 +614,14 @@ def data_backup():
             AirTemperatureHumidity.temperature,
             AirTemperatureHumidity.humidity,
             SoilMoisture.value.label('soil_moisture'),
-            SoilNutrient.value.label('soil_nutrient')
+            SoilNutrient.value.label('soil_nutrient'),
+            LightIntensity.value.label('light_intensity')  # 添加光照强度
         ).outerjoin(
             SoilMoisture, AirTemperatureHumidity.timestamp == SoilMoisture.timestamp
         ).outerjoin(
             SoilNutrient, AirTemperatureHumidity.timestamp == SoilNutrient.timestamp
+        ).outerjoin(
+            LightIntensity, AirTemperatureHumidity.timestamp == LightIntensity.timestamp  # 添加光照强度
         ).filter(
             AirTemperatureHumidity.timestamp >= start_time,
             AirTemperatureHumidity.timestamp <= end_time
@@ -628,7 +635,8 @@ def data_backup():
             'temperature',
             'humidity',
             'soil_moisture',
-            'soil_nutrient'
+            'soil_nutrient',
+            'light_intensity'  # 添加光照强度
         ])
 
         df['timestamp'] = pd.to_datetime(df['timestamp'])
@@ -639,6 +647,7 @@ def data_backup():
             sql_file.write(f"INSERT INTO intelligent_farm_airtemperaturehumidity (temperature, humidity, timestamp) VALUES ({row['temperature']}, {row['humidity']}, '{row['timestamp']}');\n")
             sql_file.write(f"INSERT INTO intelligent_farm_soilmoisture (value, timestamp) VALUES ({row['soil_moisture']}, '{row['timestamp']}');\n")
             sql_file.write(f"INSERT INTO intelligent_farm_soilnutrient (value, timestamp) VALUES ({row['soil_nutrient']}, '{row['timestamp']}');\n")
+            sql_file.write(f"INSERT INTO intelligent_farm_light_intensity (value, timestamp) VALUES ({row['light_intensity']}, '{row['timestamp']}');\n")  # 添加光照强度
             sql_file.write(f"\n")
         sql_file.seek(0)
 
