@@ -59,7 +59,7 @@ class User(Base):
     role = Column(String(50), nullable=False, default='user')  # 添加: 用户角色字段
 
 # MySQL数据库连接配置
-engine = create_engine('mysql+pymysql://root:0000@db/intelligent_farm')
+engine = create_engine('mysql+pymysql://root:0000@localhost/intelligent_farm')
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -232,45 +232,96 @@ def data_overview():
         return
 
     st.title("数据概览")
-    uploaded_file = st.file_uploader("选择文件", type=["csv", "xlsx", "xls", "json"])
 
-    if uploaded_file is not None:
-        data = read_file(uploaded_file)
-        if data is not None:
-            st.success("文件读取成功")
-            st.session_state['data'] = data
+    # 新增: 数据来源选择
+    data_source = st.radio("选择数据来源", ["从数据库读取", "上传文件"])
 
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("行数", data.shape[0])
-            with col2:
-                st.metric("列数", data.shape[1])
-            with col3:
-                st.metric("缺失值数", data.isnull().sum().sum())
+    if data_source == "从数据库读取":
+        # 添加时间范围选择器
+        st.subheader("选择时间范围")
+        start_time = st.date_input("选择开始时间")
+        end_time = st.date_input("选择结束时间")
 
-            style_metric_cards()
+        if st.button("从数据库读取数据"):
+            # 根据时间范围查询数据
+            query = session.query(
+                AirTemperatureHumidity.timestamp.label('timestamp'),
+                AirTemperatureHumidity.temperature,
+                AirTemperatureHumidity.humidity,
+                SoilMoisture.value.label('soil_moisture'),
+                SoilNutrient.value.label('soil_nutrient'),
+                LightIntensity.value.label('light_intensity')  # 添加光照强度
+            ).outerjoin(
+                SoilMoisture, AirTemperatureHumidity.timestamp == SoilMoisture.timestamp
+            ).outerjoin(
+                SoilNutrient, AirTemperatureHumidity.timestamp == SoilNutrient.timestamp
+            ).outerjoin(
+                LightIntensity, AirTemperatureHumidity.timestamp == LightIntensity.timestamp  # 添加光照强度
+            ).filter(
+                AirTemperatureHumidity.timestamp >= start_time,
+                AirTemperatureHumidity.timestamp <= end_time
+            ).order_by(
+                AirTemperatureHumidity.timestamp
+            )
 
-            st.subheader("数据预览")
-            st.dataframe(data.head())
+            data = query.all()
+            df = pd.DataFrame(data, columns=[
+                'timestamp',
+                'temperature',
+                'humidity',
+                'soil_moisture',
+                'soil_nutrient',
+                'light_intensity'  # 添加光照强度
+            ])
 
-            st.subheader("数据类型")
-            st.dataframe(data.dtypes)
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            st.session_state['data'] = df
+            st.success("数据已成功从数据库读取")
 
-            # 数据导出
-            st.subheader("数据导出")
-            export_format = st.radio("选择导出格式", ["CSV", "Excel"])
-            if st.button("导出数据"):
-                if export_format == "CSV":
-                    csv = data.to_csv(index=False)
-                    b64 = base64.b64encode(csv.encode()).decode()
-                    href = f'<a href="data:file/csv;base64,{b64}" download="exported_data.csv">下载 CSV 文件</a>'
-                else:
-                    towrite = BytesIO()
-                    data.to_excel(towrite, index=False, engine="openpyxl")
-                    towrite.seek(0)
-                    b64 = base64.b64encode(towrite.read()).decode()
-                    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="exported_data.xlsx">下载 Excel 文件</a>'
-                st.markdown(href, unsafe_allow_html=True)
+    elif data_source == "上传文件":
+        uploaded_file = st.file_uploader("选择文件", type=["csv", "xlsx", "xls", "json"])
+
+        if uploaded_file is not None:
+            data = read_file(uploaded_file)
+            if data is not None:
+                st.success("文件读取成功")
+                st.session_state['data'] = data
+
+    # 确保数据展示和导出逻辑兼容两种数据读取方式
+    if 'data' in st.session_state:
+        data = st.session_state['data']
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("行数", data.shape[0])
+        with col2:
+            st.metric("列数", data.shape[1])
+        with col3:
+            st.metric("缺失值数", data.isnull().sum().sum())
+
+        style_metric_cards()
+
+        st.subheader("数据预览")
+        st.dataframe(data.head())
+
+        st.subheader("数据类型")
+        st.dataframe(data.dtypes)
+
+        # 数据导出
+        st.subheader("数据导出")
+        export_format = st.radio("选择导出格式", ["CSV", "Excel"])
+        if st.button("导出数据"):
+            if export_format == "CSV":
+                csv = data.to_csv(index=False)
+                b64 = base64.b64encode(csv.encode()).decode()
+                href = f'<a href="data:file/csv;base64,{b64}" download="exported_data.csv">下载 CSV 文件</a>'
+            else:
+                towrite = BytesIO()
+                data.to_excel(towrite, index=False, engine="openpyxl")
+                towrite.seek(0)
+                b64 = base64.b64encode(towrite.read()).decode()
+                href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="exported_data.xlsx">下载 Excel 文件</a>'
+            st.markdown(href, unsafe_allow_html=True)
 
 # 数据清洗函数
 def data_cleaning():
@@ -758,43 +809,94 @@ def ai_data_analysis_and_prediction():
         return
 
     st.title("AI数据处理")
-    uploaded_file = st.file_uploader("选择文件", type=["csv", "xlsx", "xls", "json"])
 
-    if uploaded_file is not None:
-        data = read_file(uploaded_file)
-        if data is not None:
-            st.success("文件读取成功")
-            st.session_state['data'] = data
+    # 新增: 数据来源选择
+    data_source = st.radio("选择数据来源", ["从数据库读取", "上传文件"])
 
-            # 使用 st.text_area 组件用于输入用户消息
-            user_message = st.text_area("请输入上传数据相关的问题或指示：", key="user_message")
+    if data_source == "从数据库读取":
+        # 添加时间范围选择器
+        st.subheader("选择时间范围")
+        start_time = st.date_input("选择开始时间")
+        end_time = st.date_input("选择结束时间")
 
-            # 调用Qwen2.5 API进行数据分析和预测
-            if st.button("开始分析"):
-                # 将数据转换为JSON格式
-                data_json = data.to_json(orient='records')
+        if st.button("从数据库读取数据"):
+            # 根据时间范围查询数据
+            query = session.query(
+                AirTemperatureHumidity.timestamp.label('timestamp'),
+                AirTemperatureHumidity.temperature,
+                AirTemperatureHumidity.humidity,
+                SoilMoisture.value.label('soil_moisture'),
+                SoilNutrient.value.label('soil_nutrient'),
+                LightIntensity.value.label('light_intensity')  # 添加光照强度
+            ).outerjoin(
+                SoilMoisture, AirTemperatureHumidity.timestamp == SoilMoisture.timestamp
+            ).outerjoin(
+                SoilNutrient, AirTemperatureHumidity.timestamp == SoilNutrient.timestamp
+            ).outerjoin(
+                LightIntensity, AirTemperatureHumidity.timestamp == LightIntensity.timestamp  # 添加光照强度
+            ).filter(
+                AirTemperatureHumidity.timestamp >= start_time,
+                AirTemperatureHumidity.timestamp <= end_time
+            ).order_by(
+                AirTemperatureHumidity.timestamp
+            )
 
-                # 构建 messages 参数
-                messages = [
-                    {'role': 'system', 'content': 'You are a helpful assistant.'},
-                    {'role': 'user', 'content': f'{user_message}\n数据如下：\n{data_json}'},
-                ]
+            data = query.all()
+            df = pd.DataFrame(data, columns=[
+                'timestamp',
+                'temperature',
+                'humidity',
+                'soil_moisture',
+                'soil_nutrient',
+                'light_intensity'  # 添加光照强度
+            ])
 
-                # 调用API
-                completion = client.chat.completions.create(
-                    model="qwen2.5-14b-instruct-1m",
-                    messages=messages,
-                )
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            st.session_state['data'] = df
+            st.success("数据已成功从数据库读取")
 
-                # 解析API响应
-                response = completion.model_dump_json()
-                response_data = json.loads(response)
+    elif data_source == "上传文件":
+        uploaded_file = st.file_uploader("选择文件", type=["csv", "xlsx", "xls", "json"])
 
-                analysis = response_data.get('choices', [{}])[0].get('message', {}).get('content', '')
+        if uploaded_file is not None:
+            data = read_file(uploaded_file)
+            if data is not None:
+                st.success("文件读取成功")
+                st.session_state['data'] = data
 
-                # 显示分析结果
-                st.subheader("数据分析预测结果")
-                st.write(analysis)
+    # 确保后续逻辑兼容两种数据读取方式
+    if 'data' in st.session_state:
+        data = st.session_state['data']
+
+        # 使用 st.text_area 组件用于输入用户消息
+        user_message = st.text_area("请输入上传数据相关的问题或指示：", key="user_message")
+
+        # 调用Qwen2.5 API进行数据分析和预测
+        if st.button("开始分析"):
+            # 将数据转换为JSON格式
+            data_json = data.to_json(orient='records')
+
+            # 构建 messages 参数
+            messages = [
+                {'role': 'system', 'content': 'You are a helpful assistant.'},
+                {'role': 'user', 'content': f'{user_message}\n数据如下：\n{data_json}'},
+            ]
+
+            # 调用API
+            completion = client.chat.completions.create(
+                model="qwen2.5-7b-instruct-1m",
+                messages=messages,
+            )
+
+            # 解析API响应
+            response = completion.model_dump_json()
+            response_data = json.loads(response)
+
+            analysis = response_data.get('choices', [{}])[0].get('message', {}).get('content', '')
+
+            # 显示分析结果
+            st.subheader("数据分析预测结果")
+            st.write(analysis)
 
 def main():
     if 'logged_in' not in st.session_state:
