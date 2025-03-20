@@ -67,3 +67,4 @@ scikit-learn
 bcrypt
 psutil
 openai
+pyarrow
