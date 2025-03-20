@@ -759,7 +759,7 @@ def data_prediction():
     st.title("数据预测")
 
     # 选择预测的数据类型
-    data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度"])
+    data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度", "光照强度"])  # 新增光照强度选项
 
     # 选择预测模型
     model_type = st.selectbox("选择预测模型", ["ARIMA", "SARIMA"])  # 添加模型选择
@@ -775,6 +775,8 @@ def data_prediction():
             query = session.query(AirTemperatureHumidity.timestamp, AirTemperatureHumidity.humidity).order_by(AirTemperatureHumidity.timestamp)
         elif data_type == "土壤湿度":
             query = session.query(SoilMoisture.timestamp, SoilMoisture.value).order_by(SoilMoisture.timestamp)
+        elif data_type == "光照强度":  # 新增光照强度查询分支
+            query = session.query(LightIntensity.timestamp, LightIntensity.value).order_by(LightIntensity.timestamp)
 
         data = query.all()
         df = pd.DataFrame(data, columns=['timestamp', 'value'])
@@ -800,7 +802,7 @@ def data_prediction():
         fig.add_trace(go.Scatter(x=df.index, y=df['value'], mode='lines', name='历史数据'))
         fig.add_trace(go.Scatter(x=forecast_df['timestamp'], y=forecast_df['value'], mode='lines', name='预测数据'))
         fig.update_layout(
-            title=f"{data_type} 预测结果",
+            title=f"{data_type} 预测结果",  # 自动适配新数据类型名称
             xaxis_title="时间",
             yaxis_title="值",
             legend_title="数据类型"
