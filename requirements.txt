@@ -41,6 +41,7 @@ python-dateutil==2.9.0.post0
 pytz==2024.2
 PyYAML==6.0.2
 pandas
+pyarrow
 referencing==0.35.1
 requests==2.32.3
 rpds-py==0.20.0

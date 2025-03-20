@@ -59,7 +59,7 @@ class User(Base):
     role = Column(String(50), nullable=False, default='user')  # 添加: 用户角色字段
 
 # MySQL数据库连接配置
-engine = create_engine('mysql+pymysql://root:0000@localhost/intelligent_farm')
+engine = create_engine('mysql+pymysql://root:lxc20031016@localhost/intelligent_farm')
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -223,6 +223,10 @@ def read_file(uploaded_file):
         st.error("不支持的文件类型")
         return None
 
+    # 新增: 强制转换timestamp列
+    if 'timestamp' in data.columns:
+        data['timestamp'] = pd.to_datetime(data['timestamp'], errors='coerce')
+
     return data
 
 # 数据概览函数
@@ -276,7 +280,6 @@ def data_overview():
 
             df['timestamp'] = pd.to_datetime(df['timestamp'])
             st.session_state['data'] = df
-            st.success("数据已成功从数据库读取")
 
     elif data_source == "上传文件":
         uploaded_file = st.file_uploader("选择文件", type=["csv", "xlsx", "xls", "json"])
@@ -284,7 +287,9 @@ def data_overview():
         if uploaded_file is not None:
             data = read_file(uploaded_file)
             if data is not None:
-                st.success("文件读取成功")
+                # 新增: 确保timestamp列类型正确
+                if 'timestamp' in data.columns:
+                    data['timestamp'] = pd.to_datetime(data['timestamp'], errors='coerce')
                 st.session_state['data'] = data
 
     # 确保数据展示和导出逻辑兼容两种数据读取方式
@@ -360,8 +365,9 @@ def data_cleaning():
 
     # 添加交互式数据编辑功能
     st.subheader("交互式数据编辑")
-    edited_df = st.data_editor(st.session_state['data'])
     if st.button("保存编辑"):
+        edited_df = st.data_editor(st.session_state['data'])
+        edited_df['timestamp'] = pd.to_datetime(edited_df['timestamp'], errors='coerce')
         st.session_state['data'] = edited_df
         st.success("数据编辑已保存")
 
