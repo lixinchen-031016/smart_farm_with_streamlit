@@ -74,6 +74,21 @@
     - psutil
     - numpy
     - openai
+    - matplotlib
+    - scipy
+    - statsmodels
+    - scikit-learn
+    - cryptography
+    - xlsxwriter
+    - openpyxl
+    - PyMySQL
+    - APScheduler
+    - PyArrow
+    - joblib
+    - seaborn
+    - requests
+    - flask-sqlalchemy
+    - 以及requirements.txt中列出的其他依赖项
 - 数据库：MySQL 8.0及以上版本
 - 运行平台：本地Docker环境或云服务器（如AWS、Azure、阿里云）中Docker环境
 
