@@ -812,99 +812,101 @@ def data_prediction():
         st.success("预测完成")
 
 def ai_data_analysis_and_prediction():
-    if not st.session_state.get('logged_in'):
-        st.experimental_set_query_params(page="login")
-        return
-
     st.title("AI数据处理")
 
-    # 新增: 数据来源选择
-    data_source = st.radio("选择数据来源", ["从数据库读取", "上传文件"])
+    # 初始化聊天记录（如果未初始化）
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
 
-    if data_source == "从数据库读取":
-        # 添加时间范围选择器
-        st.subheader("选择时间范围")
-        start_time = st.date_input("选择开始时间")
-        end_time = st.date_input("选择结束时间")
+    # 添加选项以选择数据来源
+    data_source = st.radio("选择数据来源", ["使用数据概览上传的数据", "在此功能上传新数据"], key="ai_data_source")
 
-        if st.button("从数据库读取数据"):
-            # 根据时间范围查询数据
-            query = session.query(
-                AirTemperatureHumidity.timestamp.label('timestamp'),
-                AirTemperatureHumidity.temperature,
-                AirTemperatureHumidity.humidity,
-                SoilMoisture.value.label('soil_moisture'),
-                SoilNutrient.value.label('soil_nutrient'),
-                LightIntensity.value.label('light_intensity')  # 添加光照强度
-            ).outerjoin(
-                SoilMoisture, AirTemperatureHumidity.timestamp == SoilMoisture.timestamp
-            ).outerjoin(
-                SoilNutrient, AirTemperatureHumidity.timestamp == SoilNutrient.timestamp
-            ).outerjoin(
-                LightIntensity, AirTemperatureHumidity.timestamp == LightIntensity.timestamp  # 添加光照强度
-            ).filter(
-                AirTemperatureHumidity.timestamp >= start_time,
-                AirTemperatureHumidity.timestamp <= end_time
-            ).order_by(
-                AirTemperatureHumidity.timestamp
-            )
-
-            data = query.all()
-            df = pd.DataFrame(data, columns=[
-                'timestamp',
-                'temperature',
-                'humidity',
-                'soil_moisture',
-                'soil_nutrient',
-                'light_intensity'  # 添加光照强度
-            ])
-
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
-            st.session_state['data'] = df
-            st.success("数据已成功从数据库读取")
-
-    elif data_source == "上传文件":
-        uploaded_file = st.file_uploader("选择文件", type=["csv", "xlsx", "xls", "json"])
-
+    if data_source == "使用数据概览上传的数据":
+        if 'data' not in st.session_state:
+            st.warning("请先在数据概览页面上传数据")
+            return
+        data = st.session_state['data']
+        st.success("已加载数据概览页面上传的数据")
+    else:
+        uploaded_file = st.file_uploader("选择文件", type=["csv", "xlsx", "xls", "json"], key="ai_file_uploader")
         if uploaded_file is not None:
             data = read_file(uploaded_file)
-            if data is not None:
-                st.success("文件读取成功")
-                st.session_state['data'] = data
+            if data is None:
+                return
+            st.success("文件读取成功")
+        else:
+            st.warning("请上传文件以继续")
+            return
 
-    # 确保后续逻辑兼容两种数据读取方式
-    if 'data' in st.session_state:
-        data = st.session_state['data']
+    # 显示历史聊天记录
+    for chat in st.session_state.chat_history:
+        with st.chat_message("user"):
+            st.write(chat["user"])
+        with st.chat_message("assistant"):
+            st.write(chat["assistant"])
 
-        # 使用 st.text_area 组件用于输入用户消息
-        user_message = st.text_area("请输入上传数据相关的问题或指示：", key="user_message")
+    # 用户输入部分
+    user_message = st.chat_input("请输入您的问题或指令...", key="ai_chat_input")
 
-        # 调用Qwen2.5 API进行数据分析和预测
-        if st.button("开始分析"):
-            # 将数据转换为JSON格式
-            data_json = data.to_json(orient='records')
+    if user_message:
+        # 构建包含历史对话的messages
+        messages = [
+            {'role': 'system', 'content': 'You are a helpful assistant.'}
+        ]
 
-            # 构建 messages 参数
-            messages = [
-                {'role': 'system', 'content': 'You are a helpful assistant.'},
-                {'role': 'user', 'content': f'{user_message}\n数据如下：\n{data_json}'},
-            ]
+        # 添加历史对话
+        for chat in st.session_state.chat_history:
+            messages.append({'role': 'user', 'content': chat["user"]})
+            messages.append({'role': 'assistant', 'content': chat["assistant"]})
 
-            # 调用API
-            completion = client.chat.completions.create(
-                model="qwen2.5-7b-instruct-1m",
-                messages=messages,
-            )
+        # 添加当前用户消息和数据
+        data_json = data.to_json(orient='records')
+        current_message = f"{user_message}\n数据如下：\n{data_json}"
+        messages.append({'role': 'user', 'content': current_message})
 
-            # 解析API响应
-            response = completion.model_dump_json()
-            response_data = json.loads(response)
+        # 调用API
+        completion = client.chat.completions.create(
+            model="qwen2.5-7b-instruct-1m",
+            messages=messages,
+        )
 
-            analysis = response_data.get('choices', [{}])[0].get('message', {}).get('content', '')
+        # 解析响应
+        response = completion.model_dump_json()
+        response_data = json.loads(response)
+        analysis = response_data.get('choices', [{}])[0].get('message', {}).get('content', '')
 
-            # 显示分析结果
-            st.subheader("数据分析预测结果")
+        # 添加到聊天记录
+        st.session_state.chat_history.append({
+            "user": user_message,
+            "assistant": analysis
+        })
+
+        # 显示当前回复
+        with st.chat_message("assistant"):
             st.write(analysis)
+
+    # 导出聊天记录
+    export_format = st.radio("选择导出格式", ["JSON", "Text"], key="export_format")
+    if st.button("导出聊天记录"):
+        if export_format == "JSON":
+            content = json.dumps(st.session_state.chat_history, ensure_ascii=False, indent=2)
+            file_name = "chat_history.json"
+            mime_type = "application/json"
+        else:
+            content = "\n".join([
+                f"用户: {chat['user']}\nAI回复: {chat['assistant']}"
+                for chat in st.session_state.chat_history
+            ])
+            file_name = "chat_history.txt"
+            mime_type = "text/plain"
+
+        st.download_button(
+            label="下载聊天记录",
+            data=content.encode("utf-8"),
+            file_name=file_name,
+            mime=mime_type
+        )
+
 
 def main():
     if 'logged_in' not in st.session_state:
