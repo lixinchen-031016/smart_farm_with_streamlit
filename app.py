@@ -130,84 +130,22 @@ def data_preview():
     st.header("最新数据")
     if st.button("更新数据"):
         air_temp_hum, soil_moist, soil_nutri, light_intens = fetch_latest_data(session)  # 添加光照强度
-        st.write(f"空气温度: {air_temp_hum.temperature} °C")
-        st.write(f"空气湿度: {air_temp_hum.humidity} %")
-        st.write(f"土壤湿度: {soil_moist.value} %")
-        st.write(f"土壤无机盐含量: {soil_nutri.value}")
-        st.write(f"光照强度: {light_intens.value}")  # 添加光照强度显示
         st.write(f"数据获取时间: {air_temp_hum.timestamp}")
 
-    # 添加数据导出逻辑
-    st.header("数据导出")
-    export_format = st.selectbox("选择导出格式", ["CSV", "JSON", "Excel"])
+        # 使用卡片布局展示数据
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric(label="空气温度", value=f"{air_temp_hum.temperature} °C", delta=None)
+        with col2:
+            st.metric(label="空气湿度", value=f"{air_temp_hum.humidity} %", delta=None)
+        with col3:
+            st.metric(label="土壤湿度", value=f"{soil_moist.value} %", delta=None)
+        with col4:
+            st.metric(label="土壤无机盐含量", value=f"{soil_nutri.value}", delta=None)
 
-    # 添加时间范围选择器
-    start_time = st.date_input("选择开始时间")
-    end_time = st.date_input("选择结束时间")
-
-    if st.button("导出数据"):
-        # 根据时间范围查询数据
-        query = session.query(
-            AirTemperatureHumidity.timestamp.label('timestamp'),
-            AirTemperatureHumidity.temperature,
-            AirTemperatureHumidity.humidity,
-            SoilMoisture.value.label('soil_moisture'),
-            SoilNutrient.value.label('soil_nutrient'),
-            LightIntensity.value.label('light_intensity')  # 添加光照强度
-        ).outerjoin(
-            SoilMoisture, AirTemperatureHumidity.timestamp == SoilMoisture.timestamp
-        ).outerjoin(
-            SoilNutrient, AirTemperatureHumidity.timestamp == SoilNutrient.timestamp
-        ).outerjoin(
-            LightIntensity, AirTemperatureHumidity.timestamp == LightIntensity.timestamp  # 添加光照强度
-        ).filter(
-            AirTemperatureHumidity.timestamp >= start_time,
-            AirTemperatureHumidity.timestamp <= end_time
-        ).order_by(
-            AirTemperatureHumidity.timestamp
-        )
-
-        data = query.all()
-        df = pd.DataFrame(data, columns=[
-            'timestamp',
-            'temperature',
-            'humidity',
-            'soil_moisture',
-            'soil_nutrient',
-            'light_intensity'  # 添加光照强度
-        ])
-
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-
-        # 调用data-visualization-tool.py中的data_analysis函数
-        st.session_state['data'] = df
-
-        if export_format == "CSV":
-            csv = df.to_csv(index=False)
-            st.download_button(
-                label="下载CSV文件",
-                data=csv,
-                file_name='data.csv',
-                mime='text/csv',
-            )
-        elif export_format == "JSON":
-            json_str = df.to_json(orient='records')
-            st.download_button(
-                label="下载JSON文件",
-                data=json_str,
-                file_name='data.json',
-                mime='application/json',
-            )
-        elif export_format == "Excel":
-            excel = io.BytesIO()
-            df.to_excel(excel, index=False)
-            excel.seek(0)
-            st.download_button(
-                label="下载Excel文件",
-                data=excel,
-                file_name='data.xlsx',
-                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            )
+        col5, col6 = st.columns(2)
+        with col5:
+            st.metric(label="光照强度", value=f"{light_intens.value}", delta=None)
 
 # 定义 read_file 函数
 def read_file(uploaded_file):
@@ -314,18 +252,22 @@ def data_overview():
 
         # 数据导出
         st.subheader("数据导出")
-        export_format = st.radio("选择导出格式", ["CSV", "Excel"])
+        export_format = st.radio("选择导出格式", ["CSV", "Excel", "JSON"])  # 修改: 新增JSON选项
         if st.button("导出数据"):
             if export_format == "CSV":
                 csv = data.to_csv(index=False)
                 b64 = base64.b64encode(csv.encode()).decode()
                 href = f'<a href="data:file/csv;base64,{b64}" download="exported_data.csv">下载 CSV 文件</a>'
-            else:
+            elif export_format == "Excel":
                 towrite = BytesIO()
                 data.to_excel(towrite, index=False, engine="openpyxl")
                 towrite.seek(0)
                 b64 = base64.b64encode(towrite.read()).decode()
                 href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="exported_data.xlsx">下载 Excel 文件</a>'
+            elif export_format == "JSON":  # 新增: JSON导出逻辑
+                json_str = data.to_json(orient='records', force_ascii=False)
+                b64 = base64.b64encode(json_str.encode()).decode()
+                href = f'<a href="data:application/json;base64,{b64}" download="exported_data.json">下载 JSON 文件</a>'
             st.markdown(href, unsafe_allow_html=True)
 
 # 数据清洗函数
@@ -360,6 +302,16 @@ def data_cleaning():
         elif method == "填充众数":
             data[column].fillna(data[column].mode()[0], inplace=True)
 
+    # 新增: 删除数据列功能
+    st.subheader("删除不需要的数据列")
+    columns_to_drop = st.multiselect("选择要删除的列", data.columns.tolist())
+    if st.button("删除选中的列"):
+        if columns_to_drop:
+            data = data.drop(columns=columns_to_drop)
+            st.success(f"已删除列: {', '.join(columns_to_drop)}")
+        else:
+            st.warning("未选择任何列进行删除")
+
     st.session_state['data'] = data
     st.success("数据清洗完成")
 
@@ -370,6 +322,26 @@ def data_cleaning():
         edited_df['timestamp'] = pd.to_datetime(edited_df['timestamp'], errors='coerce')
         st.session_state['data'] = edited_df
         st.success("数据编辑已保存")
+
+    # 新增: 数据导出功能
+    st.subheader("导出清洗后的数据")
+    export_format = st.selectbox("选择导出格式", ["CSV", "Excel", "JSON"])
+    if st.button("导出数据"):
+        if export_format == "CSV":
+            csv = data.to_csv(index=False)
+            b64 = base64.b64encode(csv.encode()).decode()
+            href = f'<a href="data:file/csv;base64,{b64}" download="cleaned_data.csv">下载 CSV 文件</a>'
+        elif export_format == "Excel":
+            excel = io.BytesIO()
+            data.to_excel(excel, index=False)
+            excel.seek(0)
+            b64 = base64.b64encode(excel.read()).decode()
+            href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="cleaned_data.xlsx">下载 Excel 文件</a>'
+        elif export_format == "JSON":
+            json_str = data.to_json(orient='records')
+            b64 = base64.b64encode(json_str.encode()).decode()
+            href = f'<a href="data:application/json;base64,{b64}" download="cleaned_data.json">下载 JSON 文件</a>'
+        st.markdown(href, unsafe_allow_html=True)
 
 # 数据分析函数
 def data_analysis():
@@ -541,7 +513,14 @@ def advanced_analysis():
 
     st.subheader("数据分组和聚合")
     group_column = st.selectbox("选择分组列", data.columns)
-    agg_column = st.selectbox("选择聚合列", data.select_dtypes(include=['float64', 'int64']).columns)
+
+    # 修改: 过滤掉与分组列相同的列
+    available_columns = [col for col in data.select_dtypes(include=['float64', 'int64']).columns if col != group_column]
+    if not available_columns:
+        st.error("没有可用的数值列用于聚合，请检查数据。")
+        return
+
+    agg_column = st.selectbox("选择聚合列", available_columns)
     agg_function = st.selectbox("选择聚合函数", ["平均值", "总和", "最大值", "最小值"])
 
     agg_dict = {"平均值": "mean", "总和": "sum", "最大值": "max", "最小值": "min"}
