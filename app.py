@@ -5,8 +5,6 @@ from datetime import datetime
 from io import BytesIO
 
 import bcrypt  # 添加: 引入bcrypt库
-import os
-from openai import OpenAI  # 添加: 引入OpenAI库
 import pandas as pd
 import plotly
 import plotly.express as px
@@ -15,6 +13,7 @@ import plotly.io as pio
 import psutil
 import sqlalchemy
 import streamlit as st
+from openai import OpenAI  # 添加: 引入OpenAI库
 from plotly.colors import n_colors
 from sqlalchemy import Column, Integer, Float, DateTime, String  # 修改: 将Binary替换为LargeBinary
 from sqlalchemy import create_engine
@@ -149,8 +148,6 @@ def data_preview():
 
 # 定义 read_file 函数
 def read_file(uploaded_file):
-    import pandas as pd
-
     if uploaded_file.type == "application/json":
         data = pd.read_json(uploaded_file)
     elif uploaded_file.type in ["text/csv", "application/vnd.ms-excel"]:
@@ -160,13 +157,10 @@ def read_file(uploaded_file):
     else:
         st.error("不支持的文件类型")
         return None
-
     # 新增: 强制转换timestamp列
     if 'timestamp' in data.columns:
         data['timestamp'] = pd.to_datetime(data['timestamp'], errors='coerce')
-
     return data
-
 # 数据概览函数
 def data_overview():
     if not st.session_state.get('logged_in'):
