@@ -68,3 +68,4 @@ bcrypt
 psutil
 openai
 pyarrow
+sqlalchemy
