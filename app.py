@@ -901,9 +901,7 @@ def main():
         register()
     else:
         with st.sidebar:
-            options = ["实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化", "高级分析", "使用说明"]
-            options.append("本地数据预测")
-            options.append("AI数据处理")# 添加AI数据分析及预测菜单项
+            options = ["实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化", "高级分析","本地数据预测","AI数据处理","使用说明"]
             if st.session_state.get('role') == 'admin':
                 options.extend(["用户管理", "系统监控", "数据备份", "数据恢复"])
             selected = option_menu(
