@@ -1,5 +1,3 @@
-import pandas as pd
-
 def describe_data(data):
     """描述性统计"""
     return data.describe()

@@ -14,8 +14,6 @@ import psutil
 import sqlalchemy
 import streamlit as st
 from openai import OpenAI  # 添加: 引入OpenAI库
-from plotly.colors import n_colors
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from streamlit_extras.metric_cards import style_metric_cards
 from streamlit_option_menu import option_menu
