@@ -56,15 +56,21 @@ class User(Base):
     password = Column(String(255), nullable=False)
     last_login_time = Column(DateTime, nullable=False)
     role = Column(String(50), nullable=False, default='user')  # 添加: 用户角色字段
+import os
+from dotenv import load_dotenv
+# 添加: 加载环境变量
+load_dotenv()
 
 # MySQL数据库连接配置
-engine = create_engine('mysql+pymysql://root:lxc20031016@localhost/intelligent_farm')
+engine = create_engine(os.getenv('DATABASE_URL'))
+
+# 创建会话工厂并初始化session对象
 Session = sessionmaker(bind=engine)
 session = Session()
 
 # 创建OpenAI客户端
 client = OpenAI(
-    api_key="YOUR_API_KEY",
+    api_key=os.getenv('OPENAI_API_KEY'),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 
@@ -110,6 +116,47 @@ def register():
                 session.commit()
                 st.success("注册成功，请登录")
                 st.experimental_set_query_params(page="login")
+
+def fetch_data_in_bulk(session, start_time=None, end_time=None):
+    """
+    批量查询多个表的数据，减少数据库调用次数。
+    :param session: 数据库会话对象
+    :param start_time: 查询开始时间（可选）
+    :param end_time: 查询结束时间（可选）
+    :return: 包含多个表数据的DataFrame
+    """
+    query = session.query(
+        AirTemperatureHumidity.timestamp.label('timestamp'),
+        AirTemperatureHumidity.temperature,
+        AirTemperatureHumidity.humidity,
+        SoilMoisture.value.label('soil_moisture'),
+        SoilNutrient.value.label('soil_nutrient'),
+        LightIntensity.value.label('light_intensity')
+    ).outerjoin(
+        SoilMoisture, AirTemperatureHumidity.timestamp == SoilMoisture.timestamp
+    ).outerjoin(
+        SoilNutrient, AirTemperatureHumidity.timestamp == SoilNutrient.timestamp
+    ).outerjoin(
+        LightIntensity, AirTemperatureHumidity.timestamp == LightIntensity.timestamp
+    )
+    
+    if start_time and end_time:
+        query = query.filter(
+            AirTemperatureHumidity.timestamp >= start_time,
+            AirTemperatureHumidity.timestamp <= end_time
+        )
+    
+    data = query.order_by(AirTemperatureHumidity.timestamp).all()
+    df = pd.DataFrame(data, columns=[
+        'timestamp',
+        'temperature',
+        'humidity',
+        'soil_moisture',
+        'soil_nutrient',
+        'light_intensity'
+    ])
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    return df
 
 def fetch_latest_data(session):
     air_temp_hum = session.query(AirTemperatureHumidity).order_by(AirTemperatureHumidity.timestamp.desc()).first()
@@ -179,38 +226,8 @@ def data_overview():
         end_time = st.date_input("选择结束时间")
 
         if st.button("从数据库读取数据"):
-            # 根据时间范围查询数据
-            query = session.query(
-                AirTemperatureHumidity.timestamp.label('timestamp'),
-                AirTemperatureHumidity.temperature,
-                AirTemperatureHumidity.humidity,
-                SoilMoisture.value.label('soil_moisture'),
-                SoilNutrient.value.label('soil_nutrient'),
-                LightIntensity.value.label('light_intensity')  # 添加光照强度
-            ).outerjoin(
-                SoilMoisture, AirTemperatureHumidity.timestamp == SoilMoisture.timestamp
-            ).outerjoin(
-                SoilNutrient, AirTemperatureHumidity.timestamp == SoilNutrient.timestamp
-            ).outerjoin(
-                LightIntensity, AirTemperatureHumidity.timestamp == LightIntensity.timestamp  # 添加光照强度
-            ).filter(
-                AirTemperatureHumidity.timestamp >= start_time,
-                AirTemperatureHumidity.timestamp <= end_time
-            ).order_by(
-                AirTemperatureHumidity.timestamp
-            )
-
-            data = query.all()
-            df = pd.DataFrame(data, columns=[
-                'timestamp',
-                'temperature',
-                'humidity',
-                'soil_moisture',
-                'soil_nutrient',
-                'light_intensity'  # 添加光照强度
-            ])
-
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            # 调用批量查询函数
+            df = fetch_data_in_bulk(session, start_time, end_time)
             st.session_state['data'] = df
 
     elif data_source == "上传文件":
@@ -279,29 +296,37 @@ def data_cleaning():
 
     st.subheader("删除重复行")
     if st.button("删除重复行"):
+        progress_bar = st.progress(0)
         original_rows = data.shape[0]
+        progress_bar.progress(33)  # 第一步完成
         data = data.drop_duplicates()
+        progress_bar.progress(66)  # 第二步完成
         st.success(f"删除了 {original_rows - data.shape[0]} 行重复数据")
+        progress_bar.progress(100)  # 操作完成
 
     st.subheader("处理缺失值")
     missing_columns = data.columns[data.isnull().any()].tolist()
     for column in missing_columns:
         method = st.selectbox(f"选择处理 {column} 缺失值的方法", ["保持不变", "删除", "填充平均值", "填充中位数", "填充众数"])
-        if method == "删除":
-            data = data.dropna(subset=[column])
-        elif method == "填充平均值":
-            data[column].fillna(data[column].mean(), inplace=True)
-        elif method == "填充中位数":
-            data[column].fillna(data[column].median(), inplace=True)
-        elif method == "填充众数":
-            data[column].fillna(data[column].mode()[0], inplace=True)
+        if method != "保持不变":
+            progress_bar = st.progress(0)
+            if method == "删除":
+                data = data.dropna(subset=[column])
+            elif method == "填充平均值":
+                data[column].fillna(data[column].mean(), inplace=True)
+            elif method == "填充中位数":
+                data[column].fillna(data[column].median(), inplace=True)
+            elif method == "填充众数":
+                data[column].fillna(data[column].mode()[0], inplace=True)
+            progress_bar.progress(100)  # 操作完成
 
-    # 新增: 删除数据列功能
     st.subheader("删除不需要的数据列")
     columns_to_drop = st.multiselect("选择要删除的列", data.columns.tolist())
     if st.button("删除选中的列"):
         if columns_to_drop:
+            progress_bar = st.progress(0)
             data = data.drop(columns=columns_to_drop)
+            progress_bar.progress(100)  # 操作完成
             st.success(f"已删除列: {', '.join(columns_to_drop)}")
         else:
             st.warning("未选择任何列进行删除")
@@ -312,15 +337,18 @@ def data_cleaning():
     # 添加交互式数据编辑功能
     st.subheader("交互式数据编辑")
     if st.button("保存编辑"):
+        progress_bar = st.progress(0)
         edited_df = st.data_editor(st.session_state['data'])
         edited_df['timestamp'] = pd.to_datetime(edited_df['timestamp'], errors='coerce')
         st.session_state['data'] = edited_df
+        progress_bar.progress(100)  # 操作完成
         st.success("数据编辑已保存")
 
     # 新增: 数据导出功能
     st.subheader("导出清洗后的数据")
     export_format = st.selectbox("选择导出格式", ["CSV", "Excel", "JSON"])
     if st.button("导出数据"):
+        progress_bar = st.progress(0)
         if export_format == "CSV":
             csv = data.to_csv(index=False)
             b64 = base64.b64encode(csv.encode()).decode()
@@ -335,6 +363,7 @@ def data_cleaning():
             json_str = data.to_json(orient='records')
             b64 = base64.b64encode(json_str.encode()).decode()
             href = f'<a href="data:application/json;base64,{b64}" download="cleaned_data.json">下载 JSON 文件</a>'
+        progress_bar.progress(100)  # 操作完成
         st.markdown(href, unsafe_allow_html=True)
 
 # 数据分析函数
@@ -645,38 +674,8 @@ def data_backup():
     end_time = st.date_input("选择结束时间")
 
     if st.button("执行备份"):
-        # 根据时间范围查询数据
-        query = session.query(
-            AirTemperatureHumidity.timestamp.label('timestamp'),
-            AirTemperatureHumidity.temperature,
-            AirTemperatureHumidity.humidity,
-            SoilMoisture.value.label('soil_moisture'),
-            SoilNutrient.value.label('soil_nutrient'),
-            LightIntensity.value.label('light_intensity')  # 添加光照强度
-        ).outerjoin(
-            SoilMoisture, AirTemperatureHumidity.timestamp == SoilMoisture.timestamp
-        ).outerjoin(
-            SoilNutrient, AirTemperatureHumidity.timestamp == SoilNutrient.timestamp
-        ).outerjoin(
-            LightIntensity, AirTemperatureHumidity.timestamp == LightIntensity.timestamp  # 添加光照强度
-        ).filter(
-            AirTemperatureHumidity.timestamp >= start_time,
-            AirTemperatureHumidity.timestamp <= end_time
-        ).order_by(
-            AirTemperatureHumidity.timestamp
-        )
-
-        data = query.all()
-        df = pd.DataFrame(data, columns=[
-            'timestamp',
-            'temperature',
-            'humidity',
-            'soil_moisture',
-            'soil_nutrient',
-            'light_intensity'  # 添加光照强度
-        ])
-
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        # 调用批量查询函数
+        df = fetch_data_in_bulk(session, start_time, end_time)
 
         # 将数据导出为SQL文件
         sql_file = io.StringIO()
@@ -684,7 +683,7 @@ def data_backup():
             sql_file.write(f"INSERT INTO intelligent_farm_airtemperaturehumidity (temperature, humidity, timestamp) VALUES ({row['temperature']}, {row['humidity']}, '{row['timestamp']}');\n")
             sql_file.write(f"INSERT INTO intelligent_farm_soilmoisture (value, timestamp) VALUES ({row['soil_moisture']}, '{row['timestamp']}');\n")
             sql_file.write(f"INSERT INTO intelligent_farm_soilnutrient (value, timestamp) VALUES ({row['soil_nutrient']}, '{row['timestamp']}');\n")
-            sql_file.write(f"INSERT INTO intelligent_farm_light_intensity (value, timestamp) VALUES ({row['light_intensity']}, '{row['timestamp']}');\n")  # 添加光照强度
+            sql_file.write(f"INSERT INTO intelligent_farm_light_intensity (value, timestamp) VALUES ({row['light_intensity']}, '{row['timestamp']}');\n")
             sql_file.write(f"\n")
         sql_file.seek(0)
 
@@ -748,6 +747,10 @@ def data_prediction():
     prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
 
     if st.button("开始预测"):
+        # 添加进度条
+        progress_bar = st.progress(0)
+        st.write("预测进度: 数据准备中...")
+
         # 获取历史数据
         if data_type == "空气温度":
             query = session.query(AirTemperatureHumidity.timestamp, AirTemperatureHumidity.temperature).order_by(AirTemperatureHumidity.timestamp)
@@ -763,6 +766,10 @@ def data_prediction():
         df['timestamp'] = pd.to_datetime(df['timestamp'])
         df.set_index('timestamp', inplace=True)
 
+        # 更新进度条
+        progress_bar.progress(33)
+        st.write("预测进度: 模型训练中...")
+
         # 使用选择的模型进行预测
         if model_type == "ARIMA":
             from statsmodels.tsa.arima.model import ARIMA
@@ -773,6 +780,10 @@ def data_prediction():
 
         model_fit = model.fit()
         forecast = model_fit.forecast(steps=prediction_days)
+
+        # 更新进度条
+        progress_bar.progress(66)
+        st.write("预测进度: 结果生成中...")
 
         # 生成预测结果图表
         forecast_dates = pd.date_range(start=df.index[-1], periods=prediction_days+1, freq='D')[1:]
@@ -789,6 +800,8 @@ def data_prediction():
         )
         st.plotly_chart(fig, use_container_width=True)
 
+        # 更新进度条
+        progress_bar.progress(100)
         st.success("预测完成")
 
 def ai_data_analysis_and_prediction():
