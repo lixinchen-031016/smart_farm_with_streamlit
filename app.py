@@ -15,107 +15,38 @@ import sqlalchemy
 import streamlit as st
 from openai import OpenAI  # 添加: 引入OpenAI库
 from plotly.colors import n_colors
-from sqlalchemy import Column, Integer, Float, DateTime, String  # 修改: 将Binary替换为LargeBinary
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from streamlit_extras.metric_cards import style_metric_cards
 from streamlit_option_menu import option_menu
 
+import models
+
 # 创建基类
 Base = sqlalchemy.orm.declarative_base()
 
-class AirTemperatureHumidity(Base):
-    __tablename__ = 'intelligent_farm_airtemperaturehumidity'  # 修改表名
-    id = Column(Integer, primary_key=True)
-    temperature = Column(Float)
-    humidity = Column(Float)
-    timestamp = Column(DateTime)
-
-class SoilMoisture(Base):
-    __tablename__ = 'intelligent_farm_soilmoisture'  # 修改表名
-    id = Column(Integer, primary_key=True)
-    value = Column(Float)
-    timestamp = Column(DateTime)
-
-class SoilNutrient(Base):
-    __tablename__ = 'intelligent_farm_soilnutrient'  # 修改表名
-    id = Column(Integer, primary_key=True)
-    value = Column(Float)
-    timestamp = Column(DateTime)
-
-class LightIntensity(Base):
-    __tablename__ = 'intelligent_farm_light_intensity'  # 添加表名
-    id = Column(Integer, primary_key=True)
-    value = Column(Float)
-    timestamp = Column(DateTime)
-
-class User(Base):
-    __tablename__ = 'user'
-    id = Column(Integer, primary_key=True, autoincrement=True)  # 修改: 设置id字段为自增
-    username = Column(String(255), nullable=False)
-    password = Column(String(255), nullable=False)
-    last_login_time = Column(DateTime, nullable=False)
-    role = Column(String(50), nullable=False, default='user')  # 添加: 用户角色字段
 import os
 from dotenv import load_dotenv
 # 添加: 加载环境变量
 load_dotenv()
+# engine = create_engine(os.getenv('DATABASE_URL'))
+# Session = sessionmaker(bind=engine)
+# session = Session()
 
-# MySQL数据库连接配置
-engine = create_engine(os.getenv('DATABASE_URL'))
+# 添加: 引入新的数据库模块
+from utils.database import engine, get_session
 
-# 创建会话工厂并初始化session对象
-Session = sessionmaker(bind=engine)
-session = Session()
-
+# 替换: 使用get_session()方法获取会话对象
+session = get_session()
 # 创建OpenAI客户端
 client = OpenAI(
     api_key=os.getenv('OPENAI_API_KEY'),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 
-def login():
-    st.title("登录")
-    username = st.text_input("用户名", key="login_username")  # 添加: 唯一key
-    password = st.text_input("密码", type="password", key="login_password")  # 添加: 唯一key
-    user_type = st.radio("选择登录类型", ["用户", "管理员"], index=0)  # 添加: 选择登录类型
-    if st.button("登录"):
-        user = session.query(User).filter_by(username=username).first()
-        if user and bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
-            st.session_state['logged_in'] = True
-            st.session_state['username'] = username
-            st.session_state['role'] = user.role  # 添加: 存储用户角色
-            user.last_login_time = datetime.now()
-            session.commit()
-            if user.role == 'admin':
-                st.experimental_set_query_params(page="user_management")  # 添加: 管理员登录后跳转到用户管理页面
-            else:
-                st.experimental_set_query_params(page="data_preview")
-        else:
-            st.error("用户名或密码错误")
-    
-    if st.button("注册"):
-        st.experimental_set_query_params(page="register")
-
-def register():
-    st.title("注册")
-    username = st.text_input("用户名", key="register_username")  # 添加: 唯一key
-    password = st.text_input("密码", type="password", key="register_password")  # 添加: 唯一key
-    confirm_password = st.text_input("确认密码", type="password", key="confirm_password")  # 添加: 唯一key
-    if st.button("注册"):
-        if password != confirm_password:
-            st.error("密码不一致")
-        else:
-            existing_user = session.query(User).filter_by(username=username).first()
-            if existing_user:
-                st.error("用户名已存在")
-            else:
-                hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())  # 修改: 使用bcrypt加密密码
-                new_user = User(username=username, password=hashed_password.decode('utf-8'), last_login_time=datetime.now())
-                session.add(new_user)
-                session.commit()
-                st.success("注册成功，请登录")
-                st.experimental_set_query_params(page="login")
+from auth import login, register  # 导入登录和注册函数
+import utils.analysis  # 导入新的数据分析模块
+import utils.visualization# 导入新的可视化模块
 
 def fetch_data_in_bulk(session, start_time=None, end_time=None):
     """
@@ -126,27 +57,27 @@ def fetch_data_in_bulk(session, start_time=None, end_time=None):
     :return: 包含多个表数据的DataFrame
     """
     query = session.query(
-        AirTemperatureHumidity.timestamp.label('timestamp'),
-        AirTemperatureHumidity.temperature,
-        AirTemperatureHumidity.humidity,
-        SoilMoisture.value.label('soil_moisture'),
-        SoilNutrient.value.label('soil_nutrient'),
-        LightIntensity.value.label('light_intensity')
+        models.AirTemperatureHumidity.timestamp.label('timestamp'),
+        models.AirTemperatureHumidity.temperature,
+        models.AirTemperatureHumidity.humidity,
+        models.SoilMoisture.value.label('soil_moisture'),
+        models.SoilNutrient.value.label('soil_nutrient'),
+        models.LightIntensity.value.label('light_intensity')
     ).outerjoin(
-        SoilMoisture, AirTemperatureHumidity.timestamp == SoilMoisture.timestamp
+        models.SoilMoisture, models.AirTemperatureHumidity.timestamp == models.SoilMoisture.timestamp
     ).outerjoin(
-        SoilNutrient, AirTemperatureHumidity.timestamp == SoilNutrient.timestamp
+        models.SoilNutrient, models.AirTemperatureHumidity.timestamp == models.SoilNutrient.timestamp
     ).outerjoin(
-        LightIntensity, AirTemperatureHumidity.timestamp == LightIntensity.timestamp
+        models.LightIntensity, models.AirTemperatureHumidity.timestamp == models.LightIntensity.timestamp
     )
     
     if start_time and end_time:
         query = query.filter(
-            AirTemperatureHumidity.timestamp >= start_time,
-            AirTemperatureHumidity.timestamp <= end_time
+            models.AirTemperatureHumidity.timestamp >= start_time,
+            models.AirTemperatureHumidity.timestamp <= end_time
         )
     
-    data = query.order_by(AirTemperatureHumidity.timestamp).all()
+    data = query.order_by(models.AirTemperatureHumidity.timestamp).all()
     df = pd.DataFrame(data, columns=[
         'timestamp',
         'temperature',
@@ -159,10 +90,10 @@ def fetch_data_in_bulk(session, start_time=None, end_time=None):
     return df
 
 def fetch_latest_data(session):
-    air_temp_hum = session.query(AirTemperatureHumidity).order_by(AirTemperatureHumidity.timestamp.desc()).first()
-    soil_moist = session.query(SoilMoisture).order_by(SoilMoisture.timestamp.desc()).first()
-    soil_nutri = session.query(SoilNutrient).order_by(SoilNutrient.timestamp.desc()).first()
-    light_intens = session.query(LightIntensity).order_by(LightIntensity.timestamp.desc()).first()  # 添加光照强度查询
+    air_temp_hum = session.query(models.AirTemperatureHumidity).order_by(models.AirTemperatureHumidity.timestamp.desc()).first()
+    soil_moist = session.query(models.SoilMoisture).order_by(models.SoilMoisture.timestamp.desc()).first()
+    soil_nutri = session.query(models.SoilNutrient).order_by(models.SoilNutrient.timestamp.desc()).first()
+    light_intens = session.query(models.LightIntensity).order_by(models.LightIntensity.timestamp.desc()).first()  # 添加光照强度查询
     return air_temp_hum, soil_moist, soil_nutri, light_intens  # 添加光照强度返回值
 
 def data_preview():
@@ -380,14 +311,14 @@ def data_analysis():
     data = st.session_state['data']
 
     st.subheader("描述性统计")
-    st.dataframe(data.describe())
+    st.dataframe(utils.analysis.describe_data(data))
 
     st.subheader("相关性分析")
     numeric_columns = data.select_dtypes(include=['float64', 'int64']).columns
     if len(numeric_columns) < 2:
         st.warning("数据集中数值列不足两列，无法进行相关性分析。")
     else:
-        corr_matrix = data[numeric_columns].corr()
+        corr_matrix = utils.analysis.calculate_correlation(data)
         fig = px.imshow(corr_matrix, text_auto=True, aspect="auto", color_continuous_scale='RdBu_r', zmin=-1, zmax=1, labels=dict(color="相关系数"))
         fig.update_traces(text=corr_matrix.round(2), texttemplate="%{text}")
         st.plotly_chart(fig, use_container_width=True)
@@ -417,86 +348,29 @@ def data_visualization():
         st.warning("数据集中没有数值列，无法进行可视化。")
         return
 
-    # 定义现代科技感的颜色方案
-    color_scheme = n_colors('rgb(0, 122, 255)', 'rgb(10, 132, 255)', 6, colortype='rgb')
-
     x_column = None
     y_column = None
+    color_column = None
     column = None
 
     if chart_type in ["散点图", "线图", "柱状图"]:
         x_column = st.selectbox("选择X轴", data.columns)
         y_column = st.selectbox("选择Y轴", numeric_columns)
         color_column = st.selectbox("选择颜色列（可选）", ["无"] + list(categorical_columns))
-
-        if chart_type == "散点图":
-            fig = px.scatter(data, x=x_column, y=y_column, color=color_column if color_column != "无" else None,
-                             color_discrete_sequence=color_scheme)
-        elif chart_type == "线图":
-            fig = px.line(data, x=x_column, y=y_column, color=color_column if color_column != "无" else None,
-                          color_discrete_sequence=color_scheme)
-        else:  # 柱状图
-            fig = px.bar(data, x=x_column, y=y_column, color=color_column if color_column != "无" else None,
-                         color_discrete_sequence=color_scheme)
+        if color_column == "无":
+            color_column = None
 
     elif chart_type in ["箱线图", "直方图"]:
         column = st.selectbox("选择列", numeric_columns)
-        if chart_type == "箱线图":
-            fig = px.box(data, y=column, color_discrete_sequence=color_scheme)
-        else:  # 直方图
-            fig = px.histogram(data, x=column, nbins=30, marginal="box",
-                               color_discrete_sequence=color_scheme)
-            fig.update_traces(opacity=0.75)
-            fig.update_layout(bargap=0.1)
 
     elif chart_type == "饼图":
         if len(categorical_columns) == 0:
             st.warning("数据集中没有分类列，无法创建饼图。")
             return
         column = st.selectbox("选择列", categorical_columns)
-        value_counts = data[column].value_counts()
-        fig = px.pie(values=value_counts.values, names=value_counts.index, title=f'{column} 的分布',
-                     color_discrete_sequence=color_scheme)
 
-    elif chart_type == "热力图":
-        if len(numeric_columns) < 2:
-            st.warning("数据集中数值列不足两列，无法创建热力图。")
-            return
-        corr_matrix = data[numeric_columns].corr()
-        fig = px.imshow(corr_matrix,
-                        text_auto=True,
-                        aspect="auto",
-                        color_continuous_scale='RdBu_r',  # 使用红蓝色阶
-                        zmin=-1,
-                        zmax=1,
-                        labels=dict(color="相关系数"))
-        fig.update_traces(text=corr_matrix.round(2), texttemplate="%{text}")
-        fig.update_layout(coloraxis_colorbar=dict(
-            title="相关系数",
-            tickvals=[-1, -0.5, 0, 0.5, 1],
-            ticktext=["-1", "-0.5", "0", "0.5", "1"]
-        ))
-
-    # 更新图表布局
-    fig.update_layout(
-        title={
-            'text': f"{chart_type.capitalize()} - {y_column if chart_type in ['散点图', '线图', '柱状图'] else column if column else ''}",
-            'y':0.95,
-            'x':0.5,
-            'xanchor': 'center',
-            'yanchor': 'top',
-            'font': dict(size=24, color='#1D3557')
-        },
-        xaxis_title=x_column if chart_type in ["散点图", "线图", "柱状图"] else column if column else '',
-        yaxis_title=y_column if chart_type in ["散点图", "线图", "柱状图"] else "频率" if chart_type != "热力图" else '',
-        legend_title="图例",
-        font=dict(family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif", size=14),
-        hovermode="closest",
-        plot_bgcolor='rgba(240, 240, 244, 0.8)',
-        paper_bgcolor='rgba(240, 240, 244, 0.8)',
-        xaxis=dict(showgrid=True, gridcolor='rgba(0, 122, 255, 0.1)'),
-        yaxis=dict(showgrid=True, gridcolor='rgba(0, 122, 255, 0.1)')
-    )
+    # 使用新的可视化模块生成图表
+    fig = utils.visualization.visualize_data(data, chart_type, x_column, y_column, color_column, column)
 
     # 创建小图用于UI展示
     fig_small = go.Figure(fig)
@@ -546,8 +420,7 @@ def advanced_analysis():
     agg_column = st.selectbox("选择聚合列", available_columns)
     agg_function = st.selectbox("选择聚合函数", ["平均值", "总和", "最大值", "最小值"])
 
-    agg_dict = {"平均值": "mean", "总和": "sum", "最大值": "max", "最小值": "min"}
-    grouped_data = data.groupby(group_column)[agg_column].agg(agg_dict[agg_function]).reset_index()
+    grouped_data = utils.analysis.group_and_aggregate(data, group_column, agg_column, agg_function)
 
     st.write("分组聚合结果：")
     st.dataframe(grouped_data)
@@ -592,19 +465,19 @@ def user_management():
     new_password = st.text_input("新密码", type="password", key="new_password")  # 添加: 唯一key
     new_role = st.selectbox("角色", ["user", "admin"])
     if st.button("添加用户"):
-        existing_user = session.query(User).filter_by(username=new_username).first()
+        existing_user = session.query(models.User).filter_by(username=new_username).first()
         if existing_user:
             st.error("用户名已存在")
         else:
             hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
-            new_user = User(username=new_username, password=hashed_password.decode('utf-8'), last_login_time=datetime.now(), role=new_role)
+            new_user = models.User(username=new_username, password=hashed_password.decode('utf-8'), last_login_time=datetime.now(), role=new_role)
             session.add(new_user)
             session.commit()
             st.success("用户添加成功")
 
     # 用户列表
     st.header("用户列表")
-    users = session.query(User).all()
+    users = session.query(models.User).all()
     user_data = [(user.id, user.username, user.role) for user in users]
     df = pd.DataFrame(user_data, columns=['ID', '用户名', '角色'])
     st.dataframe(df)
@@ -613,7 +486,7 @@ def user_management():
     user_id = st.number_input("输入要编辑或删除的用户ID", min_value=1, step=1, key="user_id")  # 添加: 唯一key
     action = st.selectbox("选择操作", ["编辑", "删除"])
     if action == "编辑":
-        user = session.query(User).filter_by(id=user_id).first()
+        user = session.query(models.User).filter_by(id=user_id).first()
         if user:
             new_username = st.text_input("新用户名", value=user.username, key="edit_username")  # 添加: 唯一key
             new_password = st.text_input("新密码", type="password", key="edit_password")  # 添加: 唯一key
@@ -629,7 +502,7 @@ def user_management():
             st.error("用户不存在")
     elif action == "删除":
         if st.button("确认删除"):
-            user = session.query(User).filter_by(id=user_id).first()
+            user = session.query(models.User).filter_by(id=user_id).first()
             if user:
                 session.delete(user)
                 session.commit()
@@ -753,13 +626,13 @@ def data_prediction():
 
         # 获取历史数据
         if data_type == "空气温度":
-            query = session.query(AirTemperatureHumidity.timestamp, AirTemperatureHumidity.temperature).order_by(AirTemperatureHumidity.timestamp)
+            query = session.query(models.AirTemperatureHumidity.timestamp, models.AirTemperatureHumidity.temperature).order_by(models.AirTemperatureHumidity.timestamp)
         elif data_type == "空气湿度":
-            query = session.query(AirTemperatureHumidity.timestamp, AirTemperatureHumidity.humidity).order_by(AirTemperatureHumidity.timestamp)
+            query = session.query(models.AirTemperatureHumidity.timestamp, models.AirTemperatureHumidity.humidity).order_by(models.AirTemperatureHumidity.timestamp)
         elif data_type == "土壤湿度":
-            query = session.query(SoilMoisture.timestamp, SoilMoisture.value).order_by(SoilMoisture.timestamp)
+            query = session.query(models.SoilMoisture.timestamp, models.SoilMoisture.value).order_by(models.SoilMoisture.timestamp)
         elif data_type == "光照强度":  # 新增光照强度查询分支
-            query = session.query(LightIntensity.timestamp, LightIntensity.value).order_by(LightIntensity.timestamp)
+            query = session.query(models.LightIntensity.timestamp, models.LightIntensity.value).order_by(models.LightIntensity.timestamp)
 
         data = query.all()
         df = pd.DataFrame(data, columns=['timestamp', 'value'])
@@ -909,9 +782,9 @@ def main():
     page = params.get("page", ["login"])[0]
 
     if page == "login":
-        login()
+        login(session, st)  # 调用分离后的登录函数
     elif page == "register":
-        register()
+        register(session, st)  # 调用分离后的注册函数
     else:
         with st.sidebar:
             options = ["实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化", "高级分析","本地数据预测","AI数据处理","使用说明"]

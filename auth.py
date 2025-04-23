@@ -10,7 +10,19 @@ from utils.database import engine  # 导入数据库连接
 Session = sessionmaker(bind=engine)
 session = Session()
 
-def login():
+# from sqlalchemy.orm import sessionmaker
+# from models import User
+# from utils.database import engine
+# Session = sessionmaker(bind=engine)
+# session = Session()
+
+# 添加: 引入新的数据库模块
+from utils.database import get_session
+
+# 替换: 使用get_session()方法获取会话对象
+session = get_session()
+
+def login(session, st):
     st.title("登录")
     username = st.text_input("用户名", key="login_username")
     password = st.text_input("密码", type="password", key="login_password")
@@ -33,7 +45,7 @@ def login():
     if st.button("注册"):
         st.experimental_set_query_params(page="register")
 
-def register():
+def register(session, st):
     st.title("注册")
     username = st.text_input("用户名", key="register_username")
     password = st.text_input("密码", type="password", key="register_password")

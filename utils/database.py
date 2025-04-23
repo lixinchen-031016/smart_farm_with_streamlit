@@ -7,8 +7,12 @@ from sqlalchemy.orm import sessionmaker
 load_dotenv()
 
 # MySQL数据库连接配置
-engine = create_engine(os.getenv('DATABASE_URL'))
+DATABASE_URL = os.getenv('DATABASE_URL')
+engine = create_engine(DATABASE_URL)
 
-# 创建会话工厂并初始化session对象
+# 创建会话工厂
 Session = sessionmaker(bind=engine)
-session = Session()
+
+def get_session():
+    """获取数据库会话对象"""
+    return Session()
