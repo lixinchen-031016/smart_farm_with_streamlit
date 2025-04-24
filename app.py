@@ -51,14 +51,24 @@ from utils.visualization import visualize_data  # 导入可视化模块
 
 from utils.data_operations import fetch_data_in_bulk
 
+# 函数：获取最新数据
 def fetch_latest_data(session):
+    """
+    获取数据库中最新的空气温度、湿度、土壤湿度、土壤养分和光照强度数据
+    :param session: 数据库会话对象
+    :return: 包含最新数据的元组
+    """
     air_temp_hum = session.query(models.AirTemperatureHumidity).order_by(models.AirTemperatureHumidity.timestamp.desc()).first()
     soil_moist = session.query(models.SoilMoisture).order_by(models.SoilMoisture.timestamp.desc()).first()
     soil_nutri = session.query(models.SoilNutrient).order_by(models.SoilNutrient.timestamp.desc()).first()
     light_intens = session.query(models.LightIntensity).order_by(models.LightIntensity.timestamp.desc()).first()  # 添加光照强度查询
     return air_temp_hum, soil_moist, soil_nutri, light_intens  # 添加光照强度返回值
 
+# 函数：数据预览
 def data_preview():
+    """
+    显示实时数据预览页面，展示最新的环境数据
+    """
     if not st.session_state.get('logged_in'):
         st.experimental_set_query_params(page="login")
         return
@@ -86,8 +96,13 @@ def data_preview():
         with col5:
             st.metric(label="光照强度", value=f"{light_intens.value}", delta=None)
 
-# 定义 read_file 函数
+# 函数：读取文件
 def read_file(uploaded_file):
+    """
+    读取上传的文件并将其转换为Pandas DataFrame
+    :param uploaded_file: 上传的文件对象
+    :return: Pandas DataFrame
+    """
     if uploaded_file.type == "application/json":
         data = pd.read_json(uploaded_file)
     elif uploaded_file.type in ["text/csv", "application/vnd.ms-excel"]:
@@ -101,8 +116,12 @@ def read_file(uploaded_file):
     if 'timestamp' in data.columns:
         data['timestamp'] = pd.to_datetime(data['timestamp'], errors='coerce')
     return data
-# 数据概览函数
+
+# 函数：数据概览
 def data_overview():
+    """
+    显示数据概览页面，允许用户从数据库读取或上传数据文件
+    """
     if not st.session_state.get('logged_in'):
         st.experimental_set_query_params(page="login")
         return
@@ -174,8 +193,11 @@ def data_overview():
                 href = f'<a href="data:application/json;base64,{b64}" download="exported_data.json">下载 JSON 文件</a>'
             st.markdown(href, unsafe_allow_html=True)
 
-# 数据清洗函数
+# 函数：数据清洗
 def data_cleaning():
+    """
+    显示数据清洗页面，提供删除重复行、处理缺失值和删除列的功能
+    """
     if not st.session_state.get('logged_in'):
         st.experimental_set_query_params(page="login")
         return
@@ -271,8 +293,11 @@ def data_cleaning():
         progress_bar.progress(100)  # 操作完成
         st.markdown(href, unsafe_allow_html=True)
 
-# 数据分析函数
+# 函数：数据分析
 def data_analysis():
+    """
+    显示数据分析页面，提供描述性统计和相关性分析功能
+    """
     if not st.session_state.get('logged_in'):
         st.experimental_set_query_params(page="login")
         return
@@ -297,8 +322,11 @@ def data_analysis():
         fig.update_traces(text=corr_matrix.round(2), texttemplate="%{text}")
         st.plotly_chart(fig, use_container_width=True)
 
-# 数据可视化函数
+# 函数：数据可视化
 def data_visualization():
+    """
+    显示数据可视化页面，允许用户创建各种图表
+    """
     if not st.session_state.get('logged_in'):
         st.experimental_set_query_params(page="login")
         return
@@ -375,8 +403,11 @@ def data_visualization():
     或者，您可以使用Python的Plotly库来加载和显示这个JSON文件。
     """)
 
-# 高级分析函数
+# 函数：高级分析
 def advanced_analysis():
+    """
+    显示高级分析页面，提供数据分组和聚合功能
+    """
     if not st.session_state.get('logged_in'):
         st.experimental_set_query_params(page="login")
         return
@@ -408,8 +439,11 @@ def advanced_analysis():
     fig = px.bar(grouped_data, x=group_column, y=agg_column, title=f"{group_column} 分组的 {agg_column} {agg_function}")
     st.plotly_chart(fig, use_container_width=True)
 
-# 使用说明函数
+# 函数：使用说明
 def show_instructions():
+    """
+    显示使用说明页面
+    """
     if not st.session_state.get('logged_in'):
         st.experimental_set_query_params(page="login")
         return
@@ -432,7 +466,11 @@ def show_instructions():
     如需更多帮助，请参阅 [GitHub 仓库](https://github.com/lixinchen-031016/smart_farm_with_streamlit)
     """)
 
+# 函数：用户管理
 def user_management():
+    """
+    显示用户管理页面，允许管理员添加、编辑和删除用户
+    """
     if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
         st.experimental_set_query_params(page="login")
         return
@@ -511,11 +549,18 @@ def user_management():
         else:
             st.error("用户不存在")
 
+# 函数：系统监控
 def system_monitoring():
+    """
+    显示系统监控页面，实时查看服务器资源使用情况
+    """
     utils.system_monitoring.system_monitoring()
 
-
+# 函数：数据备份
 def data_backup():
+    """
+    显示数据备份页面，允许管理员按时间范围备份数据
+    """
     if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
         st.experimental_set_query_params(page="login")
         return
@@ -540,7 +585,11 @@ def data_backup():
 
         st.success("数据已备份并加密")
 
+# 函数：数据恢复
 def data_restore():
+    """
+    显示数据恢复页面，允许管理员恢复备份的数据
+    """
     if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
         st.experimental_set_query_params(page="login")
         return
@@ -565,7 +614,11 @@ def data_restore():
             except Exception as e:
                 st.error(f"恢复数据时出错: {e}")
 
+# 函数：数据预测
 def data_prediction():
+    """
+    显示数据预测页面，允许用户进行本地数据预测
+    """
     if not st.session_state.get('logged_in'):
         st.experimental_set_query_params(page="login")
         return
@@ -607,7 +660,7 @@ def data_prediction():
         fig.update_layout(
             title=f"{data_type} 预测结果",
             xaxis_title="时间",
-            yaxis_title="값",
+            yaxis_title="值",
             legend_title="数据类型"
         )
         st.plotly_chart(fig, use_container_width=True)
@@ -616,7 +669,11 @@ def data_prediction():
         progress_bar.progress(100)
         st.success("预测完成")
 
+# 函数：AI数据处理
 def ai_data_analysis_and_prediction():
+    """
+    显示AI数据处理页面，允许用户使用Qwen大模型进行智能数据分析和预测
+    """
     st.title("AI数据处理")
 
     # 初始化聊天记录（如果未初始化）
@@ -712,8 +769,11 @@ def ai_data_analysis_and_prediction():
             mime=mime_type
         )
 
-
+# 函数：主函数
 def main():
+    """
+    应用的主函数，负责页面路由和功能调用
+    """
     if 'logged_in' not in st.session_state:
         st.session_state['logged_in'] = False
 
