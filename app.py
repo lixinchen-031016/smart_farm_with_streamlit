@@ -41,7 +41,7 @@ session = get_session()
 # 创建OpenAI客户端
 client = OpenAI(
     api_key=os.getenv('OPENAI_API_KEY'),
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+    base_url=os.getenv('OPENAI_BASE_URL'),
 )
 
 from auth import login, register  # 导入登录和注册函数
@@ -671,7 +671,7 @@ def ai_data_analysis_and_prediction():
 
         # 调用API
         completion = client.chat.completions.create(
-            model="qwen2.5-7b-instruct-1m",
+            model=os.getenv("LLM_MODEL"),
             messages=messages,
         )
 

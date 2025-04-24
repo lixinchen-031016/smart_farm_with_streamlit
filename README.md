@@ -38,7 +38,7 @@
 - **数据可视化**：创建各种图表（如散点图、线图、柱状图等）。
 - **高级分析**：进行数据分组和聚合分析。
 - **本地数据分析预测**：使用机器学习模型进行数据预测。
-- **AI Integration**：与通义qwen2.5模型 API集成，提供智能分析功能。
+- **AI 智能分析**：与通义qwen2.5模型 API集成，提供智能分析功能。
 
 ### 管理员功能：
 - **用户管理**：添加、编辑和删除用户。
@@ -159,9 +159,9 @@ sudo systemctl restart docker
 运行 `intelligent_farm.sql` 脚本完成数据库初始化。
 
 ### 步骤 7：修改自己的api调用网址
-- 在 `app.py` 文件中，找到 `api_key = "YOUR_API_KEY"` 并替换为实际的API密钥。
-- 在 `app.py` 文件中，找到 `base_url = "YOUR_BASE_URL"` 并替换为实际的API提供商的URL。
-- 在 `app.py` 文件中，找到 `model="YOUR_MODEL"` 并替换为所需的模型名称。
+- 在 `.env` 文件中，找到 `api_key = "YOUR_API_KEY"` 并替换为实际的API密钥。
+- 在 `.env` 文件中，找到 `base_url = "YOUR_BASE_URL"` 并替换为实际的API提供商的URL。
+- 在 `.env` 文件中，找到 `model="YOUR_MODEL"` 并替换为所需的模型名称。
 ---
 
 ## 7. 使用方法
