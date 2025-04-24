@@ -11,6 +11,7 @@ session = Session()
 from models import User  # 导入User模型
 from utils.logger import log_operation  # 添加: 引入日志记录函数
 
+
 def login(session, st):
     st.title("登录")
     username = st.text_input("用户名", key="login_username")
@@ -31,9 +32,10 @@ def login(session, st):
                 st.experimental_set_query_params(page="data_preview")
         else:
             st.error("用户名或密码错误")
-    
+
     if st.button("注册"):
         st.experimental_set_query_params(page="register")
+
 
 def register(session, st):
     st.title("注册")
@@ -49,7 +51,8 @@ def register(session, st):
                 st.error("用户名已存在")
             else:
                 hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-                new_user = User(username=username, password=hashed_password.decode('utf-8'), last_login_time=datetime.now())
+                new_user = User(username=username, password=hashed_password.decode('utf-8'),
+                                last_login_time=datetime.now())
                 session.add(new_user)
                 session.commit()
                 log_operation(username, "用户注册", f"用户 {username} 注册成功")  # 添加: 记录注册日志

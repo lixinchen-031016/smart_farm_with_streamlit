@@ -2,6 +2,7 @@ import pandas as pd
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
+
 def perform_prediction(data, model_type, prediction_days):
     df = pd.DataFrame(data, columns=['timestamp', 'value'])
     df['timestamp'] = pd.to_datetime(df['timestamp'])

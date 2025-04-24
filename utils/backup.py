@@ -1,12 +1,14 @@
 import io
 import zipfile
+
 import sqlalchemy
-from cryptography.fernet import Fernet
 import streamlit as st
+from cryptography.fernet import Fernet
 
 from utils.data_operations import fetch_data_in_bulk
 from utils.database import engine
 from utils.logger import log_operation
+
 
 def backup_data(session, start_time, end_time):
     """
@@ -22,10 +24,14 @@ def backup_data(session, start_time, end_time):
     # 将数据导出为 SQL 文件
     sql_file = io.StringIO()
     for _, row in df.iterrows():
-        sql_file.write(f"INSERT INTO intelligent_farm_airtemperaturehumidity (temperature, humidity, timestamp) VALUES ({row['temperature']}, {row['humidity']}, '{row['timestamp']}');\n")
-        sql_file.write(f"INSERT INTO intelligent_farm_soilmoisture (value, timestamp) VALUES ({row['soil_moisture']}, '{row['timestamp']}');\n")
-        sql_file.write(f"INSERT INTO intelligent_farm_soilnutrient (value, timestamp) VALUES ({row['soil_nutrient']}, '{row['timestamp']}');\n")
-        sql_file.write(f"INSERT INTO intelligent_farm_light_intensity (value, timestamp) VALUES ({row['light_intensity']}, '{row['timestamp']}');\n")
+        sql_file.write(
+            f"INSERT INTO intelligent_farm_airtemperaturehumidity (temperature, humidity, timestamp) VALUES ({row['temperature']}, {row['humidity']}, '{row['timestamp']}');\n")
+        sql_file.write(
+            f"INSERT INTO intelligent_farm_soilmoisture (value, timestamp) VALUES ({row['soil_moisture']}, '{row['timestamp']}');\n")
+        sql_file.write(
+            f"INSERT INTO intelligent_farm_soilnutrient (value, timestamp) VALUES ({row['soil_nutrient']}, '{row['timestamp']}');\n")
+        sql_file.write(
+            f"INSERT INTO intelligent_farm_light_intensity (value, timestamp) VALUES ({row['light_intensity']}, '{row['timestamp']}');\n")
         sql_file.write(f"\n")
     sql_file.seek(0)
 
@@ -48,6 +54,7 @@ def backup_data(session, start_time, end_time):
     log_operation(st.session_state['username'], "数据备份", f"时间范围: {start_time} - {end_time}")
 
     return zip_buffer.getvalue()
+
 
 def restore_data(uploaded_file, key):
     """

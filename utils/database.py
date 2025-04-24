@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -12,6 +13,7 @@ engine = create_engine(DATABASE_URL)
 
 # 创建会话工厂
 Session = sessionmaker(bind=engine)
+
 
 def get_session():
     """获取数据库会话对象"""

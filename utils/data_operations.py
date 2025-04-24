@@ -1,9 +1,11 @@
 import pandas as pd
 from sqlalchemy.orm import sessionmaker
+
 from models import AirTemperatureHumidity, SoilMoisture, SoilNutrient, LightIntensity
 from utils.database import engine
 
 Session = sessionmaker(bind=engine)
+
 
 def fetch_data_in_bulk(session, start_time=None, end_time=None):
     """
@@ -27,13 +29,13 @@ def fetch_data_in_bulk(session, start_time=None, end_time=None):
     ).outerjoin(
         LightIntensity, AirTemperatureHumidity.timestamp == LightIntensity.timestamp
     )
-    
+
     if start_time and end_time:
         query = query.filter(
             AirTemperatureHumidity.timestamp >= start_time,
             AirTemperatureHumidity.timestamp <= end_time
         )
-    
+
     data = query.order_by(AirTemperatureHumidity.timestamp).all()
     df = pd.DataFrame(data, columns=[
         'timestamp',

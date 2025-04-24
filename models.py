@@ -3,6 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
+
 class AirTemperatureHumidity(Base):
     __tablename__ = 'intelligent_farm_airtemperaturehumidity'
     id = Column(Integer, primary_key=True)
@@ -10,11 +11,13 @@ class AirTemperatureHumidity(Base):
     humidity = Column(Float)
     timestamp = Column(DateTime)
 
+
 class SoilMoisture(Base):
     __tablename__ = 'intelligent_farm_soilmoisture'
     id = Column(Integer, primary_key=True)
     value = Column(Float)
     timestamp = Column(DateTime)
+
 
 class SoilNutrient(Base):
     __tablename__ = 'intelligent_farm_soilnutrient'
@@ -22,11 +25,13 @@ class SoilNutrient(Base):
     value = Column(Float)
     timestamp = Column(DateTime)
 
+
 class LightIntensity(Base):
     __tablename__ = 'intelligent_farm_light_intensity'
     id = Column(Integer, primary_key=True)
     value = Column(Float)
     timestamp = Column(DateTime)
+
 
 class User(Base):
     __tablename__ = 'user'

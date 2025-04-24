@@ -18,15 +18,16 @@ from streamlit_extras.metric_cards import style_metric_cards
 from streamlit_option_menu import option_menu
 
 import models
+import utils.system_monitoring
 from utils.backup import restore_data, backup_data
 from utils.logger import log_operation
-import utils.system_monitoring
 
 # 创建基类
 Base = sqlalchemy.orm.declarative_base()
 
 import os
 from dotenv import load_dotenv
+
 # 添加: 加载环境变量
 load_dotenv()
 # engine = create_engine(os.getenv('DATABASE_URL'))
@@ -34,7 +35,7 @@ load_dotenv()
 # session = Session()
 
 # 添加: 引入新的数据库模块
-from utils.database import engine, get_session
+from utils.database import get_session
 
 # 替换: 使用get_session()方法获取会话对象
 session = get_session()
@@ -51,6 +52,7 @@ from utils.visualization import visualize_data  # 导入可视化模块
 
 from utils.data_operations import fetch_data_in_bulk
 
+
 # 函数：获取最新数据
 def fetch_latest_data(session):
     """
@@ -58,11 +60,14 @@ def fetch_latest_data(session):
     :param session: 数据库会话对象
     :return: 包含最新数据的元组
     """
-    air_temp_hum = session.query(models.AirTemperatureHumidity).order_by(models.AirTemperatureHumidity.timestamp.desc()).first()
+    air_temp_hum = session.query(models.AirTemperatureHumidity).order_by(
+        models.AirTemperatureHumidity.timestamp.desc()).first()
     soil_moist = session.query(models.SoilMoisture).order_by(models.SoilMoisture.timestamp.desc()).first()
     soil_nutri = session.query(models.SoilNutrient).order_by(models.SoilNutrient.timestamp.desc()).first()
-    light_intens = session.query(models.LightIntensity).order_by(models.LightIntensity.timestamp.desc()).first()  # 添加光照强度查询
+    light_intens = session.query(models.LightIntensity).order_by(
+        models.LightIntensity.timestamp.desc()).first()  # 添加光照强度查询
     return air_temp_hum, soil_moist, soil_nutri, light_intens  # 添加光照强度返回值
+
 
 # 函数：数据预览
 def data_preview():
@@ -96,6 +101,7 @@ def data_preview():
         with col5:
             st.metric(label="光照强度", value=f"{light_intens.value}", delta=None)
 
+
 # 函数：读取文件
 def read_file(uploaded_file):
     """
@@ -116,6 +122,7 @@ def read_file(uploaded_file):
     if 'timestamp' in data.columns:
         data['timestamp'] = pd.to_datetime(data['timestamp'], errors='coerce')
     return data
+
 
 # 函数：数据概览
 def data_overview():
@@ -193,6 +200,7 @@ def data_overview():
                 href = f'<a href="data:application/json;base64,{b64}" download="exported_data.json">下载 JSON 文件</a>'
             st.markdown(href, unsafe_allow_html=True)
 
+
 # 函数：数据清洗
 def data_cleaning():
     """
@@ -222,7 +230,8 @@ def data_cleaning():
     st.subheader("处理缺失值")
     missing_columns = data.columns[data.isnull().any()].tolist()
     for column in missing_columns:
-        method = st.selectbox(f"选择处理 {column} 缺失值的方法", ["保持不变", "删除", "填充平均值", "填充中位数", "填充众数"])
+        method = st.selectbox(f"选择处理 {column} 缺失值的方法",
+                              ["保持不变", "删除", "填充平均值", "填充中位数", "填充众数"])
         if method != "保持不变":
             progress_bar = st.progress(0)
             if method == "删除":
@@ -293,6 +302,7 @@ def data_cleaning():
         progress_bar.progress(100)  # 操作完成
         st.markdown(href, unsafe_allow_html=True)
 
+
 # 函数：数据分析
 def data_analysis():
     """
@@ -318,9 +328,11 @@ def data_analysis():
         st.warning("数据集中数值列不足两列，无法进行相关性分析。")
     else:
         corr_matrix = utils.analysis.calculate_correlation(data)
-        fig = px.imshow(corr_matrix, text_auto=True, aspect="auto", color_continuous_scale='RdBu_r', zmin=-1, zmax=1, labels=dict(color="相关系数"))
+        fig = px.imshow(corr_matrix, text_auto=True, aspect="auto", color_continuous_scale='RdBu_r', zmin=-1, zmax=1,
+                        labels=dict(color="相关系数"))
         fig.update_traces(text=corr_matrix.round(2), texttemplate="%{text}")
         st.plotly_chart(fig, use_container_width=True)
+
 
 # 函数：数据可视化
 def data_visualization():
@@ -342,7 +354,8 @@ def data_visualization():
     st.subheader("时间范围筛选")
     start_time = st.date_input("选择开始时间")
     end_time = st.date_input("选择结束时间")
-    filtered_data = data[(data['timestamp'] >= pd.Timestamp(start_time)) & (data['timestamp'] <= pd.Timestamp(end_time))]
+    filtered_data = data[
+        (data['timestamp'] >= pd.Timestamp(start_time)) & (data['timestamp'] <= pd.Timestamp(end_time))]
 
     # 设置统一的主题
     pio.templates.default = "plotly_white"
@@ -403,6 +416,7 @@ def data_visualization():
     或者，您可以使用Python的Plotly库来加载和显示这个JSON文件。
     """)
 
+
 # 函数：高级分析
 def advanced_analysis():
     """
@@ -439,6 +453,7 @@ def advanced_analysis():
     fig = px.bar(grouped_data, x=group_column, y=agg_column, title=f"{group_column} 分组的 {agg_column} {agg_function}")
     st.plotly_chart(fig, use_container_width=True)
 
+
 # 函数：使用说明
 def show_instructions():
     """
@@ -465,6 +480,7 @@ def show_instructions():
    
     如需更多帮助，请参阅 [GitHub 仓库](https://github.com/lixinchen-031016/smart_farm_with_streamlit)
     """)
+
 
 # 函数：用户管理
 def user_management():
@@ -509,7 +525,8 @@ def user_management():
         user = session.query(models.User).filter_by(id=user_id).first()
         if user:
             new_username = st.text_input("新用户名", value=user.username, key="edit_username")
-            new_role = st.selectbox("角色", ["user", "admin"], index=["user", "admin"].index(user.role), key="edit_role_selectbox")
+            new_role = st.selectbox("角色", ["user", "admin"], index=["user", "admin"].index(user.role),
+                                    key="edit_role_selectbox")
             if st.button("保存更改"):
                 user.username = new_username
                 user.role = new_role
@@ -549,12 +566,14 @@ def user_management():
         else:
             st.error("用户不存在")
 
+
 # 函数：系统监控
 def system_monitoring():
     """
     显示系统监控页面，实时查看服务器资源使用情况
     """
     utils.system_monitoring.system_monitoring()
+
 
 # 函数：数据备份
 def data_backup():
@@ -585,6 +604,7 @@ def data_backup():
 
         st.success("数据已备份并加密")
 
+
 # 函数：数据恢复
 def data_restore():
     """
@@ -614,6 +634,7 @@ def data_restore():
             except Exception as e:
                 st.error(f"恢复数据时出错: {e}")
 
+
 # 函数：数据预测
 def data_prediction():
     """
@@ -636,13 +657,19 @@ def data_prediction():
 
         # 获取历史数据
         if data_type == "空气温度":
-            query = session.query(models.AirTemperatureHumidity.timestamp, models.AirTemperatureHumidity.temperature).order_by(models.AirTemperatureHumidity.timestamp)
+            query = session.query(models.AirTemperatureHumidity.timestamp,
+                                  models.AirTemperatureHumidity.temperature).order_by(
+                models.AirTemperatureHumidity.timestamp)
         elif data_type == "空气湿度":
-            query = session.query(models.AirTemperatureHumidity.timestamp, models.AirTemperatureHumidity.humidity).order_by(models.AirTemperatureHumidity.timestamp)
+            query = session.query(models.AirTemperatureHumidity.timestamp,
+                                  models.AirTemperatureHumidity.humidity).order_by(
+                models.AirTemperatureHumidity.timestamp)
         elif data_type == "土壤湿度":
-            query = session.query(models.SoilMoisture.timestamp, models.SoilMoisture.value).order_by(models.SoilMoisture.timestamp)
+            query = session.query(models.SoilMoisture.timestamp, models.SoilMoisture.value).order_by(
+                models.SoilMoisture.timestamp)
         elif data_type == "光照强度":
-            query = session.query(models.LightIntensity.timestamp, models.LightIntensity.value).order_by(models.LightIntensity.timestamp)
+            query = session.query(models.LightIntensity.timestamp, models.LightIntensity.value).order_by(
+                models.LightIntensity.timestamp)
 
         data = query.all()
 
@@ -668,6 +695,7 @@ def data_prediction():
         # 更新进度条
         progress_bar.progress(100)
         st.success("预测完成")
+
 
 # 函数：AI数据处理
 def ai_data_analysis_and_prediction():
@@ -769,6 +797,7 @@ def ai_data_analysis_and_prediction():
             mime=mime_type
         )
 
+
 # 函数：主函数
 def main():
     """
@@ -786,13 +815,15 @@ def main():
         register(session, st)  # 调用分离后的注册函数
     else:
         with st.sidebar:
-            options = ["实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化", "高级分析","本地数据预测","AI数据处理","使用说明"]
+            options = ["实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化", "高级分析", "本地数据预测",
+                       "AI数据处理", "使用说明"]
             if st.session_state.get('role') == 'admin':
                 options.extend(["用户管理", "系统监控", "数据备份", "数据恢复"])
             selected = option_menu(
                 menu_title="主菜单",
                 options=options,
-                icons=["table", "tools", "bar-chart", "graph-up", "gear-fill", "question-circle", "person-check", "cpu", "cloud-upload", "cloud-upload", "save", "table"], # 修改: 调整icons顺序
+                icons=["table", "tools", "bar-chart", "graph-up", "gear-fill", "question-circle", "person-check", "cpu",
+                       "cloud-upload", "cloud-upload", "save", "table"],  # 修改: 调整icons顺序
                 menu_icon="cast",
                 default_index=0,
             )
@@ -830,6 +861,7 @@ def main():
             data_prediction()
         elif selected == "AI数据处理":  # 添加AI数据分析及预测页面
             ai_data_analysis_and_prediction()
+
 
 if __name__ == '__main__':
     main()
