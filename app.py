@@ -19,6 +19,7 @@ from streamlit_extras.metric_cards import style_metric_cards
 from streamlit_option_menu import option_menu
 
 import models
+from utils.backup import restore_data, backup_data
 
 # 创建基类
 Base = sqlalchemy.orm.declarative_base()
@@ -44,48 +45,10 @@ client = OpenAI(
 
 from auth import login, register  # 导入登录和注册函数
 import utils.analysis  # 导入新的数据分析模块
-import utils.visualization# 导入新的可视化模块
+from utils.predictions import perform_prediction  # 导入预测模块
+from utils.visualization import visualize_data  # 导入可视化模块
 
-def fetch_data_in_bulk(session, start_time=None, end_time=None):
-    """
-    批量查询多个表的数据，减少数据库调用次数。
-    :param session: 数据库会话对象
-    :param start_time: 查询开始时间（可选）
-    :param end_time: 查询结束时间（可选）
-    :return: 包含多个表数据的DataFrame
-    """
-    query = session.query(
-        models.AirTemperatureHumidity.timestamp.label('timestamp'),
-        models.AirTemperatureHumidity.temperature,
-        models.AirTemperatureHumidity.humidity,
-        models.SoilMoisture.value.label('soil_moisture'),
-        models.SoilNutrient.value.label('soil_nutrient'),
-        models.LightIntensity.value.label('light_intensity')
-    ).outerjoin(
-        models.SoilMoisture, models.AirTemperatureHumidity.timestamp == models.SoilMoisture.timestamp
-    ).outerjoin(
-        models.SoilNutrient, models.AirTemperatureHumidity.timestamp == models.SoilNutrient.timestamp
-    ).outerjoin(
-        models.LightIntensity, models.AirTemperatureHumidity.timestamp == models.LightIntensity.timestamp
-    )
-    
-    if start_time and end_time:
-        query = query.filter(
-            models.AirTemperatureHumidity.timestamp >= start_time,
-            models.AirTemperatureHumidity.timestamp <= end_time
-        )
-    
-    data = query.order_by(models.AirTemperatureHumidity.timestamp).all()
-    df = pd.DataFrame(data, columns=[
-        'timestamp',
-        'temperature',
-        'humidity',
-        'soil_moisture',
-        'soil_nutrient',
-        'light_intensity'
-    ])
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    return df
+from utils.data_operations import fetch_data_in_bulk
 
 def fetch_latest_data(session):
     air_temp_hum = session.query(models.AirTemperatureHumidity).order_by(models.AirTemperatureHumidity.timestamp.desc()).first()
@@ -260,6 +223,18 @@ def data_cleaning():
         else:
             st.warning("未选择任何列进行删除")
 
+    # 拖拽式数据列映射功能
+    st.subheader("拖拽式数据列映射")
+    columns = data.columns.tolist()
+    reordered_columns = st.columns(len(columns))
+    for i, col in enumerate(columns):
+        with reordered_columns[i]:
+            st.write(col)
+            if st.button(f"拖拽 {col}", key=f"drag_{col}"):
+                columns.remove(col)
+                columns.insert(0, col)  # 将拖拽的列移到第一位
+    data = data[columns]  # 更新数据列顺序
+
     st.session_state['data'] = data
     st.success("数据清洗完成")
 
@@ -334,13 +309,19 @@ def data_visualization():
 
     data = st.session_state['data']
 
+    # 动态参数调节面板
+    st.subheader("时间范围筛选")
+    start_time = st.date_input("选择开始时间")
+    end_time = st.date_input("选择结束时间")
+    filtered_data = data[(data['timestamp'] >= pd.Timestamp(start_time)) & (data['timestamp'] <= pd.Timestamp(end_time))]
+
     # 设置统一的主题
     pio.templates.default = "plotly_white"
 
     chart_type = st.selectbox("选择图表类型", ["散点图", "线图", "柱状图", "箱线图", "直方图", "饼图", "热力图"])
 
-    numeric_columns = data.select_dtypes(include=['float64', 'int64']).columns
-    categorical_columns = data.select_dtypes(include=['object']).columns
+    numeric_columns = filtered_data.select_dtypes(include=['float64', 'int64']).columns
+    categorical_columns = filtered_data.select_dtypes(include=['object']).columns
 
     if len(numeric_columns) == 0:
         st.warning("数据集中没有数值列，无法进行可视化。")
@@ -352,7 +333,7 @@ def data_visualization():
     column = None
 
     if chart_type in ["散点图", "线图", "柱状图"]:
-        x_column = st.selectbox("选择X轴", data.columns)
+        x_column = st.selectbox("选择X轴", filtered_data.columns)
         y_column = st.selectbox("选择Y轴", numeric_columns)
         color_column = st.selectbox("选择颜色列（可选）", ["无"] + list(categorical_columns))
         if color_column == "无":
@@ -368,7 +349,7 @@ def data_visualization():
         column = st.selectbox("选择列", categorical_columns)
 
     # 使用新的可视化模块生成图表
-    fig = utils.visualization.visualize_data(data, chart_type, x_column, y_column, color_column, column)
+    fig = visualize_data(filtered_data, chart_type, x_column, y_column, color_column, column)
 
     # 创建小图用于UI展示
     fig_small = go.Figure(fig)
@@ -545,31 +526,18 @@ def data_backup():
     end_time = st.date_input("选择结束时间")
 
     if st.button("执行备份"):
-        # 调用批量查询函数
-        df = fetch_data_in_bulk(session, start_time, end_time)
+        # 调用 utils/backup.py 中的备份函数
+        zip_buffer = backup_data(session, start_time, end_time)
 
-        # 将数据导出为SQL文件
-        sql_file = io.StringIO()
-        for _, row in df.iterrows():
-            sql_file.write(f"INSERT INTO intelligent_farm_airtemperaturehumidity (temperature, humidity, timestamp) VALUES ({row['temperature']}, {row['humidity']}, '{row['timestamp']}');\n")
-            sql_file.write(f"INSERT INTO intelligent_farm_soilmoisture (value, timestamp) VALUES ({row['soil_moisture']}, '{row['timestamp']}');\n")
-            sql_file.write(f"INSERT INTO intelligent_farm_soilnutrient (value, timestamp) VALUES ({row['soil_nutrient']}, '{row['timestamp']}');\n")
-            sql_file.write(f"INSERT INTO intelligent_farm_light_intensity (value, timestamp) VALUES ({row['light_intensity']}, '{row['timestamp']}');\n")
-            sql_file.write(f"\n")
-        sql_file.seek(0)
-
-        # 将StringIO对象转换为字节流
-        sql_bytes = sql_file.getvalue().encode('utf-8')
-
-        # 提供下载链接
+        # 提供下载链接（修改为下载压缩文件）
         st.download_button(
-            label="下载SQL文件",
-            data=sql_bytes,
-            file_name='backup.sql',
-            mime='application/sql',
+            label="下载备份文件",
+            data=zip_buffer,
+            file_name='backup.zip',
+            mime='application/zip',
         )
 
-        st.success("数据已备份")
+        st.success("数据已备份并加密")
 
 def data_restore():
     if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
@@ -577,26 +545,21 @@ def data_restore():
         return
 
     st.title("数据恢复")
-    uploaded_file = st.file_uploader("选择备份文件", type=["sql"])
-    if uploaded_file is not None:
+
+    # 修改: 增加SQL文件和密钥文件上传功能
+    uploaded_sql_file = st.file_uploader("选择加密的SQL备份文件", type=["encrypted"])
+    uploaded_key_file = st.file_uploader("选择密钥文件", type=["txt"])
+
+    if uploaded_sql_file is not None and uploaded_key_file is not None:
         if st.button("恢复数据"):
-            # 读取上传的SQL文件内容
-            sql_script = uploaded_file.read().decode('utf-8')
-            
-            # 将SQL脚本拆分为单个SQL语句
-            sql_statements = sql_script.split(';')
-            
-            # 执行SQL脚本
             try:
-                with engine.connect() as connection:
-                    for statement in sql_statements:
-                        statement = statement.strip()
-                        if statement:  # 确保语句不为空
-                            # 检查并处理nan值
-                            if 'nan' in statement:
-                                # 删除包含nan的语句
-                                continue
-                            connection.execute(sqlalchemy.text(statement))
+                # 读取密钥文件内容
+                key = uploaded_key_file.read().decode('utf-8').strip()
+                if not key:
+                    raise ValueError("密钥文件为空或无效")
+
+                # 调用 utils/backup.py 中的恢复函数
+                restore_data(uploaded_sql_file, key)
                 st.success("数据已恢复")
             except Exception as e:
                 st.error(f"恢复数据时出错: {e}")
@@ -609,16 +572,11 @@ def data_prediction():
     st.title("数据预测")
 
     # 选择预测的数据类型
-    data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度", "光照强度"])  # 新增光照强度选项
-
-    # 选择预测模型
-    model_type = st.selectbox("选择预测模型", ["ARIMA", "SARIMA"])  # 添加模型选择
-
-    # 设置预测的时间范围
+    data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度", "光照强度"])
+    model_type = st.selectbox("选择预测模型", ["ARIMA", "SARIMA"])
     prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
 
     if st.button("开始预测"):
-        # 添加进度条
         progress_bar = st.progress(0)
         st.write("预测进度: 数据准备中...")
 
@@ -629,44 +587,26 @@ def data_prediction():
             query = session.query(models.AirTemperatureHumidity.timestamp, models.AirTemperatureHumidity.humidity).order_by(models.AirTemperatureHumidity.timestamp)
         elif data_type == "土壤湿度":
             query = session.query(models.SoilMoisture.timestamp, models.SoilMoisture.value).order_by(models.SoilMoisture.timestamp)
-        elif data_type == "光照强度":  # 新增光照强度查询分支
+        elif data_type == "光照强度":
             query = session.query(models.LightIntensity.timestamp, models.LightIntensity.value).order_by(models.LightIntensity.timestamp)
 
         data = query.all()
-        df = pd.DataFrame(data, columns=['timestamp', 'value'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df.set_index('timestamp', inplace=True)
 
         # 更新进度条
         progress_bar.progress(33)
         st.write("预测进度: 模型训练中...")
 
-        # 使用选择的模型进行预测
-        if model_type == "ARIMA":
-            from statsmodels.tsa.arima.model import ARIMA
-            model = ARIMA(df['value'], order=(5,1,0))
-        elif model_type == "SARIMA":
-            from statsmodels.tsa.statespace.sarimax import SARIMAX
-            model = SARIMAX(df['value'], order=(5,1,0), seasonal_order=(1,1,1,12))  # 示例季节性参数
-
-        model_fit = model.fit()
-        forecast = model_fit.forecast(steps=prediction_days)
-
-        # 更新进度条
-        progress_bar.progress(66)
-        st.write("预测进度: 结果生成中...")
+        # 调用预测模块
+        historical_data, forecast_data = perform_prediction(data, model_type, prediction_days)
 
         # 生成预测结果图表
-        forecast_dates = pd.date_range(start=df.index[-1], periods=prediction_days+1, freq='D')[1:]
-        forecast_df = pd.DataFrame({'timestamp': forecast_dates, 'value': forecast})
-
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=df.index, y=df['value'], mode='lines', name='历史数据'))
-        fig.add_trace(go.Scatter(x=forecast_df['timestamp'], y=forecast_df['value'], mode='lines', name='预测数据'))
+        fig.add_trace(go.Scatter(x=historical_data.index, y=historical_data['value'], mode='lines', name='历史数据'))
+        fig.add_trace(go.Scatter(x=forecast_data['timestamp'], y=forecast_data['value'], mode='lines', name='预测数据'))
         fig.update_layout(
-            title=f"{data_type} 预测结果",  # 自动适配新数据类型名称
+            title=f"{data_type} 预测结果",
             xaxis_title="时间",
-            yaxis_title="值",
+            yaxis_title="값",
             legend_title="数据类型"
         )
         st.plotly_chart(fig, use_container_width=True)
@@ -812,9 +752,15 @@ def main():
         elif selected == "实时数据预览":
             data_preview()
         elif selected == "用户管理":
-            user_management()
+            if st.session_state.get('role') == 'admin':
+                user_management()
+            else:
+                st.error("您没有权限访问此功能")
         elif selected == "系统监控":
-            system_monitoring()
+            if st.session_state.get('role') == 'admin':
+                system_monitoring()
+            else:
+                st.error("您没有权限访问此功能")
         elif selected == "数据备份":
             data_backup()
         elif selected == "数据恢复":
