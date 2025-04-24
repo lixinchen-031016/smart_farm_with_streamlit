@@ -30,10 +30,6 @@ from dotenv import load_dotenv
 
 # 添加: 加载环境变量
 load_dotenv()
-# engine = create_engine(os.getenv('DATABASE_URL'))
-# Session = sessionmaker(bind=engine)
-# session = Session()
-
 # 添加: 引入新的数据库模块
 from utils.database import get_session
 
