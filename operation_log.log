@@ -1,3 +1,7 @@
 2025-04-24 10:54:20 - INFO - User: lixinchen, Action: 数据备份, Details: 时间范围: 2022-04-01 - 2025-04-24
 2025-04-24 11:02:24 - INFO - User: lixinchen, Action: 数据备份, Details: 时间范围: 2023-04-01 - 2025-04-24
 2025-04-24 11:03:28 - INFO - User: lixinchen, Action: 数据恢复, Details: 文件名: backup.sql.encrypted
+2025-04-24 11:35:02 - INFO - User: lixinchen, Action: 用户登录, Details: 用户 lixinchen 成功登录
+2025-04-24 11:51:37 - INFO - User: lixinchen, Action: 编辑用户, Details: 编辑用户 user2
+2025-04-24 11:52:01 - INFO - User: lixinchen, Action: 修改用户密码, Details: 修改用户 user2 的密码
+2025-04-24 11:52:01 - INFO - User: lixinchen, Action: 修改用户密码, Details: 修改用户 user2 的密码

@@ -10,7 +10,6 @@ import plotly
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
-import psutil
 import sqlalchemy
 import streamlit as st
 from openai import OpenAI  # 添加: 引入OpenAI库
@@ -20,6 +19,8 @@ from streamlit_option_menu import option_menu
 
 import models
 from utils.backup import restore_data, backup_data
+from utils.logger import log_operation
+import utils.system_monitoring
 
 # 创建基类
 Base = sqlalchemy.orm.declarative_base()
@@ -440,18 +441,20 @@ def user_management():
 
     # 添加用户
     st.header("添加用户")
-    new_username = st.text_input("新用户名", key="new_username")  # 添加: 唯一key
-    new_password = st.text_input("新密码", type="password", key="new_password")  # 添加: 唯一key
-    new_role = st.selectbox("角色", ["user", "admin"])
+    new_username = st.text_input("新用户名", key="new_username")
+    new_password = st.text_input("新密码", type="password", key="new_password")
+    new_role = st.selectbox("角色", ["user", "admin"], key="new_role")
     if st.button("添加用户"):
         existing_user = session.query(models.User).filter_by(username=new_username).first()
         if existing_user:
             st.error("用户名已存在")
         else:
             hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
-            new_user = models.User(username=new_username, password=hashed_password.decode('utf-8'), last_login_time=datetime.now(), role=new_role)
+            new_user = models.User(username=new_username, password=hashed_password.decode('utf-8'),
+                                   last_login_time=datetime.now(), role=new_role)
             session.add(new_user)
             session.commit()
+            log_operation(st.session_state['username'], "添加用户", f"添加用户 {new_username}")
             st.success("用户添加成功")
 
     # 用户列表
@@ -462,20 +465,18 @@ def user_management():
     st.dataframe(df)
 
     # 编辑和删除用户
-    user_id = st.number_input("输入要编辑或删除的用户ID", min_value=1, step=1, key="user_id")  # 添加: 唯一key
-    action = st.selectbox("选择操作", ["编辑", "删除"])
+    user_id = st.number_input("输入要编辑或删除的用户ID", min_value=1, step=1, key="user_id")
+    action = st.selectbox("选择操作", ["编辑", "删除"], key="action_selectbox")
     if action == "编辑":
         user = session.query(models.User).filter_by(id=user_id).first()
         if user:
-            new_username = st.text_input("新用户名", value=user.username, key="edit_username")  # 添加: 唯一key
-            new_password = st.text_input("新密码", type="password", key="edit_password")  # 添加: 唯一key
-            new_role = st.selectbox("角色", ["uesr", "admin"], index=["user", "admin"].index(user.role))
+            new_username = st.text_input("新用户名", value=user.username, key="edit_username")
+            new_role = st.selectbox("角色", ["user", "admin"], index=["user", "admin"].index(user.role), key="edit_role_selectbox")
             if st.button("保存更改"):
                 user.username = new_username
-                if new_password:
-                    user.password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
                 user.role = new_role
                 session.commit()
+                log_operation(st.session_state['username'], "编辑用户", f"编辑用户 {user.username}")
                 st.success("用户信息已更新")
         else:
             st.error("用户不存在")
@@ -485,33 +486,33 @@ def user_management():
             if user:
                 session.delete(user)
                 session.commit()
+                log_operation(st.session_state['username'], "删除用户", f"删除用户 {user.username}")
                 st.success("用户已删除")
             else:
                 st.error("用户不存在")
 
+    # 新增: 修改用户密码功能
+    st.header("修改用户密码")
+    password_user_id = st.number_input("输入要修改密码的用户ID", min_value=1, step=1, key="password_user_id")
+    new_password = st.text_input("新密码", type="password", key="password_new_password")
+    confirm_password = st.text_input("确认新密码", type="password", key="password_confirm_password")
+    if st.button("修改密码"):
+        user = session.query(models.User).filter_by(id=password_user_id).first()
+        if user:
+            if new_password != confirm_password:
+                st.error("两次输入的密码不一致")
+            else:
+                hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+                user.password = hashed_password.decode('utf-8')
+                session.commit()
+                log_operation(st.session_state['username'], "修改用户密码",
+                              f"修改用户 {user.username} 的密码")
+                st.success("密码修改成功")
+        else:
+            st.error("用户不存在")
+
 def system_monitoring():
-    if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
-        st.experimental_set_query_params(page="login")
-        return
-
-    st.title("系统监控")
-    st.write("服务器资源使用情况：")
-
-    # 获取CPU使用情况
-    cpu_usage = psutil.cpu_percent(interval=1)
-    st.write(f"CPU 使用率: {cpu_usage}%")
-
-    # 获取内存使用情况
-    memory = psutil.virtual_memory()
-    st.write(f"内存使用率: {memory.percent}%")
-    st.write(f"已用内存: {memory.used / (1024 ** 3):.2f} GB")
-    st.write(f"可用内存: {memory.available / (1024 ** 3):.2f} GB")
-
-    # 获取磁盘使用情况
-    disk = psutil.disk_usage('/')
-    st.write(f"磁盘使用率: {disk.percent}%")
-    st.write(f"已用磁盘空间: {disk.used / (1024 ** 3):.2f} GB")
-    st.write(f"可用磁盘空间: {disk.free / (1024 ** 3):.2f} GB")
+    utils.system_monitoring.system_monitoring()
 
 
 def data_backup():

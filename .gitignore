@@ -1,1 +1,17 @@
 .env
+operation_log.log
+.idea/
+.idea/workspace.xml
+.idea/php.xml
+.idea/vcs.xml
+.idea/dataSources.xml
+.idea/dataSources.local.xml
+.idea/dataSources.xml
+.idea/dataSources.local.xml
+.idea/phpunit.xml
+.idea/phpunit.xml.dist
+.idea/workspace.xml
+.idea/vcs.xml
+.idea/dataSources.xml
+.idea/dataSources.local.xml
+.idea/dataSources.xml
