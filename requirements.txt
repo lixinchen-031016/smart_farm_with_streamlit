@@ -69,6 +69,5 @@ psutil~=7.0.0
 openai~=1.75.0
 pyarrow
 sqlalchemy~=2.0.40
-
 dotenv~=0.9.9
 python-dotenv~=1.1.0
