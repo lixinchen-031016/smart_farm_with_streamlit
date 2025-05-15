@@ -6,3 +6,26 @@
 2025-04-24 11:52:01 - INFO - User: lixinchen, Action: 修改用户密码, Details: 修改用户 user2 的密码
 2025-04-24 11:52:01 - INFO - User: lixinchen, Action: 修改用户密码, Details: 修改用户 user2 的密码
 2025-04-24 14:28:54 - INFO - User: lixinchen, Action: 用户登录, Details: 用户 lixinchen 成功登录
+2025-05-06 15:54:54 - INFO - User: lixinchen, Action: 用户登录, Details: 用户 lixinchen 成功登录
+2025-05-06 15:59:40 - INFO - User: lixinchen, Action: 数据备份, Details: 时间范围: 2022-05-01 - 2025-05-06
+2025-05-06 16:00:25 - INFO - User: lixinchen, Action: 数据恢复, Details: 文件名: backup.sql.encrypted
+2025-05-07 14:51:21 - INFO - User: lixinchen, Action: 用户登录, Details: 用户 lixinchen 成功登录
+2025-05-07 14:58:44 - INFO - User: lixinchen, Action: 数据备份, Details: 时间范围: 2022-05-01 - 2025-05-07
+2025-05-07 15:02:34 - INFO - User: lixinchen, Action: 数据恢复, Details: 文件名: backup.sql.encrypted
+2025-05-15 17:10:56 - INFO - User: lixinchen, Action: 用户登录, Details: 用户 lixinchen 成功登录
+2025-05-15 17:13:13 - INFO - User: , Action: 用户注册, Details: 用户  注册成功
+2025-05-15 17:13:20 - INFO - User: , Action: 用户登录, Details: 用户  成功登录
+2025-05-15 17:13:31 - INFO - User: , Action: 用户登录, Details: 用户  成功登录
+2025-05-15 17:14:01 - INFO - User: user1, Action: 用户注册, Details: 用户 user1 注册成功
+2025-05-15 17:14:29 - INFO - User: user1, Action: 用户登录, Details: 用户 user1 成功登录
+2025-05-15 17:25:01 - INFO - User: user1, Action: 用户登录, Details: 用户 user1 成功登录
+2025-05-15 17:29:14 - INFO - User: user1, Action: 用户登录, Details: 用户 user1 成功登录
+2025-05-15 17:36:42 - INFO - User: lixinchen, Action: 用户登录, Details: 用户 lixinchen 成功登录
+2025-05-15 17:55:17 - INFO - User: lixinchen, Action: 用户登录, Details: 用户 lixinchen 成功登录
+2025-05-15 18:00:45 - INFO - User: lixinchen, Action: 用户登录, Details: 用户 lixinchen 成功登录
+2025-05-15 18:03:51 - INFO - User: lixinchen, Action: 用户登录, Details: 用户 lixinchen 成功登录
+2025-05-15 18:04:53 - INFO - User: lixinchen, Action: 删除用户, Details: 删除用户 
+2025-05-15 18:13:48 - INFO - User: lixinchen, Action: 用户登录, Details: 用户 lixinchen 成功登录
+2025-05-15 18:14:41 - INFO - User: user1, Action: 用户登录, Details: 用户 user1 成功登录
+2025-05-15 19:10:25 - INFO - User: 123, Action: 用户注册, Details: 用户 123 注册成功
+2025-05-15 19:10:41 - INFO - User: 123, Action: 用户登录, Details: 用户 123 成功登录
