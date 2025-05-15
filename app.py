@@ -67,11 +67,8 @@ def fetch_latest_data(session):
 
 # 函数：数据预览
 def data_preview():
-    """
-    显示实时数据预览页面，展示最新的环境数据
-    """
     if not st.session_state.get('logged_in'):
-        st.experimental_set_query_params(page="login")
+        st.query_params.page = "login"
         return
 
     st.title("智能农场数据监控")
@@ -122,11 +119,8 @@ def read_file(uploaded_file):
 
 # 函数：数据概览
 def data_overview():
-    """
-    显示数据概览页面，允许用户从数据库读取或上传数据文件
-    """
     if not st.session_state.get('logged_in'):
-        st.experimental_set_query_params(page="login")
+        st.query_params.page = "login"
         return
 
     st.title("数据概览")
@@ -203,7 +197,7 @@ def data_cleaning():
     显示数据清洗页面，提供删除重复行、处理缺失值和删除列的功能
     """
     if not st.session_state.get('logged_in'):
-        st.experimental_set_query_params(page="login")
+        st.query_params.page = "login"
         return
 
     st.title("数据清洗")
@@ -305,7 +299,7 @@ def data_analysis():
     显示数据分析页面，提供描述性统计和相关性分析功能
     """
     if not st.session_state.get('logged_in'):
-        st.experimental_set_query_params(page="login")
+        st.query_params.page = "login"
         return
 
     st.title("数据分析")
@@ -336,7 +330,7 @@ def data_visualization():
     显示数据可视化页面，允许用户创建各种图表
     """
     if not st.session_state.get('logged_in'):
-        st.experimental_set_query_params(page="login")
+        st.query_params.page = "login"
         return
 
     st.title("数据可视化")
@@ -419,7 +413,7 @@ def advanced_analysis():
     显示高级分析页面，提供数据分组和聚合功能
     """
     if not st.session_state.get('logged_in'):
-        st.experimental_set_query_params(page="login")
+        st.query_params.page = "login"
         return
 
     st.title("高级分析")
@@ -455,10 +449,6 @@ def show_instructions():
     """
     显示使用说明页面
     """
-    if not st.session_state.get('logged_in'):
-        st.experimental_set_query_params(page="login")
-        return
-
     st.title("使用说明")
     st.markdown("""
     ### 基础功能：
@@ -484,7 +474,7 @@ def user_management():
     显示用户管理页面，允许管理员添加、编辑和删除用户
     """
     if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
-        st.experimental_set_query_params(page="login")
+        st.query_params.page = "login"
         return
 
     st.title("用户管理")
@@ -577,7 +567,7 @@ def data_backup():
     显示数据备份页面，允许管理员按时间范围备份数据
     """
     if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
-        st.experimental_set_query_params(page="login")
+        st.query_params.page = "login"
         return
 
     st.title("数据备份")
@@ -607,7 +597,7 @@ def data_restore():
     显示数据恢复页面，允许管理员恢复备份的数据
     """
     if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
-        st.experimental_set_query_params(page="login")
+        st.query_params.page = "login"
         return
 
     st.title("数据恢复")
@@ -637,7 +627,7 @@ def data_prediction():
     显示数据预测页面，允许用户进行本地数据预测
     """
     if not st.session_state.get('logged_in'):
-        st.experimental_set_query_params(page="login")
+        st.query_params.page = "login"
         return
 
     st.title("数据预测")
@@ -802,30 +792,97 @@ def main():
     if 'logged_in' not in st.session_state:
         st.session_state['logged_in'] = False
 
-    params = st.experimental_get_query_params()
+    params = st.query_params.to_dict()
     page = params.get("page", ["login"])[0]
 
+    # 优化登录态处理逻辑
+    if page in ["login", "register"] and st.session_state['logged_in']:
+        if st.session_state['role'] == 'admin':
+            st.query_params.page = "user_management"
+        else:
+            st.query_params.page = "data_preview"
+        st.rerun()
+
     if page == "login":
-        login(session, st)  # 调用分离后的登录函数
+        login(session, st)
     elif page == "register":
-        register(session, st)  # 调用分离后的注册函数
+        register(session, st)
     else:
         with st.sidebar:
-            options = ["实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化", "高级分析", "本地数据预测",
-                       "AI数据处理", "使用说明"]
+            # 新增：状态指示器
+            if 'data' in st.session_state:
+                st.success("✅ 已加载数据集")
+            else:
+                st.warning("⚠️ 未检测到数据")
+                
+            # 新增：快捷操作面板
+            with st.expander("⚡ 快捷操作", expanded=True):
+                if st.button("🔄 重置会话"):
+                    st.session_state.clear()
+                    st.rerun()  # 刷新页面以反映状态变化
+            
+            # 重构导航菜单
+            # 修改主菜单选项逻辑，仅管理员可见系统设置
+            main_menu_options = ["数据管理", "分析建模"]
+            main_menu_icons = ["database", "bar-chart-line"]
             if st.session_state.get('role') == 'admin':
-                options.extend(["用户管理", "系统监控", "数据备份", "数据恢复"])
-            selected = option_menu(
-                menu_title="主菜单",
-                options=options,
-                icons=["table", "tools", "bar-chart", "graph-up", "gear-fill", "question-circle", "person-check", "cpu",
-                       "cloud-upload", "cloud-upload", "save", "table"],  # 修改: 调整icons顺序
+                main_menu_options.append("系统设置")
+                main_menu_icons.append("gear")
+                
+            menu_level1 = option_menu(
+                None, 
+                main_menu_options, 
+                icons=main_menu_icons,
                 menu_icon="cast",
                 default_index=0,
+                key="main_menu"
             )
+            
+            # 动态生成二级菜单
+            if menu_level1 == "数据管理":
+                selected = option_menu(
+                    None, 
+                    ["数据概览", "数据清洗", "实时数据预览"], 
+                    icons=["table", "brush", "speedometer"],
+                    menu_icon="cast",
+                    default_index=0,
+                    key="data_menu"
+                )
+            elif menu_level1 == "分析建模":
+                selected = option_menu(
+                    None, 
+                    ["数据分析", "可视化", "高级分析", "AI数据分析", "本地数据预测"], 
+                    icons=["bar-chart", "graph-up", "gear-fill", "cpu", "robot"],
+                    menu_icon="cast",
+                    default_index=0,
+                    key="analysis_menu"
+                )
+            elif menu_level1 == "系统设置":
+                # 管理员专属菜单
+                base_options = ["性能监控", "使用说明"]
+                base_icons = ["speedometer", "question-circle"]
+                
+                if st.session_state.get('role') == 'admin':
+                    base_options.extend(["用户管理", "系统监控", "数据备份", "数据恢复"])
+                    base_icons.extend(["person-check", "cpu", "cloud-upload", "save"])
+                    
+                selected = option_menu(
+                    None, 
+                    base_options,
+                    icons=base_icons,
+                    menu_icon="cast",
+                    default_index=0,
+                    key="system_menu"
+                )
+            else:
+                selected = None
 
-        # 主内容区
-        if selected == "数据概览":
+        # 主内容区路由
+        if selected == "性能监控":
+            system_monitoring()
+        elif selected == "本地数据预测":
+            data_prediction()
+        elif selected == "数据概览":
             data_overview()
         elif selected == "数据清洗":
             data_cleaning()
@@ -835,28 +892,23 @@ def main():
             data_visualization()
         elif selected == "高级分析":
             advanced_analysis()
+        elif selected == "AI数据分析":
+            ai_data_analysis_and_prediction()
         elif selected == "使用说明":
             show_instructions()
-        elif selected == "实时数据预览":
-            data_preview()
         elif selected == "用户管理":
             if st.session_state.get('role') == 'admin':
                 user_management()
             else:
                 st.error("您没有权限访问此功能")
         elif selected == "系统监控":
-            if st.session_state.get('role') == 'admin':
-                system_monitoring()
-            else:
-                st.error("您没有权限访问此功能")
+            system_monitoring()
         elif selected == "数据备份":
             data_backup()
         elif selected == "数据恢复":
             data_restore()
-        elif selected == "本地数据预测":
-            data_prediction()
-        elif selected == "AI数据处理":  # 添加AI数据分析及预测页面
-            ai_data_analysis_and_prediction()
+        elif selected == "实时数据预览":
+            data_preview()
 
 
 if __name__ == '__main__':

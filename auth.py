@@ -27,14 +27,14 @@ def login(session, st):
             session.commit()
             log_operation(username, "用户登录", f"用户 {username} 成功登录")  # 添加: 记录登录日志
             if user.role == 'admin':
-                st.experimental_set_query_params(page="user_management")
+                st.query_params.page = "user_management"
             else:
-                st.experimental_set_query_params(page="data_preview")
+                st.query_params.page = "data_preview"
         else:
             st.error("用户名或密码错误")
 
     if st.button("注册"):
-        st.experimental_set_query_params(page="register")
+        st.query_params.page = "register"
 
 
 def register(session, st):
@@ -57,4 +57,4 @@ def register(session, st):
                 session.commit()
                 log_operation(username, "用户注册", f"用户 {username} 注册成功")  # 添加: 记录注册日志
                 st.success("注册成功，请登录")
-                st.experimental_set_query_params(page="login")
+                st.query_params.page = "login"
