@@ -29,3 +29,15 @@
 2025-05-15 18:14:41 - INFO - User: user1, Action: 用户登录, Details: 用户 user1 成功登录
 2025-05-15 19:10:25 - INFO - User: 123, Action: 用户注册, Details: 用户 123 注册成功
 2025-05-15 19:10:41 - INFO - User: 123, Action: 用户登录, Details: 用户 123 成功登录
+2025-05-15 19:30:31 - INFO - User: lixinchen, Action: 用户登录, Details: 用户 lixinchen 成功登录
+2025-05-15 19:30:35 - INFO - User: lixinchen, Action: 数据预览-更新数据, Details: 获取时间: 2025-02-11 00:27:09 温度: 21.94 湿度: 44.22
+2025-05-15 19:31:09 - INFO - User: lixinchen, Action: 数据概览-数据库读取, Details: 时间范围: 2022-05-01至2025-05-15 获取3586条记录
+2025-05-15 19:31:22 - INFO - User: lixinchen, Action: 数据清洗-删除重复行, Details: 删除2957行 剩余629行
+2025-05-15 19:31:52 - INFO - User: lixinchen, Action: 数据分析-描述性统计, Details: 数据集维度: (629, 6)
+2025-05-15 19:34:24 - INFO - User: lixinchen, Action: 数据分析-描述性统计, Details: 数据集维度: (629, 6)
+2025-05-15 19:34:29 - INFO - User: lixinchen, Action: 数据分析-描述性统计, Details: 数据集维度: (629, 6)
+2025-05-15 19:34:36 - INFO - User: lixinchen, Action: 高级分析-分组聚合, Details: 分组列: timestamp 聚合列: temperature 函数: 平均值
+2025-05-15 19:38:54 - INFO - User: lixinchen, Action: 数据可视化-图表导出, Details: 图表类型: 散点图 文件名: chart.json
+2025-05-15 19:38:55 - INFO - User: lixinchen, Action: 数据分析-描述性统计, Details: 数据集维度: (629, 6)
+2025-05-15 19:39:08 - INFO - User: lixinchen, Action: 数据预览-更新数据, Details: 获取时间: 2025-02-11 00:27:09 温度: 21.94 湿度: 44.22
+2025-05-15 19:40:29 - INFO - User: lixinchen, Action: 数据预览-更新数据, Details: 获取时间: 2025-02-11 00:27:09 温度: 21.94 湿度: 44.22 土壤湿度: 51.17 土壤营养含量: 3.22 光照强度: 51.17
