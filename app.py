@@ -5,6 +5,7 @@ from datetime import datetime
 from io import BytesIO
 
 import bcrypt  # 添加: 引入bcrypt库
+import jwt
 import pandas as pd
 import plotly
 import plotly.express as px
@@ -789,11 +790,30 @@ def main():
     """
     应用的主函数，负责页面路由和功能调用
     """
+    # 新增：自动登录逻辑
+    if 'jwt_token' in st.query_params:
+        try:
+            token = st.query_params['jwt_token']
+            decoded = jwt.decode(token, os.getenv("SECRET_KEY"), algorithms=["HS256"])
+            if decoded['exp'] > datetime.now().timestamp():
+                st.session_state['logged_in'] = True
+                st.session_state['username'] = decoded['username']
+                st.session_state['role'] = decoded['role']
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            st.query_params.clear()  # 新API清除无效token
+
+    # 修改后的登录状态检查逻辑
     if 'logged_in' not in st.session_state:
         st.session_state['logged_in'] = False
 
-    params = st.query_params.to_dict()
-    page = params.get("page", ["login"])[0]
+    # 新增：退出登录逻辑
+    if st.session_state.get('logout_clicked'):
+        st.query_params.clear()  # 新API清除所有参数
+        st.session_state.clear()
+        st.rerun()
+
+    # 修改: 使用新API获取页面参数
+    page = st.query_params.get("page", "login")
 
     # 优化登录态处理逻辑
     if page in ["login", "register"] and st.session_state['logged_in']:
@@ -803,113 +823,75 @@ def main():
             st.query_params.page = "data_preview"
         st.rerun()
 
+    # 新增：统一路由处理逻辑
     if page == "login":
         login(session, st)
     elif page == "register":
         register(session, st)
     else:
+        # 重构侧边栏菜单逻辑
         with st.sidebar:
-            # 新增：状态指示器
-            if 'data' in st.session_state:
-                st.success("✅ 已加载数据集")
-            else:
-                st.warning("⚠️ 未检测到数据")
-                
-            # 新增：快捷操作面板
-            with st.expander("⚡ 快捷操作", expanded=True):
-                if st.button("🔄 重置会话"):
-                    st.session_state.clear()
-                    st.rerun()  # 刷新页面以反映状态变化
-            
-            # 重构导航菜单
-            # 修改主菜单选项逻辑，仅管理员可见系统设置
-            main_menu_options = ["数据管理", "分析建模"]
-            main_menu_icons = ["database", "bar-chart-line"]
+            # 新增：根据当前页面自动选中对应菜单项
+            page_to_menu_mapping = {
+                "data_preview": "实时数据预览",
+                "data_overview": "数据概览",
+                "data_cleaning": "数据清洗",
+                "data_analysis": "数据分析",
+                "data_visualization": "可视化",
+                "advanced_analysis": "高级分析",
+                "ai_data_analysis": "AI数据分析",
+                "data_prediction": "本地数据预测",
+                "user_management": "用户管理",
+                "system_monitoring": "系统监控",
+                "data_backup": "数据备份",
+                "data_restore": "数据恢复"
+            }
+            selected = page_to_menu_mapping.get(page, "数据概览")
+
+            # 修改后的菜单配置逻辑
             if st.session_state.get('role') == 'admin':
-                main_menu_options.append("系统设置")
-                main_menu_icons.append("gear")
-                
-            menu_level1 = option_menu(
-                None, 
-                main_menu_options, 
-                icons=main_menu_icons,
-                menu_icon="cast",
-                default_index=0,
+                menu_options = [
+                    "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
+                    "高级分析", "AI数据分析", "本地数据预测", "用户管理",
+                    "系统监控", "数据备份", "数据恢复"
+                ]
+            else:
+                menu_options = [
+                    "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
+                    "高级分析", "AI数据分析", "本地数据预测"
+                ]
+
+            selected = option_menu(
+                menu_title=None,
+                options=menu_options,
+                icons=["speedometer", "table", "brush", "bar-chart", "graph-up",
+                       "gear", "cpu", "robot", "person-check", "cloud-upload",
+                       "save", "arrow-counterclockwise"],
+                default_index=menu_options.index(selected) if selected in menu_options else 0,
                 key="main_menu"
             )
-            
-            # 动态生成二级菜单
-            if menu_level1 == "数据管理":
-                selected = option_menu(
-                    None, 
-                    ["数据概览", "数据清洗", "实时数据预览"], 
-                    icons=["table", "brush", "speedometer"],
-                    menu_icon="cast",
-                    default_index=0,
-                    key="data_menu"
-                )
-            elif menu_level1 == "分析建模":
-                selected = option_menu(
-                    None, 
-                    ["数据分析", "可视化", "高级分析", "AI数据分析", "本地数据预测"], 
-                    icons=["bar-chart", "graph-up", "gear-fill", "cpu", "robot"],
-                    menu_icon="cast",
-                    default_index=0,
-                    key="analysis_menu"
-                )
-            elif menu_level1 == "系统设置":
-                # 管理员专属菜单
-                base_options = ["性能监控", "使用说明"]
-                base_icons = ["speedometer", "question-circle"]
-                
-                if st.session_state.get('role') == 'admin':
-                    base_options.extend(["用户管理", "系统监控", "数据备份", "数据恢复"])
-                    base_icons.extend(["person-check", "cpu", "cloud-upload", "save"])
-                    
-                selected = option_menu(
-                    None, 
-                    base_options,
-                    icons=base_icons,
-                    menu_icon="cast",
-                    default_index=0,
-                    key="system_menu"
-                )
-            else:
-                selected = None
 
-        # 主内容区路由
-        if selected == "性能监控":
-            system_monitoring()
-        elif selected == "本地数据预测":
-            data_prediction()
-        elif selected == "数据概览":
-            data_overview()
-        elif selected == "数据清洗":
-            data_cleaning()
-        elif selected == "数据分析":
-            data_analysis()
-        elif selected == "可视化":
-            data_visualization()
-        elif selected == "高级分析":
-            advanced_analysis()
-        elif selected == "AI数据分析":
-            ai_data_analysis_and_prediction()
-        elif selected == "使用说明":
-            show_instructions()
-        elif selected == "用户管理":
-            if st.session_state.get('role') == 'admin':
-                user_management()
-            else:
-                st.error("您没有权限访问此功能")
-        elif selected == "系统监控":
-            system_monitoring()
-        elif selected == "数据备份":
-            data_backup()
-        elif selected == "数据恢复":
-            data_restore()
-        elif selected == "实时数据预览":
-            data_preview()
+        # 统一路由映射
+        route_mapping = {
+            "实时数据预览": data_preview,
+            "数据概览": data_overview,
+            "数据清洗": data_cleaning,
+            "数据分析": data_analysis,
+            "可视化": data_visualization,
+            "高级分析": advanced_analysis,
+            "AI数据分析": ai_data_analysis_and_prediction,
+            "本地数据预测": data_prediction,
+            "用户管理": user_management,
+            "系统监控": system_monitoring,
+            "数据备份": data_backup,
+            "数据恢复": data_restore
+        }
 
+        # 执行路由跳转
+        if selected in route_mapping:
+            route_mapping[selected]()
+        else:
+            st.error("无效的页面配置")
 
 if __name__ == '__main__':
     main()
