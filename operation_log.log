@@ -41,3 +41,24 @@
 2025-05-15 19:38:55 - INFO - User: lixinchen, Action: 数据分析-描述性统计, Details: 数据集维度: (629, 6)
 2025-05-15 19:39:08 - INFO - User: lixinchen, Action: 数据预览-更新数据, Details: 获取时间: 2025-02-11 00:27:09 温度: 21.94 湿度: 44.22
 2025-05-15 19:40:29 - INFO - User: lixinchen, Action: 数据预览-更新数据, Details: 获取时间: 2025-02-11 00:27:09 温度: 21.94 湿度: 44.22 土壤湿度: 51.17 土壤营养含量: 3.22 光照强度: 51.17
+2025-05-19 20:05:02 - INFO - User: lixinchen, Action: 用户登录, Details: 用户 lixinchen 成功登录
+2025-05-19 20:05:06 - INFO - User: lixinchen, Action: 数据预览-更新数据, Details: 获取时间: 2025-02-11 00:27:09 温度: 21.94 湿度: 44.22 土壤湿度: 51.17 土壤营养含量: 3.22 光照强度: 51.17
+2025-05-19 20:05:25 - INFO - User: lixinchen, Action: 数据概览-数据库读取, Details: 时间范围: 2022-05-01至2025-05-19 获取3586条记录
+2025-05-19 20:05:31 - INFO - User: lixinchen, Action: 数据分析-描述性统计, Details: 数据集维度: (3586, 6)
+2025-05-19 20:05:45 - INFO - User: lixinchen, Action: 数据预览-更新数据, Details: 获取时间: 2025-02-11 00:27:09 温度: 21.94 湿度: 44.22 土壤湿度: 51.17 土壤营养含量: 3.22 光照强度: 51.17
+2025-05-19 20:06:04 - INFO - User: lixinchen, Action: 用户登录, Details: 用户 lixinchen 成功登录
+2025-05-19 20:06:23 - INFO - User: lixinchen, Action: 添加用户, Details: 添加用户 admin
+2025-05-19 20:06:41 - INFO - User: lixinchen, Action: 添加用户, Details: 添加用户 user
+2025-05-19 20:07:08 - INFO - User: user, Action: 用户登录, Details: 用户 user 成功登录
+2025-05-19 20:07:09 - INFO - User: user, Action: 数据预览-更新数据, Details: 获取时间: 2025-02-11 00:27:09 温度: 21.94 湿度: 44.22 土壤湿度: 51.17 土壤营养含量: 3.22 光照强度: 51.17
+2025-05-19 20:07:16 - INFO - User: user, Action: 数据预测, Details: 类型: 空气温度 模型: ARIMA 天数: 7
+2025-05-26 11:26:47 - INFO - User: lixinchen, Action: 用户登录, Details: 用户 lixinchen 成功登录
+2025-05-26 11:27:29 - INFO - User: lixinchen, Action: 数据预览-更新数据, Details: 获取时间: 2025-02-11 00:27:09 温度: 21.94 湿度: 44.22 土壤湿度: 51.17 土壤营养含量: 3.22 光照强度: 51.17
+2025-05-26 11:28:15 - INFO - User: lixinchen, Action: 数据概览-数据库读取, Details: 时间范围: 2022-05-01至2025-05-26 获取3586条记录
+2025-05-26 11:28:18 - INFO - User: lixinchen, Action: 数据清洗-删除重复行, Details: 删除2957行 剩余629行
+2025-05-26 11:28:24 - INFO - User: lixinchen, Action: 数据分析-描述性统计, Details: 数据集维度: (629, 6)
+2025-05-26 11:28:27 - INFO - User: lixinchen, Action: 数据可视化-图表导出, Details: 图表类型: 散点图 文件名: chart.json
+2025-05-26 11:28:30 - INFO - User: lixinchen, Action: 数据可视化-图表导出, Details: 图表类型: 线图 文件名: chart.json
+2025-05-26 11:28:33 - INFO - User: lixinchen, Action: 数据可视化-图表导出, Details: 图表类型: 线图 文件名: chart.json
+2025-05-26 11:28:42 - INFO - User: lixinchen, Action: 高级分析-分组聚合, Details: 分组列: temperature 聚合列: humidity 函数: 平均值
+2025-05-26 11:28:52 - INFO - User: lixinchen, Action: 数据预测, Details: 类型: 空气温度 模型: ARIMA 天数: 7
