@@ -62,3 +62,15 @@
 2025-05-26 11:28:33 - INFO - User: lixinchen, Action: 数据可视化-图表导出, Details: 图表类型: 线图 文件名: chart.json
 2025-05-26 11:28:42 - INFO - User: lixinchen, Action: 高级分析-分组聚合, Details: 分组列: temperature 聚合列: humidity 函数: 平均值
 2025-05-26 11:28:52 - INFO - User: lixinchen, Action: 数据预测, Details: 类型: 空气温度 模型: ARIMA 天数: 7
+2025-05-27 22:53:07 - INFO - User: lixinchen, Action: 用户登录, Details: 用户 lixinchen 成功登录
+2025-05-27 22:53:16 - INFO - User: lixinchen, Action: 数据概览-数据库读取, Details: 时间范围: 2022-05-27至2025-05-27 获取3586条记录
+2025-05-27 22:53:38 - INFO - User: lixinchen, Action: 数据预览-更新数据, Details: 获取时间: 2025-02-11 00:27:09 温度: 21.94 湿度: 44.22 土壤湿度: 51.17 土壤营养含量: 3.22 光照强度: 51.17
+2025-05-27 22:54:17 - INFO - User: lixinchen, Action: 数据清洗-处理缺失值, Details: 列: soil_moisture 方法: 删除
+2025-05-27 22:54:44 - INFO - User: lixinchen, Action: 数据分析-描述性统计, Details: 数据集维度: (3585, 6)
+2025-05-27 22:55:50 - INFO - User: lixinchen, Action: 数据可视化-图表导出, Details: 图表类型: 散点图 文件名: chart.json
+2025-05-27 22:55:55 - INFO - User: lixinchen, Action: 数据可视化-图表导出, Details: 图表类型: 散点图 文件名: chart.json
+2025-05-27 22:56:03 - INFO - User: lixinchen, Action: 数据可视化-图表导出, Details: 图表类型: 直方图 文件名: chart.json
+2025-05-27 22:56:27 - INFO - User: lixinchen, Action: 高级分析-分组聚合, Details: 分组列: timestamp 聚合列: temperature 函数: 平均值
+2025-05-27 22:56:59 - INFO - User: lixinchen, Action: 数据预测, Details: 类型: 空气温度 模型: ARIMA 天数: 7
+2025-05-27 22:58:30 - INFO - User: lixinchen, Action: 数据备份, Details: 时间范围: 2025-05-27至2025-05-27
+2025-05-27 22:58:30 - INFO - User: lixinchen, Action: 数据备份, Details: 时间范围: 2025-05-27 - 2025-05-27
