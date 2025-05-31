@@ -72,31 +72,74 @@ def data_preview():
         st.query_params.page = "login"
         return
 
-    st.title("智能农场数据监控")
-
+    # 修改：使用全屏渐变背景和现代化布局
+    st.markdown("""
+    <style>
+    .main-header {
+        background: linear-gradient(135deg, #4CAF50 30%, #8BC34A 70%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    .metric-card {
+        background: rgba(255, 255, 255, 0.9) !important;
+        border-radius: 12px !important;
+        padding: 1.5rem !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        transition: transform 0.3s ease;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # 修改标题部分
+    st.markdown('<h1 class="main-header">🌱 智能农场数据监控中心</h1>', unsafe_allow_html=True)
+    
+    # 添加装饰性分隔线
+    st.markdown("---")
+    
     # 添加更新数据按钮
-    st.header("最新数据")
-    if st.button("更新数据"):
+    if st.button("🔄 实时更新数据", help="点击获取最新传感器数据"):
         air_temp_hum, soil_moist, soil_nutri, light_intens = fetch_latest_data(session)
         log_operation(st.session_state['username'], "数据预览-更新数据", 
                      f"获取时间: {air_temp_hum.timestamp} 温度: {air_temp_hum.temperature} 湿度: {air_temp_hum.humidity} 土壤湿度: {soil_moist.value} 土壤营养含量: {soil_nutri.value} 光照强度: {light_intens.value}")
-        st.write(f"数据获取时间: {air_temp_hum.timestamp}")
-
+        
         # 使用卡片布局展示数据
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric(label="空气温度", value=f"{air_temp_hum.temperature} °C", delta=None)
+            st.metric(label="🌡️ 空气温度", value=f"{air_temp_hum.temperature} °C",
+                      delta="正常" if 20 <= air_temp_hum.temperature <= 30 else "异常",
+                      help="适宜范围：20°C - 30°C")
         with col2:
-            st.metric(label="空气湿度", value=f"{air_temp_hum.humidity} %", delta=None)
+            st.metric(label="💧 空气湿度", value=f"{air_temp_hum.humidity} %",
+                      delta="理想" if 40 <= air_temp_hum.humidity <= 70 else "注意",
+                      help="适宜范围：40% - 70%")
         with col3:
-            st.metric(label="土壤湿度", value=f"{soil_moist.value} %", delta=None)
+            st.metric(label="🌱 土壤湿度", value=f"{soil_moist.value} %",
+                      delta="适宜" if 30 <= soil_moist.value <= 60 else "需灌溉",
+                      help="适宜范围：30% - 60%")
         with col4:
-            st.metric(label="土壤无机盐含量", value=f"{soil_nutri.value}", delta=None)
+            st.metric(label="🌱 土壤无机盐含量", value=f"{soil_nutri.value} ppm",
+                      delta="正常" if 10 <= soil_nutri.value <= 20 else "需施肥",
+                      help="适宜范围：10ppm - 20ppm")
 
         col5, col6 = st.columns(2)
         with col5:
-            st.metric(label="光照强度", value=f"{light_intens.value}", delta=None)
+            st.metric(label="☀️ 光照强度", value=f"{light_intens.value} lux",
+                      delta="充足" if light_intens.value >= 1000 else "不足",
+                      help="建议光照强度 ≥ 1000 lux")
+        with col6:
+            st.metric(label="📅 数据更新时间", 
+                     value=f"{air_temp_hum.timestamp.strftime('%Y-%m-%d %H:%M')}",
+                     help="最新传感器数据采集时间")
 
+        # 添加CSS样式美化卡片
+        style_metric_cards(background_color="#FFFFFF", border_color="#E0E0E0",
+                           border_left_color="#4CAF50", box_shadow=True)
 
 # 函数：读取文件
 def read_file(uploaded_file):
@@ -126,8 +169,23 @@ def data_overview():
         st.query_params.page = "login"
         return
 
-    st.title("数据概览")
-
+    # 修改：美化数据概览标题和布局
+    st.title("📊 数据概览")
+    
+    # 添加渐变标题样式
+    st.markdown("""
+    <style>
+    .gradient-header {
+        background: linear-gradient(45deg, #4CAF50, #8BC34A);
+        color: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    </style>
+    <h3 class="gradient-header">数据来源选择</h3>
+    """, unsafe_allow_html=True)
+    
     # 新增: 数据来源选择
     data_source = st.radio("选择数据来源", ["从数据库读取", "上传文件"])
 
@@ -180,7 +238,7 @@ def data_overview():
         # 数据导出
         st.subheader("数据导出")
         export_format = st.radio("选择导出格式", ["CSV", "Excel", "JSON"])  # 修改: 新增JSON选项
-        if st.button("导出数据"):
+        if st.button("📤 导出数据", type="primary"):
             log_operation(st.session_state['username'], "数据概览-数据导出", 
                          f"导出格式: {export_format} 文件名: exported_data.{export_format.lower()}")
             if export_format == "CSV":
@@ -367,7 +425,8 @@ def data_visualization():
 
     # 设置统一的主题
     pio.templates.default = "plotly_white"
-
+    color_sequence = px.colors.qualitative.Plotly
+    
     chart_type = st.selectbox("选择图表类型", ["散点图", "线图", "柱状图", "箱线图", "直方图", "饼图", "热力图"])
 
     numeric_columns = filtered_data.select_dtypes(include=['float64', 'int64']).columns
@@ -896,13 +955,18 @@ def main():
                 ]
 
             selected = option_menu(
-                menu_title=None,
+                menu_title="📚 功能菜单",
                 options=menu_options,
                 icons=["speedometer", "table", "brush", "bar-chart", "graph-up",
                        "gear", "cpu", "robot", "person-check", "cloud-upload",
                        "save", "arrow-counterclockwise"],
                 default_index=menu_options.index(selected) if selected in menu_options else 0,
-                key="main_menu"
+                styles={
+                    "container": {"padding": "5px"},
+                    "icon": {"color": "#4CAF50", "font-size": "18px"},
+                    "nav-link": {"font-size": "16px", "text-align": "left", "margin": "5px"},
+                    "nav-link-selected": {"background-color": "#4CAF50", "font-weight": "normal"},
+                }
             )
 
         # 统一路由映射

@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.12 (smart_farm)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="data-visualization-tool_for_smart_farm" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.11 (smart_farm_with_streamlit)" project-jdk-type="Python SDK" />
 </project>
