@@ -77,7 +77,7 @@ def login(session, st):
                     st.session_state['role'] = user.role
                     user.last_login_time = datetime.now()
                     session.commit()
-                    log_operation(username, "用户登录", f"用户 {username} 成功登录")  # 添加: 记录登录日志
+                    log_operation(username, "INFO", "用户登录", f"用户 {username} 成功登录")
                     if user.role == 'admin':
                         st.query_params.page = "user_management"
                     else:
@@ -85,7 +85,7 @@ def login(session, st):
                     st.rerun()
                 else:
                     st.error("用户名或密码错误")  # 新增错误提示
-                    log_operation(username, "登录失败", "用户名或密码错误")  # 记录失败日志
+                    log_operation(username, "ERROR", "登录失败", "用户名或密码错误")
 
             st.markdown("</div>", unsafe_allow_html=True)
             
@@ -144,7 +144,7 @@ def register(session, st):
                                         last_login_time=datetime.now())
                         session.add(new_user)
                         session.commit()
-                        log_operation(username, "用户注册", f"用户 {username} 注册成功")  # 添加: 记录注册日志
+                        log_operation(username, "INFO", "用户注册", f"用户 {username} 注册成功")
                         st.success("注册成功，请登录")
                         st.query_params.page = "login"
                         st.rerun()  # 新增: 注册成功后强制跳转回登录页

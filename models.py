@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, DateTime, String
+from sqlalchemy import Column, Integer, Float, DateTime, String, Text, JSON, Computed, Index
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -40,3 +40,32 @@ class User(Base):
     password = Column(String(255), nullable=False)
     last_login_time = Column(DateTime, nullable=False)
     role = Column(String(50), nullable=False, default='user')
+
+
+class OperationLog(Base):
+    __tablename__ = 'operation_logs'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    log_time = Column(DateTime, nullable=False, primary_key=True)
+    log_level = Column(String(10), nullable=False)
+    username = Column(String(50))
+    action_type = Column(String(50), nullable=False)
+    action_details = Column(Text)
+    details_json = Column(
+        JSON,
+        Computed(
+            """JSON_OBJECT(
+                'time_range', TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(action_details, '时间范围:', -1), ' ', 2)),
+                'filename', NULLIF(SUBSTRING_INDEX(SUBSTRING_INDEX(action_details, '文件名:', -1), ' ', 1), ''),
+                'metrics', JSON_OBJECT(
+                    'temperature', NULLIF(SUBSTRING_INDEX(SUBSTRING_INDEX(action_details, '温度:', -1), ' ', 1), ''),
+                    'humidity', NULLIF(SUBSTRING_INDEX(SUBSTRING_INDEX(action_details, '湿度:', -1), ' ', 1), ''),
+                    'soil_moisture', NULLIF(SUBSTRING_INDEX(SUBSTRING_INDEX(action_details, '土壤湿度:', -1), ' ', 1), '')
+                )
+            )"""
+        )
+    )
+
+    __table_args__ = (
+        Index('idx_username', 'username'),
+        Index('idx_action_type', 'action_type'),
+    )
