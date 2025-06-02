@@ -105,7 +105,7 @@ def data_preview():
     # 添加更新数据按钮
     if st.button("🔄 实时更新数据", help="点击获取最新传感器数据"):
         air_temp_hum, soil_moist, soil_nutri, light_intens = fetch_latest_data(session)
-        log_operation(st.session_state['username'], "数据预览-更新数据", 
+        log_operation(st.session_state['username'], "INFO", "数据预览-更新数据",
                      f"获取时间: {air_temp_hum.timestamp} 温度: {air_temp_hum.temperature} 湿度: {air_temp_hum.humidity} 土壤湿度: {soil_moist.value} 土壤营养含量: {soil_nutri.value} 光照强度: {light_intens.value}")
         
         # 使用卡片布局展示数据
@@ -196,9 +196,8 @@ def data_overview():
         end_time = st.date_input("选择结束时间")
 
         if st.button("从数据库读取数据"):
-            # 调用批量查询函数
             df = fetch_data_in_bulk(session, start_time, end_time)
-            log_operation(st.session_state['username'], "数据概览-数据库读取", 
+            log_operation(st.session_state['username'], "INFO", "数据概览-数据库读取", 
                          f"时间范围: {start_time}至{end_time} 获取{len(df)}条记录")
             st.session_state['data'] = df
 
@@ -207,7 +206,7 @@ def data_overview():
 
         if uploaded_file is not None:
             data = read_file(uploaded_file)
-            log_operation(st.session_state['username'], "数据概览-文件上传",
+            log_operation(st.session_state['username'], "INFO", "数据概览-文件上传",
                          f"文件名: {uploaded_file.name} 类型: {uploaded_file.type} 记录数: {len(data)}")
             if data is not None:
                 # 新增: 确保timestamp列类型正确
@@ -239,7 +238,7 @@ def data_overview():
         st.subheader("数据导出")
         export_format = st.radio("选择导出格式", ["CSV", "Excel", "JSON"])  # 修改: 新增JSON选项
         if st.button("📤 导出数据", type="primary"):
-            log_operation(st.session_state['username'], "数据概览-数据导出", 
+            log_operation(st.session_state['username'], "INFO", "数据概览-数据导出", 
                          f"导出格式: {export_format} 文件名: exported_data.{export_format.lower()}")
             if export_format == "CSV":
                 csv = data.to_csv(index=False)
@@ -280,7 +279,7 @@ def data_cleaning():
         original_rows = data.shape[0]
         progress_bar.progress(33)  # 第一步完成
         data = data.drop_duplicates()
-        log_operation(st.session_state['username'], "数据清洗-删除重复行",
+        log_operation(st.session_state['username'], "INFO", "数据清洗-删除重复行",
                      f"删除{original_rows - data.shape[0]}行 剩余{data.shape[0]}行")
         st.success(f"删除了 {original_rows - data.shape[0]} 行重复数据")
         progress_bar.progress(100)  # 操作完成
@@ -291,7 +290,7 @@ def data_cleaning():
         method = st.selectbox(f"选择处理 {column} 缺失值的方法",
                               ["保持不变", "删除", "填充平均值", "填充中位数", "填充众数"])
         if method != "保持不变":
-            log_operation(st.session_state['username'], "数据清洗-处理缺失值",
+            log_operation(st.session_state['username'], "INFO", "数据清洗-处理缺失值",
                          f"列: {column} 方法: {method}")
             progress_bar = st.progress(0)
             if method == "删除":
@@ -307,7 +306,7 @@ def data_cleaning():
     st.subheader("删除不需要的数据列")
     columns_to_drop = st.multiselect("选择要删除的列", data.columns.tolist())
     if st.button("删除选中的列"):
-        log_operation(st.session_state['username'], "数据清洗-删除列",
+        log_operation(st.session_state['username'], "INFO", "数据清洗-删除列",
                      f"删除列: {', '.join(columns_to_drop)}")
         if columns_to_drop:
             progress_bar = st.progress(0)
@@ -346,7 +345,7 @@ def data_cleaning():
     st.subheader("导出清洗后的数据")
     export_format = st.selectbox("选择导出格式", ["CSV", "Excel", "JSON"])
     if st.button("导出数据"):
-        log_operation(st.session_state['username'], "数据清洗-数据导出",
+        log_operation(st.session_state['username'], "INFO", "数据清洗-数据导出",
                      f"导出格式: {export_format} 文件名: cleaned_data.{export_format.lower()}")
         progress_bar = st.progress(0)
         if export_format == "CSV":
@@ -384,7 +383,7 @@ def data_analysis():
     data = st.session_state['data']
 
     st.subheader("描述性统计")
-    log_operation(st.session_state['username'], "数据分析-描述性统计", 
+    log_operation(st.session_state['username'],  "INFO", "数据分析-描述性统计",
                  f"数据集维度: {data.shape}")
     st.dataframe(utils.analysis.describe_data(data))
 
@@ -475,7 +474,7 @@ def data_visualization():
     # 创建下载链接
     b64 = base64.b64encode(fig_json.encode()).decode()
     href = f'<a href="data:application/json;base64,{b64}" download="chart.json">下载图表数据 (JSON格式)</a>'
-    log_operation(st.session_state['username'], "数据可视化-图表导出", 
+    log_operation(st.session_state['username'], "INFO", "数据可视化-图表导出", 
                  f"图表类型: {chart_type} 文件名: chart.json")
     st.markdown(href, unsafe_allow_html=True)
 
@@ -515,7 +514,7 @@ def advanced_analysis():
     agg_function = st.selectbox("选择聚合函数", ["平均值", "总和", "最大值", "最小值"])
 
     if st.button("开始分析"):
-        log_operation(st.session_state['username'], "高级分析-分组聚合",
+        log_operation(st.session_state['username'], "INFO", "高级分析-分组聚合",
                      f"分组列: {group_column} 聚合列: {agg_column} 函数: {agg_function}")
         grouped_data = utils.analysis.group_and_aggregate(data, group_column, agg_column, agg_function)
 
@@ -599,7 +598,7 @@ def user_management():
                 user.username = new_username
                 user.role = new_role
                 session.commit()
-                log_operation(st.session_state['username'], "编辑用户", f"编辑用户 {user.username}")
+                log_operation(st.session_state['username'], "INFO","编辑用户", f"编辑用户 {user.username}")
                 st.success("用户信息已更新")
         else:
             st.error("用户不存在")
@@ -620,7 +619,7 @@ def user_management():
     new_password = st.text_input("新密码", type="password", key="password_new_password")
     confirm_password = st.text_input("确认新密码", type="password", key="password_confirm_password")
     if st.button("修改密码"):
-        log_operation(st.session_state['username'], "用户管理-修改密码",
+        log_operation(st.session_state['username'], "INFO","用户管理-修改密码",
                      f"修改用户ID: {password_user_id} 的密码")
         user = session.query(models.User).filter_by(id=password_user_id).first()
         if user:
@@ -661,7 +660,7 @@ def data_backup():
     end_time = st.date_input("选择结束时间")
 
     if st.button("执行备份"):
-        log_operation(st.session_state['username'], "数据备份", 
+        log_operation(st.session_state['username'], "INFO","数据备份",
                      f"时间范围: {start_time}至{end_time}")
         # 调用 utils/backup.py 中的备份函数
         zip_buffer = backup_data(session, start_time, end_time)
@@ -702,7 +701,7 @@ def data_restore():
 
                 # 调用 utils/backup.py 中的恢复函数
                 restore_data(uploaded_sql_file, key)
-                log_operation(st.session_state['username'], "数据恢复", 
+                log_operation(st.session_state['username'], "INFO","数据恢复",
                              f"文件: {uploaded_sql_file.name}")
                 st.success("数据已恢复")
             except Exception as e:
@@ -726,7 +725,7 @@ def data_prediction():
     prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
 
     if st.button("开始预测"):
-        log_operation(st.session_state['username'], "数据预测",
+        log_operation(st.session_state['username'], "INFO","数据预测",
                      f"类型: {data_type} 模型: {model_type} 天数: {prediction_days}")
         progress_bar = st.progress(0)
         st.write("预测进度: 数据准备中...")
@@ -856,7 +855,7 @@ def ai_data_analysis_and_prediction():
     # 导出聊天记录
     export_format = st.radio("选择导出格式", ["JSON", "Text"], key="export_format")
     if st.button("导出聊天记录"):
-        log_operation(st.session_state['username'], "AI数据分析-聊天记录导出",
+        log_operation(st.session_state['username'], "INFO","AI数据分析-聊天记录导出",
                      f"导出格式: {export_format} 记录数: {len(st.session_state.chat_history)}")
         if export_format == "JSON":
             content = json.dumps(st.session_state.chat_history, ensure_ascii=False, indent=2)
