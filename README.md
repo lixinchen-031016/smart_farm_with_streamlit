@@ -206,6 +206,7 @@ SECRET_KEY=031016
 - `SoilNutrient`：存储土壤养分数据。
 - `User`：存储用户信息（用户名、密码、角色等）。
 - `LightIntensity`：存储光照强度数据。
+- `OperationLog`: 存储用户操作日志。
 
 ### 架构设计
 - 前端：基于Streamlit构建，提供用户友好的界面。
