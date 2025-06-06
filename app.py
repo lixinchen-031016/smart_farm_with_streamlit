@@ -698,7 +698,8 @@ def data_restore():
                 key = uploaded_key_file.read().decode('utf-8').strip()
                 if not key:
                     raise ValueError("密钥文件为空或无效")
-
+                log_operation(st.session_state['username'], "INFO", "数据恢复失败",
+                              f"文件: {uploaded_key_file}")
                 # 调用 utils/backup.py 中的恢复函数
                 restore_data(uploaded_sql_file, key)
                 log_operation(st.session_state['username'], "INFO","数据恢复",
@@ -706,6 +707,8 @@ def data_restore():
                 st.success("数据已恢复")
             except Exception as e:
                 st.error(f"恢复数据时出错: {e}")
+                log_operation(st.session_state['username'], "ERROR", "数据恢复失败",
+                              f"文件: {uploaded_sql_file.name}")
 
 
 # 函数：数据预测
@@ -851,6 +854,8 @@ def ai_data_analysis_and_prediction():
         # 显示当前回复
         with st.chat_message("assistant"):
             st.write(analysis)
+            log_operation(st.session_state['username'], "INFO","AI数据分析-问题处理",
+                         f"问题: {user_message} 回复: {analysis}")
 
     # 导出聊天记录
     export_format = st.radio("选择导出格式", ["JSON", "Text"], key="export_format")
