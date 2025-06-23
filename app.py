@@ -20,6 +20,7 @@ from streamlit_option_menu import option_menu
 
 import models
 import utils.system_monitoring
+from utils import machine_learning
 from utils.backup import restore_data, backup_data
 from utils.logger import log_operation
 
@@ -882,6 +883,30 @@ def ai_data_analysis_and_prediction():
         )
 
 
+# 函数：机器学习
+
+
+def machine_learning_page():
+    """
+    显示机器学习页面，允许用户训练模型并进行预测
+    """
+    if not st.session_state.get('logged_in'):
+        st.query_params.page = "login"
+        return
+
+    st.title("🤖 机器学习")
+    
+    # 添加装饰性分隔线
+    st.markdown("---")
+    
+    if 'data' not in st.session_state:
+        st.warning("请先在数据概览页面上传数据")
+        return
+    
+    # 调用机器学习模块的UI渲染函数
+    machine_learning.render_ui(st.session_state['data'])
+
+
 # 函数：主函数
 def main():
     """
@@ -949,21 +974,21 @@ def main():
             if st.session_state.get('role') == 'admin':
                 menu_options = [
                     "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
-                    "高级分析", "AI数据分析", "本地数据预测", "用户管理",
-                    "系统监控", "数据备份", "数据恢复"
+                    "高级分析", "AI数据分析", "本地数据预测", "机器学习",  # 新增: 机器学习
+                    "用户管理", "系统监控", "数据备份", "数据恢复"
                 ]
             else:
                 menu_options = [
                     "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
-                    "高级分析", "AI数据分析", "本地数据预测"
+                    "高级分析", "AI数据分析", "本地数据预测", "机器学习"  # 新增: 机器学习
                 ]
 
             selected = option_menu(
                 menu_title="📚 功能菜单",
                 options=menu_options,
                 icons=["speedometer", "table", "brush", "bar-chart", "graph-up",
-                       "gear", "cpu", "robot", "person-check", "cloud-upload",
-                       "save", "arrow-counterclockwise"],
+                       "gear", "cpu", "robot", "robot", "person",  # 新增: brain图标对应机器学习
+                       "cloud-upload", "save", "arrow-counterclockwise"],
                 default_index=menu_options.index(selected) if selected in menu_options else 0,
                 styles={
                     "container": {"padding": "5px"},
@@ -983,6 +1008,7 @@ def main():
             "高级分析": advanced_analysis,
             "AI数据分析": ai_data_analysis_and_prediction,
             "本地数据预测": data_prediction,
+            "机器学习": machine_learning_page,  # 新增: 机器学习页面映射
             "用户管理": user_management,
             "系统监控": system_monitoring,
             "数据备份": data_backup,
