@@ -13,6 +13,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import sqlalchemy
 import streamlit as st
+import numpy
 from openai import OpenAI, APITimeoutError  # 修改: 引入超时异常类
 from sqlalchemy.orm import sessionmaker
 from streamlit_extras.metric_cards import style_metric_cards
@@ -136,7 +137,7 @@ def data_preview():
         with col6:
             st.metric(label="📅 数据更新时间", 
                      value=f"{air_temp_hum.timestamp.strftime('%Y-%m-%d %H:%M')}",
-                     help="最新传感器数据采集时间")
+                     help="最新数据采集时间")
 
         # 添加CSS样式美化卡片
         style_metric_cards(background_color="#FFFFFF", border_color="#E0E0E0",
@@ -296,12 +297,45 @@ def data_cleaning():
             progress_bar = st.progress(0)
             if method == "删除":
                 data = data.dropna(subset=[column])
-            elif method == "填充平均值":
-                data[column].fillna(data[column].mean(), inplace=True)
-            elif method == "填充中位数":
-                data[column].fillna(data[column].median(), inplace=True)
-            elif method == "填充众数":
-                data[column].fillna(data[column].mode()[0], inplace=True)
+            else:
+                # 新增: 创建标识列
+                fill_flag_col = f"{column}_filled"
+                
+                # 初始化标识列为False
+                data[fill_flag_col] = False
+                
+                # 获取缺失值的索引
+                missing_index = data[column].isnull()
+                
+                # 确定环境数据类型
+                env_type = "其他"
+                if 'temperature' in column.lower():
+                    env_type = "空气温度"
+                elif 'humidity' in column.lower():
+                    env_type = "空气湿度"
+                elif 'soil' in column.lower():
+                    env_type = "土壤数据"
+                elif 'light' in column.lower():
+                    env_type = "光照强度"
+                
+                # 计算填充值
+                if method == "填充平均值":
+                    fill_value = data[column].mean()
+                elif method == "填充中位数":
+                    fill_value = data[column].median()
+                elif method == "填充众数":
+                    fill_value = data[column].mode()[0]
+                
+                # 填充并记录信息
+                data.loc[missing_index, column] = fill_value
+                data.loc[missing_index, fill_flag_col] = data.loc[missing_index].apply(
+                    lambda row: f"行号:{row.name} | 类型:{env_type} | 填充值:{fill_value:.2f}", 
+                    axis=1
+                )
+                log_operation(st.session_state['username'], "INFO", "数据清洗-数据填充",
+                              f"已填充{missing_index.sum()}个缺失值并添加标识列: {fill_flag_col}")
+                st.success(f"已填充{missing_index.sum()}个缺失值并添加标识列: {fill_flag_col}")
+                
             progress_bar.progress(100)  # 操作完成
 
     st.subheader("删除不需要的数据列")
@@ -576,7 +610,7 @@ def user_management():
                                    last_login_time=datetime.now(), role=new_role)
             session.add(new_user)
             session.commit()
-            log_operation(st.session_state['username'], "添加用户", f"添加用户 {new_username}")
+            log_operation(st.session_state['username'], 'INFO',"添加用户", f"添加用户 {new_username}")
             st.success("用户添加成功")
 
     # 用户列表
@@ -609,7 +643,7 @@ def user_management():
             if user:
                 session.delete(user)
                 session.commit()
-                log_operation(st.session_state['username'], "删除用户", f"删除用户 {user.username}")
+                log_operation(st.session_state['username'], 'WARING',"删除用户", f"删除用户 {user.username}")
                 st.success("用户已删除")
             else:
                 st.error("用户不存在")
@@ -630,7 +664,7 @@ def user_management():
                 hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
                 user.password = hashed_password.decode('utf-8')
                 session.commit()
-                log_operation(st.session_state['username'], "修改用户密码",
+                log_operation(st.session_state['username'], 'WARING',"修改用户密码",
                               f"修改用户 {user.username} 的密码")
                 st.success("密码修改成功")
         else:
