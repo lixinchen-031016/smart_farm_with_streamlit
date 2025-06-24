@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import sqlalchemy
 import streamlit as st
-from openai import OpenAI  # 添加: 引入OpenAI库
+from openai import OpenAI, APITimeoutError  # 修改: 引入超时异常类
 from sqlalchemy.orm import sessionmaker
 from streamlit_extras.metric_cards import style_metric_cards
 from streamlit_option_menu import option_menu
@@ -725,8 +725,18 @@ def data_prediction():
 
     # 选择预测的数据类型
     data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度", "光照强度"])
-    model_type = st.selectbox("选择预测模型", ["ARIMA", "SARIMA"])
+    model_type = st.selectbox("选择预测模型", ["ARIMA", "SARIMA", "LSTM"])  # 新增LSTM选项
     prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
+
+    # LSTM参数配置面板
+    lstm_params = {}
+    if model_type == "LSTM":
+        with st.expander("LSTM参数配置"):
+            lstm_params['look_back'] = st.slider("时间窗口大小", 1, 30, 7, 
+                help="模型观察的历史数据点数")
+            lstm_params['epochs'] = st.slider("训练轮次", 10, 200, 50)
+            lstm_params['batch_size'] = st.slider("批次大小", 8, 64, 16)
+            lstm_params['units'] = st.slider("LSTM单元数", 16, 128, 50)
 
     if st.button("开始预测"):
         log_operation(st.session_state['username'], "INFO","数据预测",
@@ -757,7 +767,13 @@ def data_prediction():
         st.write("预测进度: 模型训练中...")
 
         # 调用预测模块
-        historical_data, forecast_data = perform_prediction(data, model_type, prediction_days)
+        historical_data, forecast_data, model_explanation = perform_prediction(  # 新增返回解释
+            data, model_type, prediction_days, lstm_params)  # 传入LSTM参数
+
+        # 显示模型训练解释
+        if model_explanation:
+            with st.expander("模型训练说明", expanded=True):
+                st.markdown(model_explanation)
 
         # 生成预测结果图表
         fig = go.Figure()
@@ -818,7 +834,7 @@ def ai_data_analysis_and_prediction():
     user_message = st.chat_input("请输入您的问题或指令...", key="ai_chat_input")
 
     if user_message:
-        log_operation(st.session_state['username'], "AI数据分析", 
+        log_operation(st.session_state['username'],"INFO", "AI数据分析",
                      f"问题: {user_message} 数据量: {len(data)}条")
         # 构建包含历史对话的messages
         messages = [
@@ -835,11 +851,25 @@ def ai_data_analysis_and_prediction():
         current_message = f"{user_message}\n数据如下：\n{data_json}"
         messages.append({'role': 'user', 'content': current_message})
 
-        # 调用API
-        completion = client.chat.completions.create(
-            model=os.getenv("LLM_MODEL"),
-            messages=messages,
-        )
+        try:
+            # 修改: 增加超时参数(30秒)
+            completion = client.chat.completions.create(
+                model=os.getenv("LLM_MODEL"),
+                messages=messages,
+                timeout=30.0  # 新增: 设置30秒超时
+            )
+        except APITimeoutError:
+            # 新增: 处理超时异常
+            st.error("AI请求超时，请稍后再试或简化问题")
+            log_operation(st.session_state['username'], "ERROR", "AI数据分析-请求超时",
+                         f"问题: {user_message}")
+            return
+        except Exception as e:
+            # 新增: 处理其他异常
+            st.error(f"AI处理出错: {str(e)}")
+            log_operation(st.session_state['username'], "ERROR", "AI数据分析-异常",
+                         f"问题: {user_message} 错误: {str(e)}")
+            return
 
         # 解析响应
         response = completion.model_dump_json()
@@ -961,7 +991,7 @@ def main():
                 "data_analysis": "数据分析",
                 "data_visualization": "可视化",
                 "advanced_analysis": "高级分析",
-                "ai_data_analysis": "AI数据分析",
+                #"ai_data_analysis": "AI数据分析",
                 "data_prediction": "本地数据预测",
                 "user_management": "用户管理",
                 "system_monitoring": "系统监控",
@@ -974,7 +1004,7 @@ def main():
             if st.session_state.get('role') == 'admin':
                 menu_options = [
                     "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
-                    "高级分析", "AI数据分析", "本地数据预测", "机器学习",  # 新增: 机器学习
+                    "高级分析", "本地数据预测", "机器学习",  # 新增: 机器学习
                     "用户管理", "系统监控", "数据备份", "数据恢复"
                 ]
             else:
@@ -987,7 +1017,7 @@ def main():
                 menu_title="📚 功能菜单",
                 options=menu_options,
                 icons=["speedometer", "table", "brush", "bar-chart", "graph-up",
-                       "gear", "cpu", "robot", "robot", "person",  # 新增: brain图标对应机器学习
+                       "gear", "robot", "cpu", "person",  # 新增: brain图标对应机器学习
                        "cloud-upload", "save", "arrow-counterclockwise"],
                 default_index=menu_options.index(selected) if selected in menu_options else 0,
                 styles={

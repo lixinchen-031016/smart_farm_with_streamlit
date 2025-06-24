@@ -72,3 +72,4 @@ sqlalchemy
 dotenv
 python-dotenv
 pyjwt
+TensorFlow
