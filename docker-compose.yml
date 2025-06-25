@@ -21,12 +21,7 @@ services:
       - db_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # 初始化脚本
       - ./intelligent_farm.sql:/docker-entrypoint-initdb.d/intelligent_farm.sql  # 挂载SQL文件到MySQL容器的初始化目录
-    healthcheck:  # 健康检查配置
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+
 
 volumes:
   db_data:

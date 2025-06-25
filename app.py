@@ -25,6 +25,9 @@ from utils import machine_learning
 from utils.backup import restore_data, backup_data
 from utils.logger import log_operation
 
+# 添加日志查看器模块导入
+from utils.log_viewer import show_log_viewer
+
 # 创建基类
 Base = sqlalchemy.orm.declarative_base()
 
@@ -1038,13 +1041,13 @@ def main():
             if st.session_state.get('role') == 'admin':
                 menu_options = [
                     "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
-                    "高级分析", "本地数据预测", "机器学习",  # 新增: 机器学习
-                    "用户管理", "系统监控", "数据备份", "数据恢复"
+                    "高级分析", "本地数据预测", "机器学习", 
+                    "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复"  # 新增: 日志查看
                 ]
             else:
                 menu_options = [
                     "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
-                    "高级分析", "AI数据分析", "本地数据预测", "机器学习"  # 新增: 机器学习
+                    "高级分析", "AI数据分析", "本地数据预测", "机器学习"
                 ]
 
             selected = option_menu(
@@ -1072,9 +1075,11 @@ def main():
             "高级分析": advanced_analysis,
             "AI数据分析": ai_data_analysis_and_prediction,
             "本地数据预测": data_prediction,
-            "机器学习": machine_learning_page,  # 新增: 机器学习页面映射
+            "机器学习": machine_learning_page,
             "用户管理": user_management,
             "系统监控": system_monitoring,
+            # 修复日志查看功能映射
+            "日志查看": show_log_viewer,  # 修改前: log_viewer_page
             "数据备份": data_backup,
             "数据恢复": data_restore
         }

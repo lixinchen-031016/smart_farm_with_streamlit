@@ -56,7 +56,6 @@ def make_prediction(model, input_df):
         return f"预测失败：{str(e)}"
 
 def render_ui(data):
-    st.title("🤖 机器学习")
     if data is None:
         st.warning("请先在数据概览页面上传数据")
         return
