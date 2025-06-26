@@ -54,6 +54,14 @@ def lstm_prediction(data, prediction_days, params):
     # 训练模型
     model.fit(trainX, trainY, epochs=epochs, batch_size=batch_size, verbose=0)
     
+    # 在测试集上评估模型
+    testPredict = model.predict(testX, verbose=0)
+    testPredict = scaler.inverse_transform(testPredict)
+    testY_orig = scaler.inverse_transform(testY.reshape(-1, 1))
+    
+    # 计算测试集RMSE
+    rmse = np.sqrt(np.mean((testPredict - testY_orig) ** 2))
+    
     # 生成预测
     inputs = dataset[-look_back:]
     predictions = []
@@ -102,7 +110,54 @@ def lstm_prediction(data, prediction_days, params):
     LSTM特别适合捕捉时间序列中的长期依赖关系，能够有效处理农业环境数据的周期性变化。
     """
     
-    return df, forecast_df, explanation
+    # 更新解释文本，包含RMSE
+    explanation += f"\n\n**模型评价指标:**  \n- 测试集RMSE: {rmse:.4f}"
+    
+    return df, forecast_df, explanation, rmse
+
+def hybrid_prediction(data, prediction_days, lstm_params):
+    """混合预测：融合SARIMA和LSTM的预测结果"""
+    # 调用SARIMA预测
+    _, sarima_forecast, sarima_explanation, sarima_rmse = perform_prediction(data, "SARIMA", prediction_days, {})
+    
+    # 调用LSTM预测
+    _, lstm_forecast, lstm_explanation, lstm_rmse = lstm_prediction(data, prediction_days, lstm_params)
+    
+    # 确保两个预测的时间戳对齐
+    sarima_forecast = sarima_forecast.set_index('timestamp')
+    lstm_forecast = lstm_forecast.set_index('timestamp')
+    
+    # 合并预测结果（加权平均）
+    combined_forecast = (sarima_forecast['value'] * 0.3 + lstm_forecast['value'] * 0.7)
+    
+    # 创建结果DataFrame
+    forecast_df = pd.DataFrame({
+        'timestamp': combined_forecast.index,
+        'value': combined_forecast.values
+    })
+    
+    # 计算组合RMSE
+    hybrid_rmse = (sarima_rmse + lstm_rmse) / 2
+    
+    # 更新解释文本
+    explanation = f"""
+    **混合预测模型说明**  
+    
+    本次预测使用了SARIMA和LSTM模型的融合结果，结合了两种模型的优势：
+    - **SARIMA模型**：擅长捕捉时间序列的季节性和趋势性特征
+    - **LSTM模型**：擅长处理非线性关系和长期依赖
+    
+    **融合方法：**  
+    采用加权平均法，SARIMA和LSTM预测结果各占30%，70%权重。
+    
+    **模型配置参数:**  
+    - LSTM时间窗口大小: {lstm_params.get('look_back', 7)}天  
+    - LSTM单元数: {lstm_params.get('units', 50)}个  
+    - LSTM训练轮次: {lstm_params.get('epochs', 50)}次  
+    - LSTM批次大小: {lstm_params.get('batch_size', 16)}  
+    """
+    
+    return sarima_forecast, forecast_df, explanation, hybrid_rmse
 
 def perform_prediction(data, model_type, prediction_days, lstm_params=None):
     df = pd.DataFrame(data, columns=['timestamp', 'value'])
@@ -110,25 +165,45 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
     df.set_index('timestamp', inplace=True)
 
     model_explanation = ""  # 初始化解释字符串
+    rmse = 0.0  # 初始化RMSE
     
     if model_type == "ARIMA":
         model = ARIMA(df['value'], order=(5, 1, 0))
         model_fit = model.fit()
         forecast = model_fit.forecast(steps=prediction_days)
+        
+        # 计算历史数据拟合的RMSE
+        fitted = model_fit.fittedvalues
+        rmse = np.sqrt(np.mean((df['value'] - fitted) ** 2))
+        
+        # 更新解释文本
+        model_explanation = f"**ARIMA模型训练说明**  \n使用(5,1,0)参数配置  \n**历史数据拟合RMSE: {rmse:.4f}**"
+        
         forecast_dates = pd.date_range(start=df.index[-1], periods=prediction_days + 1, freq='D')[1:]
         forecast_df = pd.DataFrame({'timestamp': forecast_dates, 'value': forecast})
-        return df, forecast_df, model_explanation
+        return df, forecast_df, model_explanation, rmse
         
     elif model_type == "SARIMA":
         model = SARIMAX(df['value'], order=(5, 1, 0), seasonal_order=(1, 1, 1, 12))
         model_fit = model.fit()
         forecast = model_fit.forecast(steps=prediction_days)
+        
+        # 计算历史数据拟合的RMSE
+        fitted = model_fit.fittedvalues
+        rmse = np.sqrt(np.mean((df['value'] - fitted) ** 2))
+        
+        # 更新解释文本
+        model_explanation = f"**SARIMA模型训练说明**  \n使用(5,1,0)(1,1,1,12)参数配置  \n**历史数据拟合RMSE: {rmse:.4f}**"
+        
         forecast_dates = pd.date_range(start=df.index[-1], periods=prediction_days + 1, freq='D')[1:]
         forecast_df = pd.DataFrame({'timestamp': forecast_dates, 'value': forecast})
-        return df, forecast_df, model_explanation
+        return df, forecast_df, model_explanation, rmse
         
     elif model_type == "LSTM":
         # 调用LSTM预测函数
         return lstm_prediction(data, prediction_days, lstm_params or {})
         
-    return df, pd.DataFrame(), model_explanation
+    elif model_type == "混合预测(SARIMA+LSTM)":
+        return hybrid_prediction(data, prediction_days, lstm_params or {})
+        
+    return df, pd.DataFrame(), model_explanation, rmse

@@ -762,12 +762,14 @@ def data_prediction():
 
     # 选择预测的数据类型
     data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度", "光照强度"])
-    model_type = st.selectbox("选择预测模型", ["ARIMA", "SARIMA", "LSTM"])  # 新增LSTM选项
+    # 修改: 添加混合预测选项
+    model_type = st.selectbox("选择预测模型", ["ARIMA", "SARIMA", "LSTM", "混合预测(SARIMA+LSTM)"])
     prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
 
     # LSTM参数配置面板
     lstm_params = {}
-    if model_type == "LSTM":
+    # 修改: 当选择混合预测时也需要显示LSTM参数
+    if model_type == "LSTM" or model_type == "混合预测(SARIMA+LSTM)":
         with st.expander("LSTM参数配置"):
             lstm_params['look_back'] = st.slider("时间窗口大小", 1, 30, 7, 
                 help="模型观察的历史数据点数")
@@ -804,13 +806,22 @@ def data_prediction():
         st.write("预测进度: 模型训练中...")
 
         # 调用预测模块
-        historical_data, forecast_data, model_explanation = perform_prediction(  # 新增返回解释
-            data, model_type, prediction_days, lstm_params)  # 传入LSTM参数
+        # 修改: 接收额外的rmse返回值
+        historical_data, forecast_data, model_explanation, rmse = perform_prediction( 
+            data, model_type, prediction_days, lstm_params)
 
         # 显示模型训练解释
         if model_explanation:
             with st.expander("模型训练说明", expanded=True):
                 st.markdown(model_explanation)
+                
+                # 新增: 显示RMSE指标
+                st.markdown(f"**模型评价指标:**")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("RMSE (均方根误差)", f"{rmse:.4f}")
+                with col2:
+                    st.markdown("RMSE值越小表示模型预测精度越高")
 
         # 生成预测结果图表
         fig = go.Figure()
@@ -827,7 +838,18 @@ def data_prediction():
         # 更新进度条
         progress_bar.progress(100)
         st.success("预测完成")
-
+        
+        # 新增: 显示预测结果评价卡片
+        st.subheader("预测结果评价")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("预测天数", prediction_days)
+        with col2:
+            st.metric("历史数据量", len(historical_data))
+        with col3:
+            st.metric("模型精度 (RMSE)", f"{rmse:.4f}", 
+                     delta="优" if rmse < 1.0 else "良" if rmse < 2.5 else "一般",
+                     delta_color="inverse")
 
 # 函数：AI数据处理
 def ai_data_analysis_and_prediction():
