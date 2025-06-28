@@ -568,23 +568,8 @@ def show_instructions():
     """
     显示使用说明页面
     """
-    st.title("使用说明")
-    st.markdown("""
-    ### 基础功能：
-    1. **数据导入**：在"数据概览"页面上传 CSV/Excel/JSON 文件或从数据库读取数据
-    2. **数据清洗**：处理缺失值、删除重复行及交互式数据编辑
-    3. **数据分析**：查看描述性统计、相关性分析和分组聚合功能
-    4. **数据可视化**：创建散点图/线图/柱状图等9种可视化图表并导出
-    5. **本地数据预测**：通过ARIMA/SARIMA模型进行7-30天数据预测
-    6. **AI数据处理**：使用Qwen大模型进行智能数据分析和预测
-
-    ### 管理员功能：
-    - **用户管理**：添加/编辑/删除用户及角色分配
-    - **系统监控**：实时查看服务器CPU/内存/磁盘使用情况
-    - **数据备份恢复**：按时间范围导出SQL备份或恢复历史数据
-   
-    如需更多帮助，请参阅 [GitHub 仓库](https://github.com/lixinchen-031016/smart_farm_with_streamlit)
-    """)
+    from utils.instruction_manual import show_instructions as show_full_manual
+    show_full_manual()
 
 
 # 函数：用户管理
@@ -1055,7 +1040,9 @@ def main():
                 "user_management": "用户管理",
                 "system_monitoring": "系统监控",
                 "data_backup": "数据备份",
-                "data_restore": "数据恢复"
+                "data_restore": "数据恢复",
+                "log_viewer": "日志查看",
+                "use_instruction": "使用说明"
             }
             selected = page_to_menu_mapping.get(page, "数据概览")
 
@@ -1064,12 +1051,13 @@ def main():
                 menu_options = [
                     "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
                     "高级分析", "本地数据预测", "机器学习", 
-                    "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复"  # 新增: 日志查看
+                    "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复" ,"使用说明"
+
                 ]
             else:
                 menu_options = [
                     "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
-                    "高级分析", "AI数据分析", "本地数据预测", "机器学习"
+                    "高级分析", "AI数据分析", "本地数据预测", "机器学习","使用说明"
                 ]
 
             selected = option_menu(
@@ -1077,7 +1065,7 @@ def main():
                 options=menu_options,
                 icons=["speedometer", "table", "brush", "bar-chart", "graph-up",
                        "gear", "robot", "cpu", "person",  # 新增: brain图标对应机器学习
-                       "cloud-upload", "save", "arrow-counterclockwise"],
+                       "cloud-upload", "save", "arrow-counterclockwise",  "gear-fill","question-circle"],
                 default_index=menu_options.index(selected) if selected in menu_options else 0,
                 styles={
                     "container": {"padding": "5px"},
@@ -1103,7 +1091,8 @@ def main():
             # 修复日志查看功能映射
             "日志查看": show_log_viewer,  # 修改前: log_viewer_page
             "数据备份": data_backup,
-            "数据恢复": data_restore
+            "数据恢复": data_restore,
+            "使用说明": show_instructions
         }
 
         # 执行路由跳转
