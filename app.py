@@ -239,6 +239,7 @@ def data_overview():
     
     # 新增: 数据来源选择
     data_source = st.radio("选择数据来源", ["从数据库读取", "上传文件"])
+    st.session_state['data_source'] = data_source  # 存储数据来源信息
 
     if data_source == "从数据库读取":
         # 添加时间范围选择器
@@ -500,11 +501,20 @@ def data_visualization():
     data = st.session_state['data']
 
     # 动态参数调节面板
-    st.subheader("时间范围筛选")
-    start_time = st.date_input("选择开始时间")
-    end_time = st.date_input("选择结束时间")
-    filtered_data = data[
-        (data['timestamp'] >= pd.Timestamp(start_time)) & (data['timestamp'] <= pd.Timestamp(end_time))]
+    has_timestamp = 'timestamp' in data.columns
+    is_from_database = st.session_state.get('data_source', '') == "从数据库读取"
+    
+    # 仅在有时间戳列时显示时间范围选择器
+    if has_timestamp:
+        st.subheader("时间范围筛选")
+        start_time = st.date_input("选择开始时间")
+        end_time = st.date_input("选择结束时间")
+        filtered_data = data[
+            (data['timestamp'] >= pd.Timestamp(start_time)) & 
+            (data['timestamp'] <= pd.Timestamp(end_time))]
+    else:
+        filtered_data = data
+        st.info("当前数据没有时间戳列，将使用全部数据进行可视化")
 
     # 设置统一的主题
     pio.templates.default = "plotly_white"
@@ -1103,7 +1113,7 @@ def main():
             else:
                 menu_options = [
                     "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
-                    "高级分析", "AI数据分析", "本地数据预测", "机器学习","使用说明"
+                    "高级分析",  "本地数据预测", "机器学习","使用说明"
                 ]
 
             selected = option_menu(
