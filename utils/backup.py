@@ -56,6 +56,22 @@ def backup_data(session, start_time, end_time):
     return zip_buffer.getvalue()
 
 
+def backup_ui(session, start_time, end_time, username):
+    """
+    处理数据备份的用户界面逻辑
+    """
+    zip_buffer = backup_data(session, start_time, end_time)
+    
+    # 提供下载链接
+    st.download_button(
+        label="下载备份文件",
+        data=zip_buffer,
+        file_name='backup.zip',
+        mime='application/zip',
+    )
+    st.success("数据已备份并加密")
+
+
 def restore_data(uploaded_file, key):
     """
     恢复上传的 SQL 文件

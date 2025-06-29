@@ -558,17 +558,8 @@ def data_backup():
         log_operation(st.session_state['username'], "INFO","数据备份",
                      f"时间范围: {start_time}至{end_time}")
         # 调用 utils/backup.py 中的备份函数
-        zip_buffer = backup_data(session, start_time, end_time)
-
-        # 提供下载链接（修改为下载压缩文件）
-        st.download_button(
-            label="下载备份文件",
-            data=zip_buffer,
-            file_name='backup.zip',
-            mime='application/zip',
-        )
-
-        st.success("数据已备份并加密")
+        from utils.backup import backup_ui
+        backup_ui(session, start_time, end_time, st.session_state['username'])
 
 
 # 函数：数据恢复
@@ -582,29 +573,9 @@ def data_restore():
 
     st.title("数据恢复")
 
-    # 修改: 增加SQL文件和密钥文件上传功能
-    uploaded_sql_file = st.file_uploader("选择加密的SQL备份文件", type=["encrypted"])
-    uploaded_key_file = st.file_uploader("选择密钥文件", type=["txt"])
-
-    if uploaded_sql_file is not None and uploaded_key_file is not None:
-        if st.button("恢复数据"):
-            try:
-                # 读取密钥文件内容
-                key = uploaded_key_file.read().decode('utf-8').strip()
-                if not key:
-                    raise ValueError("密钥文件为空或无效")
-                log_operation(st.session_state['username'], "INFO", "数据恢复失败",
-                              f"文件: {uploaded_key_file}")
-                # 调用 utils/backup.py 中的恢复函数
-                restore_data(uploaded_sql_file, key)
-                log_operation(st.session_state['username'], "INFO","数据恢复",
-                             f"文件: {uploaded_sql_file.name}")
-                st.success("数据已恢复")
-            except Exception as e:
-                st.error(f"恢复数据时出错: {e}")
-                log_operation(st.session_state['username'], "ERROR", "数据恢复失败",
-                              f"文件: {uploaded_sql_file.name}")
-
+    # 调用 utils/restore.py 中的恢复UI函数
+    from utils.restore import restore_ui
+    restore_ui(st.session_state['username'])
 
 # 函数：数据预测
 def data_prediction():
