@@ -7,21 +7,25 @@ services:
       - "8502:8502"
     depends_on:
       db:
-        condition: service_healthy  # 确保db服务健康后再启动web服务
-
+        condition: service_healthy
+    
     environment:
-      - DATABASE_URL=mysql+pymysql://root:0000@db:3306/intelligent_farm  # 确保主机名和端口正确
+      - DATABASE_URL=mysql+pymysql://root:0000@db:3306/intelligent_farm
   db:
     image: mysql:8.0
     ports:
       - "3306:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=0000
+      - MYSQL_DATABASE=intelligent_farm  # 添加此环境变量确保数据库创建
     volumes:
       - db_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # 初始化脚本
-      - ./intelligent_farm.sql:/docker-entrypoint-initdb.d/intelligent_farm.sql  # 挂载SQL文件到MySQL容器的初始化目录
-
+      - ./intelligent_farm.sql:/docker-entrypoint-initdb.d/intelligent_farm.sql  # 确保SQL文件路径正确
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
 
 volumes:
   db_data:
