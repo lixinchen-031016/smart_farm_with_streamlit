@@ -50,7 +50,8 @@ client = OpenAI(
 
 from auth import login, register  # 导入登录和注册函数
 import utils.analysis  # 导入新的数据分析模块
-from utils.predictions import perform_prediction  # 导入预测模块
+from utils.predictions import perform_prediction, prepare_prediction_ui, get_historical_data, \
+    show_prediction_results  # 导入预测模块
 from utils.visualization import visualize_data  # 导入可视化模块
 
 from utils.data_operations import fetch_data_in_bulk
@@ -528,91 +529,7 @@ def show_instructions():
 
 
 # 函数：用户管理
-def user_management():
-    """
-    显示用户管理页面，允许管理员添加、编辑和删除用户
-    """
-    if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
-        st.query_params.page = "login"
-        return
-
-    st.title("用户管理")
-
-    # 添加用户
-    st.header("添加用户")
-    new_username = st.text_input("新用户名", key="new_username")
-    new_password = st.text_input("新密码", type="password", key="new_password")
-    new_role = st.selectbox("角色", ["user", "admin"], key="new_role")
-    if st.button("添加用户"):
-        existing_user = session.query(models.User).filter_by(username=new_username).first()
-        if existing_user:
-            st.error("用户名已存在")
-        else:
-            hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
-            new_user = models.User(username=new_username, password=hashed_password.decode('utf-8'),
-                                   last_login_time=datetime.now(), role=new_role)
-            session.add(new_user)
-            session.commit()
-            log_operation(st.session_state['username'], 'INFO',"添加用户", f"添加用户 {new_username}")
-            st.success("用户添加成功")
-
-    # 用户列表
-    st.header("用户列表")
-    users = session.query(models.User).all()
-    user_data = [(user.id, user.username, user.role) for user in users]
-    df = pd.DataFrame(user_data, columns=['ID', '用户名', '角色'])
-    st.dataframe(df)
-
-    # 编辑和删除用户
-    user_id = st.number_input("输入要编辑或删除的用户ID", min_value=1, step=1, key="user_id")
-    action = st.selectbox("选择操作", ["编辑", "删除"], key="action_selectbox")
-    if action == "编辑":
-        user = session.query(models.User).filter_by(id=user_id).first()
-        if user:
-            new_username = st.text_input("新用户名", value=user.username, key="edit_username")
-            new_role = st.selectbox("角色", ["user", "admin"], index=["user", "admin"].index(user.role),
-                                    key="edit_role_selectbox")
-            if st.button("保存更改"):
-                user.username = new_username
-                user.role = new_role
-                session.commit()
-                log_operation(st.session_state['username'], "INFO","编辑用户", f"编辑用户 {user.username}")
-                st.success("用户信息已更新")
-        else:
-            st.error("用户不存在")
-    elif action == "删除":
-        if st.button("确认删除"):
-            user = session.query(models.User).filter_by(id=user_id).first()
-            if user:
-                session.delete(user)
-                session.commit()
-                log_operation(st.session_state['username'], 'WARING',"删除用户", f"删除用户 {user.username}")
-                st.success("用户已删除")
-            else:
-                st.error("用户不存在")
-
-    # 新增: 修改用户密码功能
-    st.header("修改用户密码")
-    password_user_id = st.number_input("输入要修改密码的用户ID", min_value=1, step=1, key="password_user_id")
-    new_password = st.text_input("新密码", type="password", key="password_new_password")
-    confirm_password = st.text_input("确认新密码", type="password", key="password_confirm_password")
-    if st.button("修改密码"):
-        log_operation(st.session_state['username'], "INFO","用户管理-修改密码",
-                     f"修改用户ID: {password_user_id} 的密码")
-        user = session.query(models.User).filter_by(id=password_user_id).first()
-        if user:
-            if new_password != confirm_password:
-                st.error("两次输入的密码不一致")
-            else:
-                hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
-                user.password = hashed_password.decode('utf-8')
-                session.commit()
-                log_operation(st.session_state['username'], 'WARING',"修改用户密码",
-                              f"修改用户 {user.username} 的密码")
-                st.success("密码修改成功")
-        else:
-            st.error("用户不存在")
-
+from utils.user_management import user_management  # 添加导入
 
 # 函数：系统监控
 def system_monitoring():
@@ -691,31 +608,15 @@ def data_restore():
 
 # 函数：数据预测
 def data_prediction():
-    """
-    显示数据预测页面，允许用户进行本地数据预测
-    """
+    """显示数据预测页面，允许用户进行本地数据预测"""
     if not st.session_state.get('logged_in'):
         st.query_params.page = "login"
         return
 
     st.title("数据预测")
 
-    # 选择预测的数据类型
-    data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度", "光照强度"])
-    # 修改: 添加混合预测选项
-    model_type = st.selectbox("选择预测模型", ["ARIMA", "SARIMA", "LSTM", "混合预测(SARIMA+LSTM)"])
-    prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
-
-    # LSTM参数配置面板
-    lstm_params = {}
-    # 修改: 当选择混合预测时也需要显示LSTM参数
-    if model_type == "LSTM" or model_type == "混合预测(SARIMA+LSTM)":
-        with st.expander("LSTM参数配置"):
-            lstm_params['look_back'] = st.slider("时间窗口大小", 1, 30, 7, 
-                help="模型观察的历史数据点数")
-            lstm_params['epochs'] = st.slider("训练轮次", 10, 200, 50)
-            lstm_params['batch_size'] = st.slider("批次大小", 8, 64, 16)
-            lstm_params['units'] = st.slider("LSTM单元数", 16, 128, 50)
+    # 使用预测模块的UI组件
+    data_type, model_type, prediction_days, lstm_params = prepare_prediction_ui()
 
     if st.button("开始预测"):
         log_operation(st.session_state['username'], "INFO","数据预测",
@@ -724,72 +625,23 @@ def data_prediction():
         st.write("预测进度: 数据准备中...")
 
         # 获取历史数据
-        if data_type == "空气温度":
-            query = session.query(models.AirTemperatureHumidity.timestamp,
-                                  models.AirTemperatureHumidity.temperature).order_by(
-                models.AirTemperatureHumidity.timestamp)
-        elif data_type == "空气湿度":
-            query = session.query(models.AirTemperatureHumidity.timestamp,
-                                  models.AirTemperatureHumidity.humidity).order_by(
-                models.AirTemperatureHumidity.timestamp)
-        elif data_type == "土壤湿度":
-            query = session.query(models.SoilMoisture.timestamp, models.SoilMoisture.value).order_by(
-                models.SoilMoisture.timestamp)
-        elif data_type == "光照强度":
-            query = session.query(models.LightIntensity.timestamp, models.LightIntensity.value).order_by(
-                models.LightIntensity.timestamp)
-
-        data = query.all()
+        data = get_historical_data(session, data_type)
 
         # 更新进度条
         progress_bar.progress(33)
         st.write("预测进度: 模型训练中...")
 
         # 调用预测模块
-        # 修改: 接收额外的rmse返回值
-        historical_data, forecast_data, model_explanation, rmse = perform_prediction( 
+        historical_data, forecast_data, model_explanation, rmse = perform_prediction(
             data, model_type, prediction_days, lstm_params)
 
-        # 显示模型训练解释
-        if model_explanation:
-            with st.expander("模型训练说明", expanded=True):
-                st.markdown(model_explanation)
-                
-                # 新增: 显示RMSE指标
-                st.markdown(f"**模型评价指标:**")
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("RMSE (均方根误差)", f"{rmse:.4f}")
-                with col2:
-                    st.markdown("RMSE值越小表示模型预测精度越高")
-
-        # 生成预测结果图表
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=historical_data.index, y=historical_data['value'], mode='lines', name='历史数据'))
-        fig.add_trace(go.Scatter(x=forecast_data['timestamp'], y=forecast_data['value'], mode='lines', name='预测数据'))
-        fig.update_layout(
-            title=f"{data_type} 预测结果",
-            xaxis_title="时间",
-            yaxis_title="值",
-            legend_title="数据类型"
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        # 显示结果
+        show_prediction_results(historical_data, forecast_data, model_explanation, rmse, data_type)
 
         # 更新进度条
         progress_bar.progress(100)
         st.success("预测完成")
-        
-        # 新增: 显示预测结果评价卡片
-        st.subheader("预测结果评价")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("预测天数", prediction_days)
-        with col2:
-            st.metric("历史数据量", len(historical_data))
-        with col3:
-            st.metric("模型精度 (RMSE)", f"{rmse:.4f}", 
-                     delta="优" if rmse < 1.0 else "良" if rmse < 2.5 else "一般",
-                     delta_color="inverse")
+
 
 # 函数：AI数据处理
 def ai_data_analysis_and_prediction():
@@ -1041,7 +893,7 @@ def main():
             "AI数据分析": ai_data_analysis_and_prediction,
             "本地数据预测": data_prediction,
             "机器学习": machine_learning_page,
-            "用户管理": user_management,
+            "用户管理": lambda: user_management(session, st.session_state['username'], st.session_state['role']),
             "系统监控": system_monitoring,
             # 修复日志查看功能映射
             "日志查看": show_log_viewer,  # 修改前: log_viewer_page

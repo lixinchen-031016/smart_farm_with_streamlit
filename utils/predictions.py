@@ -1,11 +1,14 @@
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 from sklearn.preprocessing import MinMaxScaler
 import streamlit as st
+import models
+
 
 def create_dataset(dataset, look_back=1):
     """创建LSTM训练数据集"""
@@ -207,3 +210,72 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
         return hybrid_prediction(data, prediction_days, lstm_params or {})
         
     return df, pd.DataFrame(), model_explanation, rmse
+
+def get_historical_data(session, data_type):
+    """获取历史数据"""
+    if data_type == "空气温度":
+        query = session.query(models.AirTemperatureHumidity.timestamp,
+                             models.AirTemperatureHumidity.temperature).order_by(
+            models.AirTemperatureHumidity.timestamp)
+    elif data_type == "空气湿度":
+        query = session.query(models.AirTemperatureHumidity.timestamp,
+                             models.AirTemperatureHumidity.humidity).order_by(
+            models.AirTemperatureHumidity.timestamp)
+    elif data_type == "土壤湿度":
+        query = session.query(models.SoilMoisture.timestamp, models.SoilMoisture.value).order_by(
+            models.SoilMoisture.timestamp)
+    elif data_type == "光照强度":
+        query = session.query(models.LightIntensity.timestamp, models.LightIntensity.value).order_by(
+            models.LightIntensity.timestamp)
+    return query.all()
+
+def prepare_prediction_ui():
+    """准备预测UI组件"""
+    data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度", "光照强度"])
+    model_type = st.selectbox("选择预测模型", ["ARIMA", "SARIMA", "LSTM", "混合预测(SARIMA+LSTM)"])
+    prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
+    
+    lstm_params = {}
+    if model_type in ["LSTM", "混合预测(SARIMA+LSTM)"]:
+        with st.expander("LSTM参数配置"):
+            lstm_params['look_back'] = st.slider("时间窗口大小", 1, 30, 7, 
+                help="模型观察的历史数据点数")
+            lstm_params['epochs'] = st.slider("训练轮次", 10, 200, 50)
+            lstm_params['batch_size'] = st.slider("批次大小", 8, 64, 16)
+            lstm_params['units'] = st.slider("LSTM单元数", 16, 128, 50)
+    
+    return data_type, model_type, prediction_days, lstm_params
+
+def show_prediction_results(historical_data, forecast_data, model_explanation, rmse, data_type):
+    """显示预测结果"""
+    if model_explanation:
+        with st.expander("模型训练说明", expanded=True):
+            st.markdown(model_explanation)
+            st.markdown(f"**模型评价指标:**")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("RMSE (均方根误差)", f"{rmse:.4f}")
+            with col2:
+                st.markdown("RMSE值越小表示模型预测精度越高")
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=historical_data.index, y=historical_data['value'], mode='lines', name='历史数据'))
+    fig.add_trace(go.Scatter(x=forecast_data['timestamp'], y=forecast_data['value'], mode='lines', name='预测数据'))
+    fig.update_layout(
+        title=f"{data_type} 预测结果",
+        xaxis_title="时间",
+        yaxis_title="值",
+        legend_title="数据类型"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    
+    st.subheader("预测结果评价")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("预测天数", len(forecast_data))
+    with col2:
+        st.metric("历史数据量", len(historical_data))
+    with col3:
+        st.metric("模型精度 (RMSE)", f"{rmse:.4f}", 
+                 delta="优" if rmse < 1.0 else "良" if rmse < 2.5 else "一般",
+                 delta_color="inverse")
