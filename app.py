@@ -4,7 +4,6 @@ import json
 from datetime import datetime
 from io import BytesIO
 
-import bcrypt  # 添加: 引入bcrypt库
 import jwt
 import pandas as pd
 import plotly
@@ -13,7 +12,6 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import sqlalchemy
 import streamlit as st
-import numpy
 from openai import OpenAI, APITimeoutError  # 修改: 引入超时异常类
 from sqlalchemy.orm import sessionmaker
 from streamlit_extras.metric_cards import style_metric_cards
@@ -22,12 +20,10 @@ from streamlit_option_menu import option_menu
 import models
 import utils.system_monitoring
 from utils import machine_learning
-from utils.backup import restore_data, backup_data
 from utils.data_preview import render_header, render_data_metrics
-from utils.logger import log_operation
-
 # 添加日志查看器模块导入
 from utils.log_viewer import show_log_viewer
+from utils.logger import log_operation
 
 # 创建基类
 Base = sqlalchemy.orm.declarative_base()
@@ -84,13 +80,14 @@ def data_preview():
 
     # 优化卡片样式
     style_metric_cards(
-        background_color="#FFFFFF", 
+        background_color="#FFFFFF",
         border_color="#E0E0E0",
-        border_left_color="#4CAF50", 
+        border_left_color="#4CAF50",
         box_shadow=True,
         border_size_px=2,
         border_radius_px=10
     )
+
 
 # 函数：读取文件
 def read_file(uploaded_file):
@@ -122,7 +119,7 @@ def data_overview():
 
     # 修改：美化数据概览标题和布局
     st.title("📊 数据概览")
-    
+
     # 添加渐变标题样式
     st.markdown("""
     <style>
@@ -136,7 +133,7 @@ def data_overview():
     </style>
     <h3 class="gradient-header">数据来源选择</h3>
     """, unsafe_allow_html=True)
-    
+
     # 新增: 数据来源选择
     data_source = st.radio("选择数据来源", ["从数据库读取", "上传文件"])
     st.session_state['data_source'] = data_source  # 存储数据来源信息
@@ -149,8 +146,8 @@ def data_overview():
 
         if st.button("从数据库读取数据"):
             df = fetch_data_in_bulk(session, start_time, end_time)
-            log_operation(st.session_state['username'], "INFO", "数据概览-数据库读取", 
-                         f"时间范围: {start_time}至{end_time} 获取{len(df)}条记录")
+            log_operation(st.session_state['username'], "INFO", "数据概览-数据库读取",
+                          f"时间范围: {start_time}至{end_time} 获取{len(df)}条记录")
             st.session_state['data'] = df
 
     elif data_source == "上传文件":
@@ -159,7 +156,7 @@ def data_overview():
         if uploaded_file is not None:
             data = read_file(uploaded_file)
             log_operation(st.session_state['username'], "INFO", "数据概览-文件上传",
-                         f"文件名: {uploaded_file.name} 类型: {uploaded_file.type} 记录数: {len(data)}")
+                          f"文件名: {uploaded_file.name} 类型: {uploaded_file.type} 记录数: {len(data)}")
             if data is not None:
                 # 新增: 确保timestamp列类型正确
                 if 'timestamp' in data.columns:
@@ -190,8 +187,8 @@ def data_overview():
         st.subheader("数据导出")
         export_format = st.radio("选择导出格式", ["CSV", "Excel", "JSON"])  # 修改: 新增JSON选项
         if st.button("📤 导出数据", type="primary"):
-            log_operation(st.session_state['username'], "INFO", "数据概览-数据导出", 
-                         f"导出格式: {export_format} 文件名: exported_data.{export_format.lower()}")
+            log_operation(st.session_state['username'], "INFO", "数据概览-数据导出",
+                          f"导出格式: {export_format} 文件名: exported_data.{export_format.lower()}")
             if export_format == "CSV":
                 csv = data.to_csv(index=False)
                 b64 = base64.b64encode(csv.encode()).decode()
@@ -232,7 +229,7 @@ def data_cleaning():
         progress_bar.progress(33)  # 第一步完成
         data = data.drop_duplicates()
         log_operation(st.session_state['username'], "INFO", "数据清洗-删除重复行",
-                     f"删除{original_rows - data.shape[0]}行 剩余{data.shape[0]}行")
+                      f"删除{original_rows - data.shape[0]}行 剩余{data.shape[0]}行")
         st.success(f"删除了 {original_rows - data.shape[0]} 行重复数据")
         progress_bar.progress(100)  # 操作完成
 
@@ -243,20 +240,20 @@ def data_cleaning():
                               ["保持不变", "删除", "填充平均值", "填充中位数", "填充众数"])
         if method != "保持不变":
             log_operation(st.session_state['username'], "INFO", "数据清洗-处理缺失值",
-                         f"列: {column} 方法: {method}")
+                          f"列: {column} 方法: {method}")
             progress_bar = st.progress(0)
             if method == "删除":
                 data = data.dropna(subset=[column])
             else:
                 # 新增: 创建标识列
                 fill_flag_col = f"{column}_filled"
-                
+
                 # 初始化标识列为False
                 data[fill_flag_col] = False
-                
+
                 # 获取缺失值的索引
                 missing_index = data[column].isnull()
-                
+
                 # 确定环境数据类型
                 env_type = "其他"
                 if 'temperature' in column.lower():
@@ -267,7 +264,7 @@ def data_cleaning():
                     env_type = "土壤数据"
                 elif 'light' in column.lower():
                     env_type = "光照强度"
-                
+
                 # 计算填充值
                 if method == "填充平均值":
                     fill_value = data[column].mean()
@@ -275,24 +272,24 @@ def data_cleaning():
                     fill_value = data[column].median()
                 elif method == "填充众数":
                     fill_value = data[column].mode()[0]
-                
+
                 # 填充并记录信息
                 data.loc[missing_index, column] = fill_value
                 data.loc[missing_index, fill_flag_col] = data.loc[missing_index].apply(
-                    lambda row: f"行号:{row.name} | 类型:{env_type} | 填充值:{fill_value:.2f}", 
+                    lambda row: f"行号:{row.name} | 类型:{env_type} | 填充值:{fill_value:.2f}",
                     axis=1
                 )
                 log_operation(st.session_state['username'], "INFO", "数据清洗-数据填充",
                               f"已填充{missing_index.sum()}个缺失值并添加标识列: {fill_flag_col}")
                 st.success(f"已填充{missing_index.sum()}个缺失值并添加标识列: {fill_flag_col}")
-                
+
             progress_bar.progress(100)  # 操作完成
 
     st.subheader("删除不需要的数据列")
     columns_to_drop = st.multiselect("选择要删除的列", data.columns.tolist())
     if st.button("删除选中的列"):
         log_operation(st.session_state['username'], "INFO", "数据清洗-删除列",
-                     f"删除列: {', '.join(columns_to_drop)}")
+                      f"删除列: {', '.join(columns_to_drop)}")
         if columns_to_drop:
             progress_bar = st.progress(0)
             data = data.drop(columns=columns_to_drop)
@@ -331,7 +328,7 @@ def data_cleaning():
     export_format = st.selectbox("选择导出格式", ["CSV", "Excel", "JSON"])
     if st.button("导出数据"):
         log_operation(st.session_state['username'], "INFO", "数据清洗-数据导出",
-                     f"导出格式: {export_format} 文件名: cleaned_data.{export_format.lower()}")
+                      f"导出格式: {export_format} 文件名: cleaned_data.{export_format.lower()}")
         progress_bar = st.progress(0)
         if export_format == "CSV":
             csv = data.to_csv(index=False)
@@ -368,8 +365,8 @@ def data_analysis():
     data = st.session_state['data']
 
     st.subheader("描述性统计")
-    log_operation(st.session_state['username'],  "INFO", "数据分析-描述性统计",
-                 f"数据集维度: {data.shape}")
+    log_operation(st.session_state['username'], "INFO", "数据分析-描述性统计",
+                  f"数据集维度: {data.shape}")
     st.dataframe(utils.analysis.describe_data(data))
 
     st.subheader("相关性分析")
@@ -403,14 +400,14 @@ def data_visualization():
     # 动态参数调节面板
     has_timestamp = 'timestamp' in data.columns
     is_from_database = st.session_state.get('data_source', '') == "从数据库读取"
-    
+
     # 仅在有时间戳列时显示时间范围选择器
     if has_timestamp:
         st.subheader("时间范围筛选")
         start_time = st.date_input("选择开始时间")
         end_time = st.date_input("选择结束时间")
         filtered_data = data[
-            (data['timestamp'] >= pd.Timestamp(start_time)) & 
+            (data['timestamp'] >= pd.Timestamp(start_time)) &
             (data['timestamp'] <= pd.Timestamp(end_time))]
     else:
         filtered_data = data
@@ -419,7 +416,7 @@ def data_visualization():
     # 设置统一的主题
     pio.templates.default = "plotly_white"
     color_sequence = px.colors.qualitative.Plotly
-    
+
     chart_type = st.selectbox("选择图表类型", ["散点图", "线图", "柱状图", "箱线图", "直方图", "饼图", "热力图"])
 
     numeric_columns = filtered_data.select_dtypes(include=['float64', 'int64']).columns
@@ -468,8 +465,8 @@ def data_visualization():
     # 创建下载链接
     b64 = base64.b64encode(fig_json.encode()).decode()
     href = f'<a href="data:application/json;base64,{b64}" download="chart.json">下载图表数据 (JSON格式)</a>'
-    log_operation(st.session_state['username'], "INFO", "数据可视化-图表导出", 
-                 f"图表类型: {chart_type} 文件名: chart.json")
+    log_operation(st.session_state['username'], "INFO", "数据可视化-图表导出",
+                  f"图表类型: {chart_type} 文件名: chart.json")
     st.markdown(href, unsafe_allow_html=True)
 
     # 添加说明
@@ -509,13 +506,14 @@ def advanced_analysis():
 
     if st.button("开始分析"):
         log_operation(st.session_state['username'], "INFO", "高级分析-分组聚合",
-                     f"分组列: {group_column} 聚合列: {agg_column} 函数: {agg_function}")
+                      f"分组列: {group_column} 聚合列: {agg_column} 函数: {agg_function}")
         grouped_data = utils.analysis.group_and_aggregate(data, group_column, agg_column, agg_function)
 
         st.write("分组聚合结果：")
         st.dataframe(grouped_data)
 
-        fig = px.bar(grouped_data, x=group_column, y=agg_column, title=f"{group_column} 分组的 {agg_column} {agg_function}")
+        fig = px.bar(grouped_data, x=group_column, y=agg_column,
+                     title=f"{group_column} 分组的 {agg_column} {agg_function}")
         st.plotly_chart(fig, use_container_width=True)
 
 
@@ -530,6 +528,7 @@ def show_instructions():
 
 # 函数：用户管理
 from utils.user_management import user_management  # 添加导入
+
 
 # 函数：系统监控
 def system_monitoring():
@@ -555,8 +554,8 @@ def data_backup():
     end_time = st.date_input("选择结束时间")
 
     if st.button("执行备份"):
-        log_operation(st.session_state['username'], "INFO","数据备份",
-                     f"时间范围: {start_time}至{end_time}")
+        log_operation(st.session_state['username'], "INFO", "数据备份",
+                      f"时间范围: {start_time}至{end_time}")
         # 调用 utils/backup.py 中的备份函数
         from utils.backup import backup_ui
         backup_ui(session, start_time, end_time, st.session_state['username'])
@@ -577,6 +576,7 @@ def data_restore():
     from utils.restore import restore_ui
     restore_ui(st.session_state['username'])
 
+
 # 函数：数据预测
 def data_prediction():
     """显示数据预测页面，允许用户进行本地数据预测"""
@@ -590,8 +590,8 @@ def data_prediction():
     data_type, model_type, prediction_days, lstm_params = prepare_prediction_ui()
 
     if st.button("开始预测"):
-        log_operation(st.session_state['username'], "INFO","数据预测",
-                     f"类型: {data_type} 模型: {model_type} 天数: {prediction_days}")
+        log_operation(st.session_state['username'], "INFO", "数据预测",
+                      f"类型: {data_type} 模型: {model_type} 天数: {prediction_days}")
         progress_bar = st.progress(0)
         st.write("预测进度: 数据准备中...")
 
@@ -656,8 +656,8 @@ def ai_data_analysis_and_prediction():
     user_message = st.chat_input("请输入您的问题或指令...", key="ai_chat_input")
 
     if user_message:
-        log_operation(st.session_state['username'],"INFO", "AI数据分析",
-                     f"问题: {user_message} 数据量: {len(data)}条")
+        log_operation(st.session_state['username'], "INFO", "AI数据分析",
+                      f"问题: {user_message} 数据量: {len(data)}条")
         # 构建包含历史对话的messages
         messages = [
             {'role': 'system', 'content': 'You are a helpful assistant.'}
@@ -684,13 +684,13 @@ def ai_data_analysis_and_prediction():
             # 新增: 处理超时异常
             st.error("AI请求超时，请稍后再试或简化问题")
             log_operation(st.session_state['username'], "ERROR", "AI数据分析-请求超时",
-                         f"问题: {user_message}")
+                          f"问题: {user_message}")
             return
         except Exception as e:
             # 新增: 处理其他异常
             st.error(f"AI处理出错: {str(e)}")
             log_operation(st.session_state['username'], "ERROR", "AI数据分析-异常",
-                         f"问题: {user_message} 错误: {str(e)}")
+                          f"问题: {user_message} 错误: {str(e)}")
             return
 
         # 解析响应
@@ -707,14 +707,14 @@ def ai_data_analysis_and_prediction():
         # 显示当前回复
         with st.chat_message("assistant"):
             st.write(analysis)
-            log_operation(st.session_state['username'], "INFO","AI数据分析-问题处理",
-                         f"问题: {user_message} 回复: {analysis}")
+            log_operation(st.session_state['username'], "INFO", "AI数据分析-问题处理",
+                          f"问题: {user_message} 回复: {analysis}")
 
     # 导出聊天记录
     export_format = st.radio("选择导出格式", ["JSON", "Text"], key="export_format")
     if st.button("导出聊天记录"):
-        log_operation(st.session_state['username'], "INFO","AI数据分析-聊天记录导出",
-                     f"导出格式: {export_format} 记录数: {len(st.session_state.chat_history)}")
+        log_operation(st.session_state['username'], "INFO", "AI数据分析-聊天记录导出",
+                      f"导出格式: {export_format} 记录数: {len(st.session_state.chat_history)}")
         if export_format == "JSON":
             content = json.dumps(st.session_state.chat_history, ensure_ascii=False, indent=2)
             file_name = "chat_history.json"
@@ -747,14 +747,14 @@ def machine_learning_page():
         return
 
     st.title("🤖 机器学习")
-    
+
     # 添加装饰性分隔线
     st.markdown("---")
-    
+
     if 'data' not in st.session_state:
         st.warning("请先在数据概览页面上传数据")
         return
-    
+
     # 调用机器学习模块的UI渲染函数
     machine_learning.render_ui(st.session_state['data'])
 
@@ -813,7 +813,7 @@ def main():
                 "data_analysis": "数据分析",
                 "data_visualization": "可视化",
                 "advanced_analysis": "高级分析",
-                #"ai_data_analysis": "AI数据分析",
+                # "ai_data_analysis": "AI数据分析",
                 "data_prediction": "本地数据预测",
                 "user_management": "用户管理",
                 "system_monitoring": "系统监控",
@@ -828,14 +828,14 @@ def main():
             if st.session_state.get('role') == 'admin':
                 menu_options = [
                     "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
-                    "高级分析", "本地数据预测", "机器学习", 
-                    "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复" ,"使用说明"
+                    "高级分析", "本地数据预测", "机器学习",
+                    "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复", "使用说明"
 
                 ]
             else:
                 menu_options = [
                     "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
-                    "高级分析",  "本地数据预测", "机器学习","使用说明"
+                    "高级分析", "本地数据预测", "机器学习", "使用说明"
                 ]
 
             selected = option_menu(
@@ -843,7 +843,7 @@ def main():
                 options=menu_options,
                 icons=["speedometer", "table", "brush", "bar-chart", "graph-up",
                        "gear", "robot", "cpu", "person",  # 新增: brain图标对应机器学习
-                       "cloud-upload", "save", "arrow-counterclockwise",  "gear-fill","question-circle"],
+                       "cloud-upload", "save", "arrow-counterclockwise", "gear-fill", "question-circle"],
                 default_index=menu_options.index(selected) if selected in menu_options else 0,
                 styles={
                     "container": {"padding": "5px"},
@@ -878,6 +878,7 @@ def main():
             route_mapping[selected]()
         else:
             st.error("无效的页面配置")
+
 
 if __name__ == '__main__':
     main()
