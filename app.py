@@ -104,6 +104,8 @@ def read_file(uploaded_file):
         data = pd.read_excel(uploaded_file)
     else:
         st.error("不支持的文件类型")
+        log_operation(st.session_state['username'], "ERROR", "上传数据读取",
+                      f"不支持的文件类型")
         return None
     # 新增: 强制转换timestamp列
     if 'timestamp' in data.columns:
@@ -830,7 +832,6 @@ def main():
                     "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
                     "高级分析", "本地数据预测", "机器学习",
                     "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复", "使用说明"
-
                 ]
             else:
                 menu_options = [
@@ -842,7 +843,7 @@ def main():
                 menu_title="📚 功能菜单",
                 options=menu_options,
                 icons=["speedometer", "table", "brush", "bar-chart", "graph-up",
-                       "gear", "robot", "cpu", "person",  # 新增: brain图标对应机器学习
+                       "gear", "robot", "cpu", "person",
                        "cloud-upload", "save", "arrow-counterclockwise", "gear-fill", "question-circle"],
                 default_index=menu_options.index(selected) if selected in menu_options else 0,
                 styles={
@@ -866,8 +867,7 @@ def main():
             "机器学习": machine_learning_page,
             "用户管理": lambda: user_management(session, st.session_state['username'], st.session_state['role']),
             "系统监控": system_monitoring,
-            # 修复日志查看功能映射
-            "日志查看": show_log_viewer,  # 修改前: log_viewer_page
+            "日志查看": show_log_viewer,
             "数据备份": data_backup,
             "数据恢复": data_restore,
             "使用说明": show_instructions

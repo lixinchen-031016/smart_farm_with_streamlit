@@ -51,7 +51,7 @@ def user_management(session, username, role):
                 user.username = new_username
                 user.role = new_role
                 session.commit()
-                log_operation(username, "INFO", "编辑用户", f"编辑用户 {user.username}")
+                log_operation(username, "WARNING", "编辑用户", f"编辑用户 {user.username}")
                 st.success("用户信息已更新")
         else:
             st.error("用户不存在")
@@ -72,7 +72,7 @@ def user_management(session, username, role):
     new_password = st.text_input("新密码", type="password", key="password_new_password")
     confirm_password = st.text_input("确认新密码", type="password", key="password_confirm_password")
     if st.button("修改密码"):
-        log_operation(username, "INFO", "用户管理-修改密码",
+        log_operation(username, "WARNING", "用户管理-修改密码",
                      f"修改用户ID: {password_user_id} 的密码")
         user = session.query(User).filter_by(id=password_user_id).first()
         if user:

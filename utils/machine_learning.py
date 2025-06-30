@@ -159,6 +159,8 @@ def render_ui(data):
                              f"输入数据: {input_data}, 预测结果: {result}")
         else:
             st.error("会话状态异常：缺少任务类型或特征列信息，请重新训练模型")
+            log_operation(st.session_state['username'], "ERROR", "机器学习-模型预测",
+                          f"缺少任务类型或特征列信息，请重新训练模型")
     else:
         st.info("请先训练模型以启用预测功能")
 
