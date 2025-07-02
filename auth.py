@@ -67,7 +67,7 @@ def login(session, st):
                     payload = {
                         'username': username,
                         'role': user.role,
-                        'exp': datetime.now().timestamp() + 120
+                        'exp': datetime.now().timestamp() + 12000000
                     }
                     token = jwt.encode(payload, os.getenv("SECRET_KEY"), algorithm="HS256")
                     st.query_params.jwt_token = token  # 新API设置参数
