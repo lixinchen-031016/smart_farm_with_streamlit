@@ -862,7 +862,7 @@ def main():
             "数据分析": data_analysis,
             "可视化": data_visualization,
             "高级分析": advanced_analysis,
-            "AI数据分析": ai_data_analysis_and_prediction,
+            #"AI数据分析": ai_data_analysis_and_prediction,
             "本地数据预测": data_prediction,
             "机器学习": machine_learning_page,
             "用户管理": lambda: user_management(session, st.session_state['username'], st.session_state['role']),
