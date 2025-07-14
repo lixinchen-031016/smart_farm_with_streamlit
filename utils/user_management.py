@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from models import User
 from utils.logger import log_operation
 import streamlit as st
+from auth import check_password_complexity  # 导入密码复杂度检查函数
 
 def user_management(session, username, role):
     """
@@ -19,6 +20,13 @@ def user_management(session, username, role):
     new_password = st.text_input("新密码", type="password", key="new_password")
     new_role = st.selectbox("角色", ["user", "admin"], key="new_role")
     if st.button("添加用户"):
+        # 添加密码复杂度检查
+        is_complex, msg = check_password_complexity(new_password)
+        if not is_complex:
+            st.error(msg)
+            log_operation(username, "ERROR", "添加用户", f"密码复杂度不足: {msg}")
+            return
+            
         existing_user = session.query(User).filter_by(username=new_username).first()
         if existing_user:
             st.error("用户名已存在")
@@ -72,6 +80,13 @@ def user_management(session, username, role):
     new_password = st.text_input("新密码", type="password", key="password_new_password")
     confirm_password = st.text_input("确认新密码", type="password", key="password_confirm_password")
     if st.button("修改密码"):
+        # 添加密码复杂度检查
+        is_complex, msg = check_password_complexity(new_password)
+        if not is_complex:
+            st.error(msg)
+            log_operation(username, "ERROR", "修改密码", f"密码复杂度不足: {msg}")
+            return
+            
         log_operation(username, "WARNING", "用户管理-修改密码",
                      f"修改用户ID: {password_user_id} 的密码")
         user = session.query(User).filter_by(id=password_user_id).first()

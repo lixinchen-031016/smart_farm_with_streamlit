@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 
 import bcrypt
@@ -13,6 +14,27 @@ session = Session()
 from models import User  # 导入User模型
 from utils.logger import log_operation  # 添加: 引入日志记录函数
 
+
+def check_password_complexity(password):
+    """
+    检查密码复杂度:
+    - 长度至少8位
+    - 包含大写字母
+    - 包含小写字母
+    - 包含数字
+    - 包含特殊字符
+    """
+    if len(password) < 8:
+        return False, "密码长度至少为8个字符"
+    if not re.search(r'[A-Z]', password):
+        return False, "密码必须包含至少一个大写字母"
+    if not re.search(r'[a-z]', password):
+        return False, "密码必须包含至少一个小写字母"
+    if not re.search(r'[0-9]', password):
+        return False, "密码必须包含至少一个数字"
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        return False, "密码必须包含至少一个特殊字符（如!@#$%^&*等）"
+    return True, ""
 
 def login(session, st):
     # 添加登录页面美化样式
@@ -135,6 +157,13 @@ def register(session, st):
                 if password != confirm_password:
                     st.error("密码不一致")
                 else:
+                    # 添加密码复杂度检查
+                    is_complex, msg = check_password_complexity(password)
+                    if not is_complex:
+                        st.error(msg)
+                        log_operation(username, "ERROR", "用户注册", f"密码复杂度不足: {msg}")
+                        return
+                    
                     existing_user = session.query(User).filter_by(username=username).first()
                     if existing_user:
                         st.error("用户名已存在")
