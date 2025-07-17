@@ -12,7 +12,6 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import sqlalchemy
 import streamlit as st
-from openai import OpenAI, APITimeoutError  # 修改: 引入超时异常类
 from sqlalchemy.orm import sessionmaker
 from streamlit_extras.metric_cards import style_metric_cards
 from streamlit_option_menu import option_menu
@@ -38,11 +37,6 @@ from utils.database import get_session
 
 # 替换: 使用get_session()方法获取会话对象
 session = get_session()
-# 创建OpenAI客户端
-client = OpenAI(
-    api_key=os.getenv('OPENAI_API_KEY'),
-    base_url=os.getenv('OPENAI_BASE_URL'),
-)
 
 from auth import login, register  # 导入登录和注册函数
 import utils.analysis  # 导入新的数据分析模块

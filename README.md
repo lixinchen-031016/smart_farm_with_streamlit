@@ -36,7 +36,6 @@
 - **数据可视化**：支持9种图表类型和JSON格式图表导出。
 - **高级分析**：进行数据分组和聚合分析。
 - **本地数据分析预测**：ARIMA/SARIMA/LSTM模型预测，支持7-30天数据预测，可视化预测趋势。
-- **AI 智能分析**：集成Qwen大模型，支持自然语言交互式数据分析。（功能存在bug，暂时屏蔽）
 - **机器学习模型**：对环境数据进行机器学习模型训练和预测，支持保存训练模型，并支持模型预测。
 
 ### 管理员功能：
@@ -72,7 +71,6 @@
     - bcrypt
     - psutil
     - numpy
-    - openai
     - matplotlib
     - scipy
     - statsmodels
@@ -162,12 +160,6 @@ sudo systemctl restart docker
 ```ini
 # 数据库连接信息  
 DATABASE_URL=mysql+pymysql://root:lxc20031016@localhost/intelligent_farm
-#  OpenAI API密钥
-OPENAI_API_KEY=YOUR_API_KEY
-# OpenAI API主机地址
-OPENAI_API_HOST=https://dashscope.aliyuncs.com/compatible-mode/v1
-# LLM模型名称
-LLM_MODEL=qwen2.5-7b-instruct-1m
 #  应用安全配置
 SECRET_KEY=031016
 ```
@@ -196,7 +188,6 @@ SECRET_KEY=031016
     - `psutil`：用于系统监控。
     - `sqlalchemy`：用于数据库操作。
     - `streamlit`：用于构建Web应用程序。
-    - `openai`：用于AI集成。
     - `numpy`：用于数值计算。
     - `jwt`：用于用户认证。
     - `bcrypt`：用于密码加密和验证。
@@ -205,8 +196,8 @@ SECRET_KEY=031016
 - `AirTemperatureHumidity`：存储空气温度和湿度数据。
 - `SoilMoisture`：存储土壤湿度数据。
 - `SoilNutrient`：存储土壤养分数据。
-- `User`：存储用户信息（用户名、密码、角色等）。
 - `LightIntensity`：存储光照强度数据。
+- `User`：存储用户信息（用户名、密码、角色等）。
 - `OperationLog`: 存储用户操作日志。
 
 ### 架构设计
