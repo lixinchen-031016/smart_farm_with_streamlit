@@ -2,7 +2,8 @@ import os
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models import Base, AirTemperatureHumidity, SoilMoisture, SoilNutrient, LightIntensity, User, OperationLog
+
+from models import AirTemperatureHumidity, SoilMoisture, SoilNutrient, LightIntensity
 from utils.logger import log_operation
 
 # 替换为你的数据库连接字符串

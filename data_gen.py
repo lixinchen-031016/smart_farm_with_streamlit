@@ -1,13 +1,14 @@
 import os
+from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
-from sqlalchemy import create_engine, Column, Integer, Float, DateTime
+from sqlalchemy import create_engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import SQLAlchemyError
-from models import AirTemperatureHumidity,SoilMoisture,SoilNutrient,LightIntensity
+
+from models import AirTemperatureHumidity, SoilMoisture, SoilNutrient, LightIntensity
 from utils.logger import log_operation
 
 Base = declarative_base()

@@ -1,16 +1,15 @@
-import streamlit as st
 import matplotlib.pyplot as plt
-from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, mean_squared_error
+import numpy as np
+import pandas as pd
+import streamlit as st
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, mean_squared_error
+from sklearn.model_selection import train_test_split
 from sklearn.svm import SVR
 # 添加: 导入决策树和线性回归模型
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
-import base64
-import pickle
-import numpy as np
-import pandas as pd
+
 # 添加: 导入日志记录模块
 from utils.logger import log_operation
 
