@@ -616,127 +616,6 @@ def data_prediction():
         st.success("预测完成")
 
 
-# 函数：AI数据处理
-def ai_data_analysis_and_prediction():
-    """
-    显示AI数据处理页面，允许用户使用Qwen大模型进行智能数据分析和预测
-    """
-    st.title("AI数据处理")
-
-    # 初始化聊天记录（如果未初始化）
-    if 'chat_history' not in st.session_state:
-        st.session_state.chat_history = []
-
-    # 添加选项以选择数据来源
-    data_source = st.radio("选择数据来源", ["使用数据概览上传的数据", "在此功能上传新数据"], key="ai_data_source")
-
-    if data_source == "使用数据概览上传的数据":
-        if 'data' not in st.session_state:
-            st.warning("请先在数据概览页面上传数据")
-            return
-        data = st.session_state['data']
-        st.success("已加载数据概览页面上传的数据")
-    else:
-        uploaded_file = st.file_uploader("选择文件", type=["csv", "xlsx", "xls", "json"], key="ai_file_uploader")
-        if uploaded_file is not None:
-            data = read_file(uploaded_file)
-            if data is None:
-                return
-            st.success("文件读取成功")
-        else:
-            st.warning("请上传文件以继续")
-            return
-
-    # 显示历史聊天记录
-    for chat in st.session_state.chat_history:
-        with st.chat_message("user"):
-            st.write(chat["user"])
-        with st.chat_message("assistant"):
-            st.write(chat["assistant"])
-
-    # 用户输入部分
-    user_message = st.chat_input("请输入您的问题或指令...", key="ai_chat_input")
-
-    if user_message:
-        log_operation(st.session_state['username'], "INFO", "AI数据分析",
-                      f"问题: {user_message} 数据量: {len(data)}条")
-        # 构建包含历史对话的messages
-        messages = [
-            {'role': 'system', 'content': 'You are a helpful assistant.'}
-        ]
-
-        # 添加历史对话
-        for chat in st.session_state.chat_history:
-            messages.append({'role': 'user', 'content': chat["user"]})
-            messages.append({'role': 'assistant', 'content': chat["assistant"]})
-
-        # 添加当前用户消息和数据
-        data_json = data.to_json(orient='records')
-        current_message = f"{user_message}\n数据如下：\n{data_json}"
-        messages.append({'role': 'user', 'content': current_message})
-
-        try:
-            # 修改: 增加超时参数(30秒)
-            completion = client.chat.completions.create(
-                model=os.getenv("LLM_MODEL"),
-                messages=messages,
-                timeout=30.0  # 新增: 设置30秒超时
-            )
-        except APITimeoutError:
-            # 新增: 处理超时异常
-            st.error("AI请求超时，请稍后再试或简化问题")
-            log_operation(st.session_state['username'], "ERROR", "AI数据分析-请求超时",
-                          f"问题: {user_message}")
-            return
-        except Exception as e:
-            # 新增: 处理其他异常
-            st.error(f"AI处理出错: {str(e)}")
-            log_operation(st.session_state['username'], "ERROR", "AI数据分析-异常",
-                          f"问题: {user_message} 错误: {str(e)}")
-            return
-
-        # 解析响应
-        response = completion.model_dump_json()
-        response_data = json.loads(response)
-        analysis = response_data.get('choices', [{}])[0].get('message', {}).get('content', '')
-
-        # 添加到聊天记录
-        st.session_state.chat_history.append({
-            "user": user_message,
-            "assistant": analysis
-        })
-
-        # 显示当前回复
-        with st.chat_message("assistant"):
-            st.write(analysis)
-            log_operation(st.session_state['username'], "INFO", "AI数据分析-问题处理",
-                          f"问题: {user_message} 回复: {analysis}")
-
-    # 导出聊天记录
-    export_format = st.radio("选择导出格式", ["JSON", "Text"], key="export_format")
-    if st.button("导出聊天记录"):
-        log_operation(st.session_state['username'], "INFO", "AI数据分析-聊天记录导出",
-                      f"导出格式: {export_format} 记录数: {len(st.session_state.chat_history)}")
-        if export_format == "JSON":
-            content = json.dumps(st.session_state.chat_history, ensure_ascii=False, indent=2)
-            file_name = "chat_history.json"
-            mime_type = "application/json"
-        else:
-            content = "\n".join([
-                f"用户: {chat['user']}\nAI回复: {chat['assistant']}"
-                for chat in st.session_state.chat_history
-            ])
-            file_name = "chat_history.txt"
-            mime_type = "text/plain"
-
-        st.download_button(
-            label="下载聊天记录",
-            data=content.encode("utf-8"),
-            file_name=file_name,
-            mime=mime_type
-        )
-
-
 # 函数：机器学习
 
 
@@ -815,7 +694,6 @@ def main():
                 "data_analysis": "数据分析",
                 "data_visualization": "可视化",
                 "advanced_analysis": "高级分析",
-                # "ai_data_analysis": "AI数据分析",
                 "data_prediction": "本地数据预测",
                 "user_management": "用户管理",
                 "system_monitoring": "系统监控",
