@@ -6,6 +6,7 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 from sklearn.preprocessing import MinMaxScaler
+import tensorflow as tf
 import streamlit as st
 import models
 
@@ -23,14 +24,19 @@ def lstm_prediction(data, prediction_days, params):
     """LSTM模型预测实现"""
     # 参数解包
     look_back = params.get('look_back', 7)
-    epochs = params.get('epochs', 50)
-    batch_size = params.get('batch_size', 16)
-    units = params.get('units', 50)
+    epochs = params.get('epochs', 30)  # 减少默认训练轮次
+    batch_size = params.get('batch_size', 32)  # 增大默认批次大小
+    units = params.get('units', 32)  # 减少默认LSTM单元数
+
+    import time
     
     # 数据预处理
     df = pd.DataFrame(data, columns=['timestamp', 'value'])
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df.set_index('timestamp', inplace=True)
+    
+    # 只选择最近30天的数据
+    df = df[df.index >= (df.index.max() - pd.Timedelta(days=30))]
     
     # 归一化
     scaler = MinMaxScaler(feature_range=(0, 1))
@@ -48,14 +54,35 @@ def lstm_prediction(data, prediction_days, params):
     trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], 1))
     testX = np.reshape(testX, (testX.shape[0], testX.shape[1], 1))
     
-    # 创建LSTM模型
+    # 创建LSTM模型 - 简化模型结构
     model = Sequential()
     model.add(LSTM(units, input_shape=(look_back, 1)))
     model.add(Dense(1))
-    model.compile(loss='mean_squared_error', optimizer='adam')
+    model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae'])  # 添加MAE指标
     
-    # 训练模型
-    model.fit(trainX, trainY, epochs=epochs, batch_size=batch_size, verbose=0)
+    # 训练模型 - 使用更轻量级的进度显示
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    # 简化回调函数
+    class SimpleCallback(tf.keras.callbacks.Callback):
+        def on_epoch_end(self, epoch, logs=None):
+            progress = (epoch + 1) / epochs
+            progress_bar.progress(progress)
+            status_text.text(f"训练中: {epoch+1}/{epochs} 轮次 (loss: {logs['loss']:.4f})")
+    
+    # 训练模型 - 使用更高效的训练方式
+    start_time = time.time()
+    model.fit(
+        trainX, 
+        trainY,
+        epochs=epochs,
+        batch_size=batch_size,
+        verbose=0,
+        callbacks=[SimpleCallback()],  # 使用简化回调
+        shuffle=False  # 关闭数据打乱以加速训练
+    )
+    training_time = time.time() - start_time
     
     # 在测试集上评估模型
     testPredict = model.predict(testX, verbose=0)
@@ -97,10 +124,12 @@ def lstm_prediction(data, prediction_days, params):
     本次预测使用了长短期记忆网络(LSTM)模型，这是一种专门用于处理时间序列数据的循环神经网络。  
     
     **模型配置参数:**  
+    - 使用的数据范围: 最近30天数据  
     - 时间窗口大小: {look_back}天 (模型观察的历史数据点数)  
     - LSTM单元数: {units}个  
     - 训练轮次: {epochs}次  
     - 批次大小: {batch_size}  
+    - 训练性能:训练耗时: {training_time:.2f}秒"
     
     **训练过程:**  
     1. 数据预处理: 对历史数据进行了归一化处理，将所有值转换到0-1范围内  
@@ -117,50 +146,6 @@ def lstm_prediction(data, prediction_days, params):
     explanation += f"\n\n**模型评价指标:**  \n- 测试集RMSE: {rmse:.4f}"
     
     return df, forecast_df, explanation, rmse
-
-def hybrid_prediction(data, prediction_days, lstm_params):
-    """混合预测：融合SARIMA和LSTM的预测结果"""
-    # 调用SARIMA预测
-    _, sarima_forecast, sarima_explanation, sarima_rmse = perform_prediction(data, "SARIMA", prediction_days, {})
-    
-    # 调用LSTM预测
-    _, lstm_forecast, lstm_explanation, lstm_rmse = lstm_prediction(data, prediction_days, lstm_params)
-    
-    # 确保两个预测的时间戳对齐
-    sarima_forecast = sarima_forecast.set_index('timestamp')
-    lstm_forecast = lstm_forecast.set_index('timestamp')
-    
-    # 合并预测结果（加权平均）
-    combined_forecast = (sarima_forecast['value'] * 0.3 + lstm_forecast['value'] * 0.7)
-    
-    # 创建结果DataFrame
-    forecast_df = pd.DataFrame({
-        'timestamp': combined_forecast.index,
-        'value': combined_forecast.values
-    })
-    
-    # 计算组合RMSE
-    hybrid_rmse = (sarima_rmse + lstm_rmse) / 2
-    
-    # 更新解释文本
-    explanation = f"""
-    **混合预测模型说明**  
-    
-    本次预测使用了SARIMA和LSTM模型的融合结果，结合了两种模型的优势：
-    - **SARIMA模型**：擅长捕捉时间序列的季节性和趋势性特征
-    - **LSTM模型**：擅长处理非线性关系和长期依赖
-    
-    **融合方法：**  
-    采用加权平均法，SARIMA和LSTM预测结果各占30%，70%权重。
-    
-    **模型配置参数:**  
-    - LSTM时间窗口大小: {lstm_params.get('look_back', 7)}天  
-    - LSTM单元数: {lstm_params.get('units', 50)}个  
-    - LSTM训练轮次: {lstm_params.get('epochs', 50)}次  
-    - LSTM批次大小: {lstm_params.get('batch_size', 16)}  
-    """
-    
-    return sarima_forecast, forecast_df, explanation, hybrid_rmse
 
 def perform_prediction(data, model_type, prediction_days, lstm_params=None):
     df = pd.DataFrame(data, columns=['timestamp', 'value'])
@@ -206,9 +191,6 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
         # 调用LSTM预测函数
         return lstm_prediction(data, prediction_days, lstm_params or {})
         
-    elif model_type == "混合预测(SARIMA+LSTM)":
-        return hybrid_prediction(data, prediction_days, lstm_params or {})
-        
     return df, pd.DataFrame(), model_explanation, rmse
 
 def get_historical_data(session, data_type):
@@ -232,7 +214,7 @@ def get_historical_data(session, data_type):
 def prepare_prediction_ui():
     """准备预测UI组件"""
     data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度", "光照强度"])
-    model_type = st.selectbox("选择预测模型", ["ARIMA", "SARIMA", "LSTM", "混合预测(SARIMA+LSTM)"])
+    model_type = st.selectbox("选择预测模型", ["ARIMA", "SARIMA", "LSTM"])
     prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
     
     lstm_params = {}
@@ -240,9 +222,9 @@ def prepare_prediction_ui():
         with st.expander("LSTM参数配置"):
             lstm_params['look_back'] = st.slider("时间窗口大小", 1, 30, 7, 
                 help="模型观察的历史数据点数")
-            lstm_params['epochs'] = st.slider("训练轮次", 10, 200, 50)
-            lstm_params['batch_size'] = st.slider("批次大小", 8, 64, 16)
-            lstm_params['units'] = st.slider("LSTM单元数", 16, 128, 50)
+            lstm_params['epochs'] = st.slider("训练轮次", 10, 200, 10)
+            lstm_params['batch_size'] = st.slider("批次大小", 8, 64, 32)
+            lstm_params['units'] = st.slider("LSTM单元数", 16, 128, 16)
     
     return data_type, model_type, prediction_days, lstm_params
 

@@ -40,6 +40,10 @@ def train_model(X, y, task_type, model_name):
         model = ModelClass(random_state=42)
     else:
         model = ModelClass()
+    
+    # 新增：确保输入数据都是数值类型
+    X = X.select_dtypes(include=['number'])
+    
     with st.spinner("正在训练模型，请稍候..."):
         model.fit(X, y)
     st.toast("训练完成！", icon="✅")
@@ -62,13 +66,17 @@ def render_ui(data):
 
     st.subheader("选择目标变量和特征列")
     target_column = st.selectbox("选择目标变量", data.columns)
-    feature_columns = st.multiselect("选择特征列", [col for col in data.columns if col != target_column])
+    
+    # 修改：只选择数值类型的列作为特征列
+    numeric_columns = [col for col in data.columns if pd.api.types.is_numeric_dtype(data[col])]
+    feature_columns = st.multiselect("选择特征列", [col for col in numeric_columns if col != target_column])
 
     if not feature_columns:
         st.warning("请选择至少一个特征列以继续")
         return
 
-    X = data[feature_columns]
+    # 修改：确保只使用数值列
+    X = data[feature_columns].select_dtypes(include=['number'])
     y = data[target_column]
 
     # 新增：检查目标变量是否有缺失值
@@ -89,7 +97,13 @@ def render_ui(data):
 
     model_name = st.selectbox("选择模型", list(model_options[task_type].keys()))
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # 修改：确保X只包含数值数据
+    X_train, X_test, y_train, y_test = train_test_split(
+        X.select_dtypes(include=['number']), 
+        y, 
+        test_size=0.2, 
+        random_state=42
+    )
 
     if st.button("训练模型"):
         # 检查训练数据是否为空
@@ -106,7 +120,6 @@ def render_ui(data):
         if task_type == "分类":
             score = accuracy_score(y_test, y_pred)
             metric_name = "准确率"
-            plot_confusion_matrix(y_test, y_pred)
         else:
             score = np.sqrt(mean_squared_error(y_test, y_pred))
             metric_name = "均方根误差 (RMSE)"
@@ -122,22 +135,25 @@ def render_ui(data):
                 "Feature": feature_columns,
                 "Importance": model.feature_importances_
             }).sort_values(by="Importance", ascending=False)
-            st.subheader("特征重要性")
-            st.dataframe(feature_importances)
+            st.session_state['feature_importances'] = feature_importances
         else:
             st.info("当前模型不支持特征重要性分析")
 
         st.session_state['trained_model'] = model
         st.session_state['feature_columns'] = feature_columns
         st.session_state['task_type'] = task_type
+        st.session_state['y_test'] = y_test
+        st.session_state['y_pred'] = y_pred
 
-        model_bytes = pickle.dumps(model)
-        b64 = base64.b64encode(model_bytes).decode()
-        href = f'<a href="data:application/octet-stream;base64,{b64}" download="model.pkl">下载训练好的模型 (.pkl)</a>'
-        st.markdown(href, unsafe_allow_html=True)
-        # 添加: 记录模型下载日志
-        log_operation(st.session_state['username'], "INFO", "机器学习-模型下载", 
-                     "下载训练好的模型文件: model.pkl")
+    # 显示分类任务的混淆矩阵
+    if 'task_type' in st.session_state and st.session_state['task_type'] == "分类":
+        st.subheader("混淆矩阵")
+        plot_confusion_matrix(st.session_state['y_test'], st.session_state['y_pred'])
+
+    # 显示特征重要性
+    if 'feature_importances' in st.session_state:
+        st.subheader("特征重要性")
+        st.dataframe(st.session_state['feature_importances'])
 
     if 'trained_model' in st.session_state:
         st.subheader("使用模型进行预测")
