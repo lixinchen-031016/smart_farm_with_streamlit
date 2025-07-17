@@ -32,8 +32,18 @@ def get_user_input():
             print("天数必须为正整数")
         except ValueError:
             print("请输入有效的整数")
+    
+    while True:
+        interval_str = input("请输入数据生成间隔时间（分钟，必须是1到1440之间的整数）: ")
+        try:
+            interval_minutes = int(interval_str)
+            if 1 <= interval_minutes <= 1440:
+                break
+            print("间隔时间必须在1到1440分钟之间")
+        except ValueError:
+            print("请输入有效的整数")
 
-    return start_date, days
+    return start_date, days, interval_minutes
 
 
 def generate_timestamps(start_date, days, interval_minutes=10):
@@ -47,35 +57,82 @@ def generate_timestamps(start_date, days, interval_minutes=10):
 
 
 def generate_temperature(timestamps):
-    """模拟温度变化"""
+    """生成更精确的温度数据，考虑季节性、昼夜变化和随机波动"""
+    # 基础温度随季节变化（年周期）
     base_temp = 20 + 5 * np.sin(2 * np.pi * (timestamps.dayofyear - 10) / 365)
+    
+    # 昼夜周期变化（24小时周期）
     diurnal_cycle = 10 * np.sin(2 * np.pi * (timestamps.hour + timestamps.minute / 60) / 24)
+    
+    # 云量影响（随机因素）
+    cloud_effect = np.random.choice([-2, -1, 0, 1, 2], size=len(timestamps), p=[0.1, 0.2, 0.4, 0.2, 0.1])
+    
+    # 随机噪声（更真实的微小波动）
     noise = np.random.normal(0, 0.5, len(timestamps))
-    return base_temp + diurnal_cycle + noise
+    
+    return np.round(base_temp + diurnal_cycle + cloud_effect + noise, 1)
 
 
-def generate_humidity(temperature):
-    """基于温度生成湿度"""
+def generate_humidity(temperature, timestamps):
+    """生成更精确的湿度数据，基于温度并考虑其他因素"""
+    # 基础湿度随温度变化（温度越高，最大湿度越高）
     base_humidity = 60 + 30 * np.exp(-0.05 * (temperature - 15))
-    noise = np.random.normal(0, 3, len(temperature))
-    return np.clip(base_humidity + noise, 30, 100)
+    
+    # 降雨影响（随机因素）
+    rain_effect = np.random.choice([0, 5, 10, 15], size=len(timestamps), p=[0.7, 0.15, 0.1, 0.05])
+    
+    # 云量影响（与温度的云量影响相反）
+    cloud_effect = -np.random.choice([0, 1, 2], size=len(timestamps), p=[0.7, 0.2, 0.1])
+    
+    # 随机噪声
+    noise = np.random.normal(0, 3, len(timestamps))
+    
+    return np.clip(base_humidity + rain_effect + cloud_effect + noise, 30, 100)
 
 
-def generate_soil_moisture(humidity, temperature):
-    """基于空气湿度和温度生成土壤湿度"""
+def generate_soil_moisture(humidity, temperature, timestamps):
+    """生成更精确的土壤湿度数据，考虑更多环境因素"""
+    # 基础土壤湿度
     base_moisture = 0.6 * humidity + 0.3 * temperature
-    irrigation_events = np.random.rand(len(base_moisture)) < 0.2
-    base_moisture += irrigation_events * np.random.uniform(15, 25, len(base_moisture))
-    noise = np.random.normal(0, 2, len(base_moisture))
-    return np.clip(base_moisture + noise, 10, 100)
+    
+    # 灌溉影响（每周定期灌溉）
+    irrigation_schedule = (timestamps.weekday == 3) & (np.random.rand(len(timestamps)) < 0.8)  # 周四灌溉，80%概率
+    irrigation_amount = irrigation_schedule * np.random.uniform(15, 25, len(timestamps))
+    
+    # 降雨渗透（随机降雨事件）
+    rain_events = np.random.rand(len(timestamps)) < 0.3  # 30%概率的降雨事件
+    rain_amount = rain_events * np.random.uniform(5, 15, len(timestamps))
+    
+    # 蒸发损失（与温度和湿度有关）
+    evaporation_loss = 0.05 * temperature * (1 - humidity / 100)
+    
+    # 随机噪声
+    noise = np.random.normal(0, 2, len(timestamps))
+    
+    return np.clip(base_moisture + irrigation_amount + rain_amount - evaporation_loss + noise, 10, 100)
 
 
 def generate_light_intensity(timestamps):
-    """模拟光照强度"""
-    hour = timestamps.hour + timestamps.minute / 60
-    light_cycle = 1000 * (1 + np.sin(2 * np.pi * (hour - 6) / 24)) / 2
-    noise = np.random.normal(0, 50, len(light_cycle))
-    return np.clip(light_cycle + noise, 0, 2000)
+    """生成更精确的光照强度数据，考虑季节、天气和昼夜变化"""
+    # 计算日出和日落时间（简化模型）
+    day_length = 12 + 6 * np.sin(2 * np.pi * timestamps.dayofyear / 365)  # 年周期变化
+    sunrise = 6 - 3 * np.sin(2 * np.pi * timestamps.dayofyear / 365)  # 随季节变化的日出时间
+    sunset = sunrise + day_length
+    
+    # 白天/黑夜标识
+    daylight = (timestamps.hour + timestamps.minute / 60 > sunrise) & \
+               (timestamps.hour + timestamps.minute / 60 < sunset)
+    
+    # 基础光照强度（考虑季节性日照长度）
+    base_light = 1000 * ((timestamps.hour + timestamps.minute / 60 - sunrise) / day_length) * daylight
+    
+    # 天气影响（晴天、多云、阴天）
+    weather_effect = np.random.choice([1.0, 0.7, 0.4], size=len(timestamps), p=[0.5, 0.3, 0.2])
+    
+    # 随机噪声（更真实的波动）
+    noise = np.random.normal(0, 50, len(timestamps))
+    
+    return np.clip(base_light * weather_effect + noise, 0, 2000)
 
 
 def generate_nutrients(timestamps):
@@ -96,13 +153,13 @@ def generate_nutrients(timestamps):
     }
 
 
-def generate_data(start_date, days):
+def generate_data(start_date, days, interval_minutes=10):
     """生成模拟数据"""
-    timestamps = generate_timestamps(start_date, days, interval_minutes=10)
+    timestamps = generate_timestamps(start_date, days, interval_minutes)
 
     temperatures = generate_temperature(timestamps)
-    humidities = generate_humidity(temperatures)
-    soil_moistures = generate_soil_moisture(humidities, temperatures)
+    humidities = generate_humidity(temperatures, timestamps)
+    soil_moistures = generate_soil_moisture(humidities, temperatures, timestamps)
     light_intensities = generate_light_intensity(timestamps)
 
     nutrients = generate_nutrients(timestamps)
@@ -157,12 +214,12 @@ def insert_data_to_mysql(data, batch_size=1000):
             session.bulk_save_objects(soil_nutrient_records[i:i + batch_size])
             session.bulk_save_objects(light_records[i:i + batch_size])
             session.commit()
-            log_operation(
-                user="system",
-                log_level="INFO",
-                action="数据插入",
-                details=f"插入 {len(air_records)+len(soil_moisture_records)+len(soil_nutrient_records)+len(light_records)} 条数据")
-        print(f"成功插入 {len(air_records)+len(soil_moisture_records)+len(soil_nutrient_records)+len(light_records)} 条数据")
+        print(f"成功插入 {len(air_records)} 条数据")
+        log_operation(
+            user="system",
+            log_level="INFO",
+            action="数据插入",
+            details=f"插入 {len(air_records)} 条数据")
 
     except SQLAlchemyError as e:
         session.rollback()
@@ -178,11 +235,12 @@ def insert_data_to_mysql(data, batch_size=1000):
 
 if __name__ == "__main__":
     # 获取用户输入
-    start_date, days = get_user_input()
+    start_date, days, interval_minutes = get_user_input()
 
     # 生成模拟数据
     log_operation("system", "INFO", "数据生成", "开始生成数据")
-    print(f"\n正在生成 {days} 天的数据，起始日期: {start_date.strftime('%Y-%m-%d')}")
+    print(f"\n正在生成 {days} 天的数据，起始日期: {start_date.strftime('%Y-%m-%d')}，间隔时间: {interval_minutes} 分钟")
+    log_operation("system", "INFO", "数据生成", f"生成 {days} 天的数据，起始日期: {start_date.strftime('%Y-%m-%d')},间隔时间: {interval_minutes} 分钟")
     generated_data = generate_data(start_date, days)
 
     # 插入数据库
