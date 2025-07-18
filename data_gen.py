@@ -58,12 +58,22 @@ def generate_timestamps(start_date, days, interval_minutes=10):
 
 
 def generate_temperature(timestamps):
-    """生成更精确的温度数据，考虑季节性、昼夜变化和随机波动"""
+    """生成更精确的温度数据，考虑大棚保温效果"""
     # 基础温度随季节变化（年周期）
     base_temp = 20 + 5 * np.sin(2 * np.pi * (timestamps.dayofyear - 10) / 365)
     
+    # 极端天气模拟（寒潮/热浪）
+    season = (timestamps.dayofyear // 91) % 4  # 0:春季,1:夏季,2:秋季,3:冬季
+    extreme_weather = np.random.choice([0, 1], size=len(timestamps), p=[0.95, 0.05])
+    extreme_effect = np.where(extreme_weather, 
+                            np.where(season == 1, 10, -10),  # 夏季热浪+10度，冬季寒潮-10度
+                            0)
+    
     # 昼夜周期变化（24小时周期）
     diurnal_cycle = 10 * np.sin(2 * np.pi * (timestamps.hour + timestamps.minute / 60) / 24)
+    
+    # 大棚保温效果（夜间保温，白天减弱）
+    greenhouse_effect = 3 * (1 - np.sin(2 * np.pi * (timestamps.hour + timestamps.minute / 60) / 24))
     
     # 云量影响（随机因素）
     cloud_effect = np.random.choice([-2, -1, 0, 1, 2], size=len(timestamps), p=[0.1, 0.2, 0.4, 0.2, 0.1])
@@ -71,38 +81,54 @@ def generate_temperature(timestamps):
     # 随机噪声（更真实的微小波动）
     noise = np.random.normal(0, 0.5, len(timestamps))
     
-    return np.round(base_temp + diurnal_cycle + cloud_effect + noise, 1)
+    return np.round(base_temp + diurnal_cycle + greenhouse_effect + cloud_effect + extreme_effect + noise, 1)
 
 
 def generate_humidity(temperature, timestamps):
-    """生成更精确的湿度数据，基于温度并考虑其他因素"""
+    """生成更精确的湿度数据，考虑大棚通风情况"""
+    # 雨季/旱季影响（夏季多雨，冬季干燥）
+    season_factor = 0.5 * np.sin(2 * np.pi * (timestamps.dayofyear - 10) / 365)
+    
     # 基础湿度随温度变化（温度越高，最大湿度越高）
-    base_humidity = 60 + 30 * np.exp(-0.05 * (temperature - 15))
+    base_humidity = 60 + 30 * np.exp(-0.05 * (temperature - 15)) + 10 * season_factor
     
-    # 降雨影响（随机因素）
-    rain_effect = np.random.choice([0, 5, 10, 15], size=len(timestamps), p=[0.7, 0.15, 0.1, 0.05])
+    # 降雨影响（随机因素，雨季概率更高）
+    is_rainy_season = (timestamps.dayofyear > 150) & (timestamps.dayofyear < 240)  # 5-8月为雨季
+    # 修改：为每个时间点单独生成降雨概率
+    rain_prob = np.random.rand(len(timestamps))
+    rain_effect = np.where(
+        is_rainy_season,
+        np.select(
+            [rain_prob < 0.4, (rain_prob >= 0.4) & (rain_prob < 0.7), (rain_prob >= 0.7) & (rain_prob < 0.9), rain_prob >= 0.9],
+            [15, 10, 5, 0]
+        ),
+        np.select(
+            [rain_prob < 0.1, (rain_prob >= 0.1) & (rain_prob < 0.3), (rain_prob >= 0.3) & (rain_prob < 0.6), rain_prob >= 0.6],
+            [15, 10, 5, 0]
+        )
+    )
     
-    # 云量影响（与温度的云量影响相反）
-    cloud_effect = -np.random.choice([0, 1, 2], size=len(timestamps), p=[0.7, 0.2, 0.1])
+    # 大棚通风效果（白天通风降低湿度）
+    ventilation_effect = -5 * np.sin(2 * np.pi * (timestamps.hour + timestamps.minute / 60) / 24)
     
     # 随机噪声
     noise = np.random.normal(0, 3, len(timestamps))
     
-    return np.clip(base_humidity + rain_effect + cloud_effect + noise, 30, 100)
+    return np.clip(base_humidity + rain_effect + ventilation_effect + noise, 30, 100)
 
 
 def generate_soil_moisture(humidity, temperature, timestamps):
-    """生成更精确的土壤湿度数据，考虑更多环境因素"""
+    """生成更精确的土壤湿度数据，考虑自动灌溉系统"""
+    # 雨季/旱季基础湿度调整
+    is_dry_season = (timestamps.dayofyear < 60) | (timestamps.dayofyear > 300)  # 冬季和早春为旱季
+    season_adjustment = np.where(is_dry_season, -15, 5)
+    
     # 基础土壤湿度
-    base_moisture = 0.6 * humidity + 0.3 * temperature
+    base_moisture = 0.6 * humidity + 0.3 * temperature + season_adjustment
     
-    # 灌溉影响（每周定期灌溉）
-    irrigation_schedule = (timestamps.weekday == 3) & (np.random.rand(len(timestamps)) < 0.8)  # 周四灌溉，80%概率
+    # 自动灌溉系统影响（每天定时灌溉）
+    irrigation_schedule = (timestamps.hour == 6) & (np.random.rand(len(timestamps)) < 0.9)  # 早上6点灌溉，90%概率
     irrigation_amount = irrigation_schedule * np.random.uniform(15, 25, len(timestamps))
-    
-    # 降雨渗透（随机降雨事件）
-    rain_events = np.random.rand(len(timestamps)) < 0.3  # 30%概率的降雨事件
-    rain_amount = rain_events * np.random.uniform(5, 15, len(timestamps))
     
     # 蒸发损失（与温度和湿度有关）
     evaporation_loss = 0.05 * temperature * (1 - humidity / 100)
@@ -110,14 +136,18 @@ def generate_soil_moisture(humidity, temperature, timestamps):
     # 随机噪声
     noise = np.random.normal(0, 2, len(timestamps))
     
-    return np.clip(base_moisture + irrigation_amount + rain_amount - evaporation_loss + noise, 10, 100)
+    return np.clip(base_moisture + irrigation_amount - evaporation_loss + noise, 10, 100)
 
 
 def generate_light_intensity(timestamps):
-    """生成更精确的光照强度数据，考虑季节、天气和昼夜变化"""
+    """生成更精确的光照强度数据，考虑大棚覆盖材料"""
+    # 阴雨天光照减弱
+    is_rainy_day = np.random.rand(len(timestamps)) < 0.1  # 10%概率是阴雨天
+    rain_reduction = np.where(is_rainy_day, 0.3, 1.0)  # 阴雨天光照减少70%
+    
     # 计算日出和日落时间（简化模型）
-    day_length = 12 + 6 * np.sin(2 * np.pi * timestamps.dayofyear / 365)  # 年周期变化
-    sunrise = 6 - 3 * np.sin(2 * np.pi * timestamps.dayofyear / 365)  # 随季节变化的日出时间
+    day_length = 12 + 6 * np.sin(2 * np.pi * timestamps.dayofyear / 365)
+    sunrise = 6 - 3 * np.sin(2 * np.pi * timestamps.dayofyear / 365)
     sunset = sunrise + day_length
     
     # 白天/黑夜标识
@@ -125,27 +155,32 @@ def generate_light_intensity(timestamps):
                (timestamps.hour + timestamps.minute / 60 < sunset)
     
     # 基础光照强度（考虑季节性日照长度）
-    base_light = 1000 * ((timestamps.hour + timestamps.minute / 60 - sunrise) / day_length) * daylight
+    base_light = 1200 * ((timestamps.hour + timestamps.minute / 60 - sunrise) / day_length) * daylight
     
-    # 天气影响（晴天、多云、阴天）
-    weather_effect = np.random.choice([1.0, 0.7, 0.4], size=len(timestamps), p=[0.5, 0.3, 0.2])
+    # 加入阴雨天气影响
+    base_light *= rain_reduction
     
-    # 随机噪声（更真实的波动）
-    noise = np.random.normal(0, 50, len(timestamps))
+    # 大棚覆盖材料透光率（70%-90%）
+    cover_transparency = np.random.uniform(0.7, 0.9, len(timestamps))
     
-    return np.clip(base_light * weather_effect + noise, 0, 2000)
+    return np.clip(base_light * cover_transparency, 0, 1500)
 
 
 def generate_nutrients(timestamps):
-    """模拟土壤营养成分"""
-    base_nitrogen = 50 + np.random.normal(0, 5, len(timestamps)).cumsum() * 0.01
-    base_phosphorus = 30 + np.random.normal(0, 3, len(timestamps)).cumsum() * 0.01
-    base_potassium = 40 + np.random.normal(0, 4, len(timestamps)).cumsum() * 0.01
+    """模拟土壤营养成分，考虑作物吸收"""
+    # 作物吸收速率（每天减少）
+    absorption_rate = 0.05
+    
+    # 营养成分随时间缓慢减少
+    base_nitrogen = 50 + np.random.normal(0, 5, len(timestamps)).cumsum() * 0.01 - np.arange(len(timestamps)) * absorption_rate
+    base_phosphorus = 30 + np.random.normal(0, 3, len(timestamps)).cumsum() * 0.01 - np.arange(len(timestamps)) * absorption_rate
+    base_potassium = 40 + np.random.normal(0, 4, len(timestamps)).cumsum() * 0.01 - np.arange(len(timestamps)) * absorption_rate
 
+    # 施肥事件（定期补充营养）
     fertilizer_events = np.random.rand(len(timestamps)) < 0.05
-    base_nitrogen += fertilizer_events * np.random.uniform(5, 15, len(timestamps))
-    base_phosphorus += fertilizer_events * np.random.uniform(3, 8, len(timestamps))
-    base_potassium += fertilizer_events * np.random.uniform(4, 10, len(timestamps))
+    base_nitrogen += fertilizer_events * np.random.uniform(10, 20, len(timestamps))
+    base_phosphorus += fertilizer_events * np.random.uniform(5, 10, len(timestamps))
+    base_potassium += fertilizer_events * np.random.uniform(8, 15, len(timestamps))
 
     return {
         'Nitrogen': np.clip(base_nitrogen, 20, 100),
