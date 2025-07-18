@@ -171,15 +171,6 @@ def lstm_prediction(data, prediction_days, params):
     - 最佳epoch: {len(history.history['loss'])}
     """
     
-    # 在返回预测结果前，保存到session_state
-    st.session_state['prediction_results'] = {
-        'historical_data': df,
-        'forecast_data': forecast_df,
-        'model_explanation': explanation,
-        'rmse': rmse,
-        'model_type': 'LSTM'
-    }
-    
     return df, forecast_df, explanation, rmse
 
 def perform_prediction(data, model_type, prediction_days, lstm_params=None):
@@ -228,15 +219,6 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
         
         forecast_dates = pd.date_range(start=df.index[-1], periods=prediction_days + 1, freq='D')[1:]
         forecast_df = pd.DataFrame({'timestamp': forecast_dates, 'value': forecast})
-        
-        # 保存ARIMA结果到session_state
-        st.session_state['prediction_results'] = {
-            'historical_data': df,
-            'forecast_data': forecast_df,
-            'model_explanation': model_explanation,
-            'rmse': rmse,
-            'model_type': 'ARIMA'
-        }
         return df, forecast_df, model_explanation, rmse
         
     elif model_type == "SARIMA":
@@ -268,15 +250,6 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
         
         forecast_dates = pd.date_range(start=df.index[-1], periods=prediction_days + 1, freq='D')[1:]
         forecast_df = pd.DataFrame({'timestamp': forecast_dates, 'value': forecast})
-        
-        # 保存SARIMA结果到session_state
-        st.session_state['prediction_results'] = {
-            'historical_data': df,
-            'forecast_data': forecast_df,
-            'model_explanation': model_explanation,
-            'rmse': rmse,
-            'model_type': 'SARIMA'
-        }
         return df, forecast_df, model_explanation, rmse
         
     elif model_type == "LSTM":
@@ -322,20 +295,6 @@ def prepare_prediction_ui():
 
 def show_prediction_results(historical_data, forecast_data, model_explanation, rmse, data_type):
     """显示预测结果"""
-    # 检查是否有保存的预测结果
-    if 'prediction_results' in st.session_state:
-        saved_results = st.session_state['prediction_results']
-        historical_data = saved_results['historical_data']
-        forecast_data = saved_results['forecast_data']
-        model_explanation = saved_results['model_explanation']
-        rmse = saved_results['rmse']
-        data_type = st.session_state.get('prediction_data_type', data_type)
-        
-        # 添加清除按钮
-        if st.button("清除预测结果"):
-            del st.session_state['prediction_results']
-            st.rerun()
-            
     if model_explanation:
         with st.expander("模型训练说明", expanded=True):
             st.markdown(model_explanation)
