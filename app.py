@@ -145,6 +145,8 @@ def data_overview():
             df = fetch_data_in_bulk(session, start_time, end_time)
             log_operation(st.session_state['username'], "INFO", "数据概览-数据库读取",
                           f"时间范围: {start_time}至{end_time} 获取{len(df)}条记录")
+            # 确保timestamp列转换为datetime类型
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
             st.session_state['data'] = df
 
     elif data_source == "上传文件":
@@ -155,14 +157,20 @@ def data_overview():
             log_operation(st.session_state['username'], "INFO", "数据概览-文件上传",
                           f"文件名: {uploaded_file.name} 类型: {uploaded_file.type} 记录数: {len(data)}")
             if data is not None:
-                # 新增: 确保timestamp列类型正确
+                # 确保timestamp列类型正确
                 if 'timestamp' in data.columns:
                     data['timestamp'] = pd.to_datetime(data['timestamp'], errors='coerce')
+                    # 删除无效的datetime数据
+                    data = data[data['timestamp'].notna()]
                 st.session_state['data'] = data
 
     # 确保数据展示和导出逻辑兼容两种数据读取方式
     if 'data' in st.session_state:
-        data = st.session_state['data']
+        data = st.session_state['data'].copy()
+        
+        # 确保所有datetime列都转换为Arrow兼容的格式
+        for col in data.select_dtypes(include=['datetime64']).columns:
+            data[col] = data[col].astype('datetime64[ms]')
 
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -178,7 +186,8 @@ def data_overview():
         st.dataframe(data.head())
 
         st.subheader("数据类型")
-        st.dataframe(data.dtypes)
+        # 显示修改后的数据类型
+        st.dataframe(data.dtypes.astype(str).to_frame('dtype'))
 
         # 数据导出
         st.subheader("数据导出")
