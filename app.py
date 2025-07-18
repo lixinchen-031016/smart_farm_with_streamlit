@@ -20,6 +20,7 @@ import models
 import utils.system_monitoring
 from utils import machine_learning
 from utils.data_preview import render_header, render_data_metrics
+from utils.decision_engine import show_decision_engine
 # 添加日志查看器模块导入
 from utils.log_viewer import show_log_viewer
 from utils.logger import log_operation
@@ -694,7 +695,8 @@ def main():
                 "data_backup": "数据备份",
                 "data_restore": "数据恢复",
                 "log_viewer": "日志查看",
-                "use_instruction": "使用说明"
+                "use_instruction": "使用说明",
+                "automated_decision": "自动化决策"
             }
             selected = page_to_menu_mapping.get(page, "数据概览")
 
@@ -703,12 +705,12 @@ def main():
                 menu_options = [
                     "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
                     "高级分析", "本地数据预测", "机器学习",
-                    "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复", "使用说明"
+                    "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复","自动化决策", "使用说明"
                 ]
             else:
                 menu_options = [
                     "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
-                    "高级分析", "本地数据预测", "机器学习", "使用说明"
+                    "高级分析", "本地数据预测", "机器学习", "自动化决策","使用说明"
                 ]
 
             selected = option_menu(
@@ -716,7 +718,7 @@ def main():
                 options=menu_options,
                 icons=["speedometer", "table", "brush", "bar-chart", "graph-up",
                        "gear", "robot", "cpu", "person",
-                       "cloud-upload", "save", "arrow-counterclockwise", "gear-fill", "question-circle"],
+                       "cloud-upload", "save", "arrow-counterclockwise", "gear-fill", "robot","question-circle"],
                 default_index=menu_options.index(selected) if selected in menu_options else 0,
                 styles={
                     "container": {"padding": "5px"},
@@ -742,6 +744,7 @@ def main():
             "日志查看": show_log_viewer,
             "数据备份": data_backup,
             "数据恢复": data_restore,
+            "自动化决策": lambda: show_decision_engine(session, st.session_state['username']),
             "使用说明": show_instructions
         }
 

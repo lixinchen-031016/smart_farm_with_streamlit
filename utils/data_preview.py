@@ -1,3 +1,4 @@
+import datetime
 from datetime import timedelta
 
 import streamlit as st
@@ -152,6 +153,8 @@ def render_metric_card(container, label, value, delta, help_text, is_alert=False
         display_value += " ppm"
     elif "光照强度" in label:
         display_value += " lux"
+    elif isinstance(value, datetime.datetime):  # 新增对datetime类型的处理
+        display_value = value.strftime("%Y-%m-%d %H:%M:%S")
         
     container.metric(label=label, value=display_value, delta=delta, help=help_text)
     container.markdown('</div>', unsafe_allow_html=True)
@@ -209,9 +212,8 @@ def render_data_metrics(session, username):
             if fig:
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
         
-        # 第三行指标卡片
-        row3_col1, row3_col2 = st.columns(2)
-        
+        # 第三行指标卡片 - 只显示光照强度
+        row3_col1 = st.columns(1)[0]
         with row3_col1:
             is_light_alert = light_intens.value < 1000
             render_metric_card(row3_col1, "☀️ 光照强度", light_intens.value,
@@ -221,6 +223,11 @@ def render_data_metrics(session, username):
             fig = create_line_chart(light_data, "24小时光照强度变化", "光照 (lux)", 1000)
             if fig:
                 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        
+        # 第四行 - 单独显示时间指标
+        row4_col1 = st.columns(1)[0]
+        with row4_col1:
+            render_metric_card(row4_col1, "数据获取时间", light_intens.timestamp, "", "")
 
 def fetch_latest_data(session):
     """获取最新传感器数据"""
