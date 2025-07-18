@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, mean_squared_error
+from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, mean_squared_error, mean_absolute_error
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVR
 # 添加: 导入决策树和线性回归模型
@@ -12,6 +12,8 @@ from sklearn.tree import DecisionTreeClassifier
 
 # 添加: 导入日志记录模块
 from utils.logger import log_operation
+plt.rcParams['font.sans-serif'] = ['PingFang HK']  # 或其他你喜欢的中文字体
+plt.rcParams['axes.unicode_minus'] = False
 
 # 模型配置
 model_options = {
@@ -58,6 +60,20 @@ def make_prediction(model, input_df):
     except Exception as e:
         return f"预测失败：{str(e)}"
 
+def evaluate_model(model, X_test, y_test, task_type):
+    """评估模型并返回指标"""
+    y_pred = model.predict(X_test)
+    if task_type == "分类":
+        return {
+            'accuracy': accuracy_score(y_test, y_pred),
+            'confusion_matrix': ConfusionMatrixDisplay.from_predictions(y_test, y_pred)
+        }
+    else:
+        return {
+            'rmse': np.sqrt(mean_squared_error(y_test, y_pred)),
+            'mae': mean_absolute_error(y_test, y_pred)
+        }
+
 def render_ui(data):
     if data is None:
         st.warning("请先在数据概览页面上传数据")
@@ -96,6 +112,9 @@ def render_ui(data):
 
     model_name = st.selectbox("选择模型", list(model_options[task_type].keys()))
 
+    # 新增：模型对比选项
+    compare_models = st.checkbox("启用模型对比", help="对比不同模型在同一数据集上的表现")
+
     # 修改：确保X只包含数值数据
     X_train, X_test, y_train, y_test = train_test_split(
         X.select_dtypes(include=['number']), 
@@ -113,36 +132,90 @@ def render_ui(data):
                          "输入数据存在空值")
             return
             
-        model = train_model(X_train, y_train, task_type, model_name)
-
-        y_pred = model.predict(X_test)
-        if task_type == "分类":
-            score = accuracy_score(y_test, y_pred)
-            metric_name = "准确率"
+        if compare_models:
+            # 模型对比模式
+            st.subheader("模型对比结果")
+            results = []
+            
+            for model_name in model_options[task_type].keys():
+                with st.spinner(f"正在训练和评估 {model_name}..."):
+                    model = train_model(X_train, y_train, task_type, model_name)
+                    metrics = evaluate_model(model, X_test, y_test, task_type)
+                    
+                    if task_type == "分类":
+                        results.append({
+                            '模型': model_name,
+                            '准确率': metrics['accuracy'],
+                        })
+                    else:
+                        results.append({
+                            '模型': model_name,
+                            'RMSE': metrics['rmse'],
+                            'MAE': metrics['mae']
+                        })
+            
+            # 保存对比结果到session_state
+            st.session_state['model_comparison'] = {
+                'results': results,
+                'task_type': task_type
+            }
+            
+            # 显示对比结果
+            results_df = pd.DataFrame(results)
+            st.dataframe(results_df.sort_values(
+                by='准确率' if task_type == "分类" else 'RMSE',
+                ascending=task_type != "分类"
+            ))
+            
+            # 可视化对比结果
+            fig, ax = plt.subplots()
+            if task_type == "分类":
+                results_df.plot.bar(x='模型', y='准确率', ax=ax)
+                ax.set_ylabel('准确率')
+            else:
+                results_df.plot.bar(x='模型', y=['RMSE', 'MAE'], ax=ax)
+                ax.set_ylabel('误差值')
+            ax.set_title('模型性能对比')
+            st.pyplot(fig)
+            
+            # 保存图像到session_state
+            st.session_state['comparison_fig'] = fig
+            
+            # 记录日志
+            log_operation(st.session_state['username'], "INFO", "机器学习-模型对比", 
+                         f"对比了{len(results)}个模型")
         else:
-            score = np.sqrt(mean_squared_error(y_test, y_pred))
-            metric_name = "均方根误差 (RMSE)"
+            # 原有单模型训练逻辑
+            model = train_model(X_train, y_train, task_type, model_name)
 
-        st.success(f"模型训练完成！测试集 {metric_name}: {score:.2f}")
+            y_pred = model.predict(X_test)
+            if task_type == "分类":
+                score = accuracy_score(y_test, y_pred)
+                metric_name = "准确率"
+            else:
+                score = np.sqrt(mean_squared_error(y_test, y_pred))
+                metric_name = "均方根误差 (RMSE)"
 
-        # 添加: 记录模型训练成功日志
-        log_operation(st.session_state['username'], "INFO", "机器学习-模型训练", 
+            st.success(f"模型训练完成！测试集 {metric_name}: {score:.2f}")
+
+            # 添加: 记录模型训练成功日志
+            log_operation(st.session_state['username'], "INFO", "机器学习-模型训练", 
                      f"目标变量: {target_column}, 特征列: {', '.join(feature_columns)}, 模型: {model_name}, 任务类型: {task_type}")
 
-        if hasattr(model, 'feature_importances_'):
-            feature_importances = pd.DataFrame({
-                "Feature": feature_columns,
-                "Importance": model.feature_importances_
-            }).sort_values(by="Importance", ascending=False)
-            st.session_state['feature_importances'] = feature_importances
-        else:
-            st.info("当前模型不支持特征重要性分析")
+            if hasattr(model, 'feature_importances_'):
+                feature_importances = pd.DataFrame({
+                    "Feature": feature_columns,
+                    "Importance": model.feature_importances_
+                }).sort_values(by="Importance", ascending=False)
+                st.session_state['feature_importances'] = feature_importances
+            else:
+                st.info("当前模型不支持特征重要性分析")
 
-        st.session_state['trained_model'] = model
-        st.session_state['feature_columns'] = feature_columns
-        st.session_state['task_type'] = task_type
-        st.session_state['y_test'] = y_test
-        st.session_state['y_pred'] = y_pred
+            st.session_state['trained_model'] = model
+            st.session_state['feature_columns'] = feature_columns
+            st.session_state['task_type'] = task_type
+            st.session_state['y_test'] = y_test
+            st.session_state['y_pred'] = y_pred
 
     # 显示分类任务的混淆矩阵
     if 'task_type' in st.session_state and st.session_state['task_type'] == "分类":
@@ -183,6 +256,12 @@ def render_ui(data):
     st.subheader("模型说明")
     with st.expander("点击查看各模型用途及选择依据"):
         st.markdown("""
+        **模型对比说明**:
+        - 通过启用"模型对比"选项，可以同时训练和评估所有可用模型
+        - 分类任务使用准确率作为评价指标
+        - 回归任务使用RMSE(均方根误差)和MAE(平均绝对误差)作为评价指标
+        - 建议在确定最终模型前先进行模型对比
+        
         **分类模型**:
         - **随机森林**: 适用于高维数据，能够处理非线性关系，具有较好的泛化能力。选择依据：特征较多且可能存在复杂关系时使用。
         - **决策树**: 模型简单，易于解释。选择依据：需要快速得到结果并且希望模型可解释时使用。
@@ -192,3 +271,15 @@ def render_ui(data):
         - **支持向量机回归**: 适用于小样本数据，能够处理高维特征。选择依据：样本量不大且特征维度较高时使用。
         - **线性回归**: 模型简单，计算速度快。选择依据：特征与目标变量之间呈线性关系时使用。
         """)
+
+    # 显示保存的模型对比结果
+    if 'model_comparison' in st.session_state:
+        st.subheader("模型对比历史结果")
+        results_df = pd.DataFrame(st.session_state['model_comparison']['results'])
+        st.dataframe(results_df.sort_values(
+            by='准确率' if st.session_state['model_comparison']['task_type'] == "分类" else 'RMSE',
+            ascending=st.session_state['model_comparison']['task_type'] != "分类"
+        ))
+        
+        if 'comparison_fig' in st.session_state:
+            st.pyplot(st.session_state['comparison_fig'])
