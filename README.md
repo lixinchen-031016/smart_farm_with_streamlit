@@ -36,7 +36,7 @@
 - **数据可视化**：支持9种图表类型和JSON格式图表导出。
 - **高级分析**：进行数据分组和聚合分析。
 - **本地数据分析预测**：ARIMA/SARIMA/LSTM模型预测，支持7-30天数据预测，可视化预测趋势。
-- **机器学习模型**：对环境数据进行机器学习模型训练和预测，支持保存训练模型，并支持模型预测。
+- **机器学习模型**：对环境数据进行机器学习模型训练和预测，并支持模型预测。
 
 ### 管理员功能：
 - **用户管理**：支持密码修改、角色分配、密码重置。
@@ -91,7 +91,7 @@
 
 ---
 
-## 6. 安装与部署
+## 6. 安装与部署（Linux环境下的Docker容器部署）
 ### 步骤 1：安装必要工具
 在云服务器中安装以下工具：
 ```bash
@@ -110,14 +110,22 @@ git clone -b login-register_data-visualization_without_random_data_inside --sing
 ```bash
 cd smart_farm_with_streamlit
 ```
+### 步骤 4：环境变量配置
+- 在项目根目录创建.env文件并配置以下参数：
+```ini
+# 数据库连接信息  
+DATABASE_URL=mysql+pymysql://root:0000@db/intelligent_farm
+#  应用安全配置
+SECRET_KEY=031016
+```
 
-### 步骤 4：启动服务
+### 步骤 5：启动服务
 在包含 `docker-compose.yml` 文件的目录下执行以下命令：
 ```bash
 docker-compose up
 ```
 
-### 步骤 5：配置镜像源（如有网络问题）
+### 步骤 6：配置镜像源（如有网络问题）
 如果存在网络问题，修改镜像源配置文件：
 ```bash
 sudo mkdir -p /etc/docker
@@ -149,19 +157,11 @@ sudo systemctl daemon-reload
 sudo systemctl restart docker
 ```
 
-### 步骤 6：初始化数据库
+### 步骤 7：初始化数据库
 进入数据库容器并运行SQL脚本或使用Navicat连接数据库
 
 运行 `intelligent_farm.sql` 脚本完成数据库初始化。
 
-### 步骤 7：环境变量配置
-- 在项目根目录创建.env文件并配置以下参数：
-```ini
-# 数据库连接信息  
-DATABASE_URL=mysql+pymysql://root:lxc20031016@localhost/intelligent_farm
-#  应用安全配置
-SECRET_KEY=031016
-```
 ---
 
 ## 7. 使用方法
@@ -180,6 +180,16 @@ SECRET_KEY=031016
 
 ### 文件结构
 - `app.py`：主程序文件，包含所有功能模块和页面逻辑。
+- `models.py`：数据库模型定义文件。
+- `utils`：工具函数定义文件夹。
+- `requirements.txt`：依赖库列表文件。
+- `docker-compose.yml`：Docker容器配置文件。
+- `.env`：环境变量配置文件。
+- `Dockerfile`：Docker镜像构建文件。
+- `README.md`：项目文档。
+- `auth.py`: 用户认证模块。
+- `data_gen.py`: 数据生成模块。
+- `clear_tables.py`：清空数据库表模块。
 - 依赖库：
     - `bcrypt`：用于密码加密和验证。
     - `pandas`：用于数据处理和分析。
