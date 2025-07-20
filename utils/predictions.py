@@ -23,10 +23,11 @@ def create_dataset(dataset, look_back=1):
     return np.array(dataX), np.array(dataY)
 
 def lstm_prediction(data, prediction_days, params):
-    """LSTM模型预测实现"""
-    # 启用混合精度训练
-    policy = tf.keras.mixed_precision.Policy('mixed_float16')
-    tf.keras.mixed_precision.set_global_policy(policy)
+    """LSTM模型预测实现 - 使用PyTorch框架"""
+    import torch
+    import torch.nn as nn
+    import torch.optim as optim
+    from torch.utils.data import TensorDataset, DataLoader
     
     # 参数解包
     look_back = params.get('look_back', 7)
@@ -35,6 +36,13 @@ def lstm_prediction(data, prediction_days, params):
     units = params.get('units', 32)
     dropout_rate = params.get('dropout_rate', 0.2)
     learning_rate = params.get('learning_rate', 0.001)
+    patience = params.get('patience', 5)  # 早停耐心值
+
+    # 添加学习率调度器参数
+    lr_scheduler_params = {
+        'step_size': params.get('lr_step_size', 5),
+        'gamma': params.get('lr_gamma', 0.5)
+    }
 
     import time
     
@@ -65,79 +73,117 @@ def lstm_prediction(data, prediction_days, params):
     trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], 1))
     testX = np.reshape(testX, (testX.shape[0], testX.shape[1], 1))
     
-    # 创建改进的LSTM模型 - 使用函数式API构建带注意力机制的模型
-    inputs = tf.keras.Input(shape=(look_back, 1))
-    x = Bidirectional(LSTM(units, return_sequences=True))(inputs)
-    x = Dropout(dropout_rate)(x)
-    x = Bidirectional(LSTM(units//2, return_sequences=True))(x)
-    x = Dropout(dropout_rate)(x)
+    # 转换数据为PyTorch张量
+    trainX_tensor = torch.FloatTensor(trainX)
+    trainY_tensor = torch.FloatTensor(trainY).view(-1, 1)
+    testX_tensor = torch.FloatTensor(testX)
+    testY_tensor = torch.FloatTensor(testY).view(-1, 1)
+
+    # 创建DataLoader
+    train_dataset = TensorDataset(trainX_tensor, trainY_tensor)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+
+    # 定义改进后的PyTorch LSTM模型
+    class LSTMModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.lstm1 = nn.LSTM(input_size=1, hidden_size=units, 
+                               batch_first=True, bidirectional=True)
+            self.ln1 = nn.LayerNorm(units*2)  # 添加层归一化
+            self.dropout1 = nn.Dropout(dropout_rate)
+            self.lstm2 = nn.LSTM(input_size=units*2, hidden_size=units//2,
+                               batch_first=True, bidirectional=True)
+            self.ln2 = nn.LayerNorm(units)  # 添加层归一化
+            self.dropout2 = nn.Dropout(dropout_rate)
+            self.attention = nn.MultiheadAttention(embed_dim=units, num_heads=2)
+            self.linear = nn.Linear(units, 1)
+            
+        def forward(self, x):
+            x, _ = self.lstm1(x)
+            x = self.ln1(x)  # 层归一化
+            x = self.dropout1(x)
+            x, _ = self.lstm2(x)
+            x = self.ln2(x)  # 层归一化
+            x = self.dropout2(x)
+            x = x.transpose(0, 1)
+            x, _ = self.attention(x, x, x)
+            x = x.mean(dim=0)
+            return self.linear(x)
+
+    model = LSTMModel()
+    criterion = nn.MSELoss()
+    optimizer = optim.NAdam(model.parameters(), 
+                          lr=learning_rate,
+                          betas=(0.9, 0.999),
+                          momentum_decay=0.004)
     
-    # 使用Keras内置的Attention层替代自定义实现
-    x = tf.keras.layers.Attention()([x, x])
-    x = tf.keras.layers.Flatten()(x)
-    
-    # 输出层保持float32精度
-    outputs = Dense(1, dtype='float32')(x)
-    
-    model = tf.keras.Model(inputs=inputs, outputs=outputs)
-    
-    # 使用Nadam优化器替代Adam
-    optimizer = tf.keras.optimizers.Nadam(
-        learning_rate=learning_rate,
-        beta_1=0.9,
-        beta_2=0.999,
-        epsilon=1e-07
-    )
-    
-    model.compile(loss='mean_squared_error', optimizer=optimizer, metrics=['mae'])
-    
-    # 添加EarlyStopping回调
-    early_stopping = tf.keras.callbacks.EarlyStopping(
-        monitor='val_loss',
-        patience=5,
-        restore_best_weights=True)
-    
+    # 添加学习率调度器
+    scheduler = optim.lr_scheduler.StepLR(optimizer, 
+                                        step_size=lr_scheduler_params['step_size'],
+                                        gamma=lr_scheduler_params['gamma'])
+
+    # 添加早停机制
+    best_loss = float('inf')
+    patience_counter = 0
+
     # 训练模型
     progress_bar = st.progress(0)
     status_text = st.empty()
     
-    class SimpleCallback(tf.keras.callbacks.Callback):
-        def on_epoch_end(self, epoch, logs=None):
-            progress = (epoch + 1) / epochs
-            progress_bar.progress(progress)
-            status_text.text(f"训练中: {epoch+1}/{epochs} 轮次 (loss: {logs['loss']:.4f})")
-    
     start_time = time.time()
-    history = model.fit(
-        trainX, 
-        trainY,
-        epochs=epochs,
-        batch_size=batch_size,
-        validation_data=(testX, testY),
-        verbose=0,
-        callbacks=[SimpleCallback(), early_stopping],
-        shuffle=False
-    )
-    training_time = time.time() - start_time
+    for epoch in range(epochs):
+        model.train()
+        total_loss = 0
+        for batch_x, batch_y in train_loader:
+            optimizer.zero_grad()
+            outputs = model(batch_x)
+            loss = criterion(outputs, batch_y)
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item()
+        
+        # 更新学习率
+        scheduler.step()
+        
+        # 早停检查
+        current_loss = total_loss/len(train_loader)
+        if current_loss < best_loss:
+            best_loss = current_loss
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                status_text.text(f"早停触发: 训练在第{epoch+1}轮停止")
+                break
+        
+        # 更新进度条
+        progress = (epoch + 1) / epochs
+        progress_bar.progress(progress)
+        status_text.text(f"训练中: {epoch+1}/{epochs} 轮次 (loss: {current_loss:.4f}, lr: {scheduler.get_last_lr()[0]:.6f})")
     
+    training_time = time.time() - start_time
+
     # 在测试集上评估模型
-    testPredict = model.predict(testX, verbose=0)
+    model.eval()
+    with torch.no_grad():
+        testPredict = model(testX_tensor).numpy()
     testPredict = scaler.inverse_transform(testPredict)
     testY_orig = scaler.inverse_transform(testY.reshape(-1, 1))
     
     # 计算测试集RMSE
     rmse = np.sqrt(np.mean((testPredict - testY_orig) ** 2))
-    
+
     # 生成预测
+    model.eval()
     inputs = dataset[-look_back:]
     predictions = []
-    
-    for _ in range(prediction_days):
-        x_input = inputs[-look_back:].reshape(1, look_back, 1)
-        y_pred = model.predict(x_input, verbose=0)
-        predictions.append(y_pred[0][0])
-        inputs = np.append(inputs, y_pred)
-    
+    with torch.no_grad():
+        for _ in range(prediction_days):
+            x_input = torch.FloatTensor(inputs[-look_back:].reshape(1, look_back, 1))
+            y_pred = model(x_input).numpy()[0][0]
+            predictions.append(y_pred)
+            inputs = np.append(inputs, y_pred)
+
     # 反归一化
     predictions = scaler.inverse_transform(np.array(predictions).reshape(-1, 1))
     
@@ -155,20 +201,23 @@ def lstm_prediction(data, prediction_days, params):
     
     # 更新模型解释文本
     explanation = f"""
-    **LSTM模型训练说明**  
+    **LSTM模型(PyTorch)训练说明**  
     
-    本次预测使用了双向LSTM模型，主要优化点包括：
+    本次预测使用了改进的双向LSTM模型，主要优化点包括：
     
     **模型改进:**
-    1. 使用混合精度训练(mixed_float16)加速训练过程
-    2. 采用Nadam优化器(初始学习率:{learning_rate})更适合时间序列
-    3. 简化注意力机制实现使用Keras内置层
-    4. 输出层保持float32精度确保预测准确
+    1. 使用PyTorch框架实现更灵活的模型架构
+    2. 采用NAdam优化器(初始学习率:{learning_rate})
+    3. 实现多头注意力机制增强时序特征提取
+    4. 添加层归一化(LayerNorm)提高训练稳定性
+    5. 使用学习率调度器(StepLR)动态调整学习率
+    6. 实现早停机制(耐心值:{patience})防止过拟合
     
     **性能指标:**
-    - 训练时间: {training_time:.2f}秒)
-    - 测试集RMSE: {rmse:.4f})
-    - 最佳epoch: {len(history.history['loss'])}
+    - 训练时间: {training_time:.2f}秒
+    - 测试集RMSE: {rmse:.4f}
+    - 训练轮次: {epoch+1}轮
+    - 最终学习率: {scheduler.get_last_lr()[0]:.6f}
     """
     
     return df, forecast_df, explanation, rmse
@@ -271,14 +320,11 @@ def get_historical_data(session, data_type):
     elif data_type == "土壤湿度":
         query = session.query(models.SoilMoisture.timestamp, models.SoilMoisture.value).order_by(
             models.SoilMoisture.timestamp)
-    elif data_type == "光照强度":
-        query = session.query(models.LightIntensity.timestamp, models.LightIntensity.value).order_by(
-            models.LightIntensity.timestamp)
     return query.all()
 
 def prepare_prediction_ui():
     """准备预测UI组件"""
-    data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度", "光照强度"])
+    data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度"])
     model_type = st.selectbox("选择预测模型", ["ARIMA", "SARIMA", "LSTM"])
     prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
     
