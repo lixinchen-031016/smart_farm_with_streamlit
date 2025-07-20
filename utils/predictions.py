@@ -8,7 +8,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from sklearn.preprocessing import MinMaxScaler
-from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from torch.utils.data import TensorDataset, DataLoader
 
@@ -539,46 +538,7 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
     model_explanation = ""  # 初始化解释字符串
     rmse = 0.0  # 初始化RMSE
     
-    if model_type == "ARIMA":
-        # 优化ARIMA参数，更适合农业数据
-        model = ARIMA(df['value'], order=(2, 1, 2))
-        model_fit = model.fit()
-        
-        # 生成预测时间戳 - 每天8个时间点(0,3,6,9,12,15,18,21)
-        last_date = df.index[-1].replace(hour=0, minute=0, second=0)
-        forecast_dates = pd.date_range(
-            start=last_date + pd.Timedelta(days=1),
-            end=last_date + pd.Timedelta(days=prediction_days),
-            freq='3H'
-        )
-        # 确保预测点数与时间戳数量一致
-        forecast = model_fit.forecast(steps=len(forecast_dates))
-        
-        fitted = model_fit.fittedvalues
-        rmse = np.sqrt(np.mean((df['value'] - fitted) ** 2))
-        
-        model_explanation = f"""
-        **ARIMA模型(2,1,2)训练说明**
-        
-        1. 专门针对农业环境数据优化参数
-        2. 自动处理了数据中的异常值
-        3. 考虑了农业数据的短期依赖特性
-        
-        **性能指标:**
-        - 历史数据拟合RMSE: {rmse:.4f}
-        - 使用的数据范围: 最近60天数据
-        - 预测天数: {prediction_days}天
-        
-        **农业数据特性处理:**
-        - 自动填充缺失数据
-        - 平滑异常值
-        - 保留季节性特征
-        """
-        
-        forecast_df = pd.DataFrame({'timestamp': forecast_dates, 'value': forecast})
-        return df, forecast_df, model_explanation, rmse
-        
-    elif model_type == "SARIMA":
+    if model_type == "SARIMA":
         # 优化SARIMA季节性参数，更适合农业数据
         model = SARIMAX(df['value'], order=(1, 1, 1), seasonal_order=(1, 1, 1, 24))
         model_fit = model.fit()
@@ -644,7 +604,7 @@ def get_historical_data(session, data_type):
 def prepare_prediction_ui():
     """准备预测UI组件"""
     data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度"])
-    model_type = st.selectbox("选择预测模型", ["ARIMA", "SARIMA", "LSTM", "Transformer"])
+    model_type = st.selectbox("选择预测模型", ["SARIMA", "LSTM", "Transformer"])
     prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
     
     lstm_params = {}
