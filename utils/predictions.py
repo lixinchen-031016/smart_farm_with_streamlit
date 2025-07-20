@@ -191,12 +191,16 @@ def lstm_prediction(data, prediction_days, params):
     # 计算测试集RMSE
     rmse = np.sqrt(np.mean((testPredict - testY_orig) ** 2))
 
+    # 计算需要预测的总点数 (每天8个点，每3小时一次)
+    hours_per_day = 8
+    total_prediction_points = prediction_days * hours_per_day
+    
     # 生成预测
     model.eval()
     inputs = dataset[-look_back:]
     predictions = []
     with torch.no_grad():
-        for _ in range(prediction_days):
+        for _ in range(total_prediction_points):  # 确保只生成需要的点数
             x_input = torch.FloatTensor(inputs[-look_back:].reshape(1, look_back, 1))
             y_pred = model(x_input).numpy()[0][0]
             predictions.append(y_pred)
@@ -205,12 +209,16 @@ def lstm_prediction(data, prediction_days, params):
     # 反归一化
     predictions = scaler.inverse_transform(np.array(predictions).reshape(-1, 1))
     
-    # 生成预测时间戳
-    last_date = df.index[-1]
+    # 生成预测时间戳 - 确保点数与预测结果严格匹配
+    last_date = df.index[-1].replace(hour=0, minute=0, second=0)
     forecast_dates = pd.date_range(
-        start=last_date + pd.Timedelta(days=1), 
-        periods=prediction_days
+        start=last_date + pd.Timedelta(days=1),
+        periods=total_prediction_points,  # 使用periods而不是end来确保点数匹配
+        freq='3H'
     )
+    
+    # 验证数组长度一致
+    assert len(forecast_dates) == len(predictions), "时间戳和预测值长度不匹配"
     
     forecast_df = pd.DataFrame({
         'timestamp': forecast_dates,
@@ -443,12 +451,16 @@ def transformer_prediction(data, prediction_days, params):
     
     training_time = time.time() - start_time
 
+    # 生成每天0点到23点每3小时的预测点
+    hours_per_day = 8  # 0,3,6,9,12,15,18,21点
+    total_prediction_points = prediction_days * hours_per_day
+    
     # 生成预测
     model.eval()
     inputs = dataset[-look_back:]
     predictions = []
     with torch.no_grad():
-        for _ in range(prediction_days):
+        for _ in range(total_prediction_points):
             x_input = torch.FloatTensor(inputs[-look_back:].reshape(1, look_back, 1))
             y_pred = model(x_input).numpy()[0][0]
             predictions.append(y_pred)
@@ -456,13 +468,22 @@ def transformer_prediction(data, prediction_days, params):
 
     predictions = scaler.inverse_transform(np.array(predictions).reshape(-1, 1))
     
-    # 生成预测时间戳
-    last_date = df.index[-1]
+    # 生成预测时间戳 - 确保点数与预测结果严格匹配
+    last_date = df.index[-1].replace(hour=0, minute=0, second=0)
     forecast_dates = pd.date_range(
-        start=last_date + pd.Timedelta(days=1), 
-        periods=prediction_days
+        start=last_date + pd.Timedelta(days=1),
+        periods=total_prediction_points,  # 改用periods参数确保点数匹配
+        freq='3H'
     )
     
+    # 添加长度验证
+    assert len(forecast_dates) == len(predictions), f"时间戳({len(forecast_dates)})和预测值({len(predictions)})长度不匹配"
+    
+    forecast_df = pd.DataFrame({
+        'timestamp': forecast_dates,
+        'value': predictions.flatten()
+    })
+
     # 计算测试集RMSE
     model.eval()
     with torch.no_grad():
@@ -471,19 +492,14 @@ def transformer_prediction(data, prediction_days, params):
     testY_orig = scaler.inverse_transform(testY.reshape(-1, 1))
     rmse = np.sqrt(np.mean((testPredict - testY_orig) ** 2))
     
-    forecast_df = pd.DataFrame({
-        'timestamp': forecast_dates,
-        'value': predictions.flatten()
-    })
-    
     explanation = f"""
     **混合CNN-LSTM-Transformer模型训练说明**  
     
     本次预测使用了结合CNN、LSTM和Transformer优势的三重混合模型，主要特点包括:
     
     **模型架构:**
-    1. CNN层(1D卷积+ReLU): 提取局部特征模式，适合农业数据的短期波动
-    2. LSTM层(双向): 捕获中短期时序依赖，处理温度/湿度的渐进变化
+    1. CNN层: 提取局部特征模式，适合农业数据的短期波动
+    2. LSTM层: 捕获中短期时序依赖，处理温度/湿度的渐进变化
     3. Transformer层: 建立长期全局依赖，识别季节性/周期性规律
     4. 特征融合层: 智能结合CNN的局部特征和LSTM的时序特征
     
@@ -527,7 +543,16 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
         # 优化ARIMA参数，更适合农业数据
         model = ARIMA(df['value'], order=(2, 1, 2))
         model_fit = model.fit()
-        forecast = model_fit.forecast(steps=prediction_days)
+        
+        # 生成预测时间戳 - 每天8个时间点(0,3,6,9,12,15,18,21)
+        last_date = df.index[-1].replace(hour=0, minute=0, second=0)
+        forecast_dates = pd.date_range(
+            start=last_date + pd.Timedelta(days=1),
+            end=last_date + pd.Timedelta(days=prediction_days),
+            freq='3H'
+        )
+        # 确保预测点数与时间戳数量一致
+        forecast = model_fit.forecast(steps=len(forecast_dates))
         
         fitted = model_fit.fittedvalues
         rmse = np.sqrt(np.mean((df['value'] - fitted) ** 2))
@@ -550,7 +575,6 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
         - 保留季节性特征
         """
         
-        forecast_dates = pd.date_range(start=df.index[-1], periods=prediction_days + 1, freq='D')[1:]
         forecast_df = pd.DataFrame({'timestamp': forecast_dates, 'value': forecast})
         return df, forecast_df, model_explanation, rmse
         
@@ -558,7 +582,16 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
         # 优化SARIMA季节性参数，更适合农业数据
         model = SARIMAX(df['value'], order=(1, 1, 1), seasonal_order=(1, 1, 1, 24))
         model_fit = model.fit()
-        forecast = model_fit.forecast(steps=prediction_days)
+        
+        # 生成预测时间戳 - 每天8个时间点(0,3,6,9,12,15,18,21)
+        last_date = df.index[-1].replace(hour=0, minute=0, second=0)
+        forecast_dates = pd.date_range(
+            start=last_date + pd.Timedelta(days=1),
+            end=last_date + pd.Timedelta(days=prediction_days),
+            freq='3H'
+        )
+        # 确保预测点数与时间戳数量一致
+        forecast = model_fit.forecast(steps=len(forecast_dates))
         
         fitted = model_fit.fittedvalues
         rmse = np.sqrt(np.mean((df['value'] - fitted) ** 2))
@@ -581,7 +614,6 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
         - 优化了温度/湿度等数据的预测
         """
         
-        forecast_dates = pd.date_range(start=df.index[-1], periods=prediction_days + 1, freq='D')[1:]
         forecast_df = pd.DataFrame({'timestamp': forecast_dates, 'value': forecast})
         return df, forecast_df, model_explanation, rmse
         
@@ -677,7 +709,7 @@ def show_prediction_results(historical_data, forecast_data, model_explanation, r
     st.subheader("预测结果评价")
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("预测天数", len(forecast_data))
+        st.metric("预测数据数", len(forecast_data))
     with col2:
         st.metric("历史数据量", len(historical_data))
     with col3:
