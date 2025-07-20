@@ -66,6 +66,7 @@
 - 依赖库：
     - Streamlit
     - Pandas
+    - Pytorch
     - Plotly
     - SQLAlchemy
     - bcrypt
@@ -200,6 +201,7 @@ sudo systemctl restart docker
     - `numpy`：用于数值计算。
     - `jwt`：用于用户认证。
     - `bcrypt`：用于密码加密和验证。
+    - `Pytorch`: 用于神经网络模型训练和预测。
 
 ### 数据库模型
 - `AirTemperatureHumidity`：存储空气温度和湿度数据。
