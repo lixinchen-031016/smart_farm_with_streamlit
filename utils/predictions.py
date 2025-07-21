@@ -44,8 +44,6 @@ def create_dataset(dataset, look_back=1):
 
 def lstm_prediction(data, prediction_days, params):
     """LSTM模型预测实现 - 使用PyTorch框架"""
-
-    
     # 参数解包
     look_back = params.get('look_back', 7)
     epochs = params.get('epochs', 30)
@@ -53,12 +51,14 @@ def lstm_prediction(data, prediction_days, params):
     units = params.get('units', 32)
     dropout_rate = params.get('dropout_rate', 0.2)
     learning_rate = params.get('learning_rate', 0.001)
-    patience = params.get('patience', 5)  # 早停耐心值
-
-    # 添加学习率调度器参数
+    patience = params.get('patience', 5)
+    
+    # 新增学习率调度参数
     lr_scheduler_params = {
-        'step_size': params.get('lr_step_size', 5),
-        'gamma': params.get('lr_gamma', 0.5)
+        'strategy': params.get('lr_strategy', 'reduce_on_plateau'),  # 新增调度策略
+        'factor': params.get('lr_factor', 0.1),
+        'patience': params.get('lr_patience', 3),
+        'min_lr': params.get('min_lr', 1e-6)
     }
 
     import time
@@ -100,44 +100,67 @@ def lstm_prediction(data, prediction_days, params):
     train_dataset = TensorDataset(trainX_tensor, trainY_tensor)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
 
-    # 定义改进后的PyTorch LSTM模型
-    class LSTMModel(nn.Module):
+    # 定义改进后的LSTM模型
+    class EnhancedLSTMModel(nn.Module):
         def __init__(self):
             super().__init__()
+            # 双向LSTM层
             self.lstm1 = nn.LSTM(input_size=1, hidden_size=units, 
                                batch_first=True, bidirectional=True)
-            self.ln1 = nn.LayerNorm(units*2)  # 添加层归一化
+            self.ln1 = nn.LayerNorm(units*2)  # 层归一化
             self.dropout1 = nn.Dropout(dropout_rate)
-            self.lstm2 = nn.LSTM(input_size=units*2, hidden_size=units//2,
-                               batch_first=True, bidirectional=True)
-            self.ln2 = nn.LayerNorm(units)  # 添加层归一化
+            
+            # 第二层LSTM
+            self.lstm2 = nn.LSTM(input_size=units*2, hidden_size=units,
+                               batch_first=True)
+            self.ln2 = nn.LayerNorm(units)
             self.dropout2 = nn.Dropout(dropout_rate)
+            
+            # 注意力机制
             self.attention = nn.MultiheadAttention(embed_dim=units, num_heads=2)
-            self.linear = nn.Linear(units, 1)
+            
+            # 输出层
+            self.linear = nn.Sequential(
+                nn.Linear(units, units//2),
+                nn.ReLU(),
+                nn.Linear(units//2, 1)
+            )
             
         def forward(self, x):
             x, _ = self.lstm1(x)
-            x = self.ln1(x)  # 层归一化
+            x = self.ln1(x)
             x = self.dropout1(x)
+            
             x, _ = self.lstm2(x)
-            x = self.ln2(x)  # 层归一化
+            x = self.ln2(x)
             x = self.dropout2(x)
-            x = x.transpose(0, 1)
-            x, _ = self.attention(x, x, x)
-            x = x.mean(dim=0)
+            
+            # 注意力机制
+            x = x.transpose(0, 1)  # [seq_len, batch, features]
+            attn_out, _ = self.attention(x, x, x)
+            x = attn_out.mean(dim=0)
+            
             return self.linear(x)
 
-    model = LSTMModel()
-    criterion = nn.MSELoss()
-    optimizer = optim.NAdam(model.parameters(), 
-                          lr=learning_rate,
-                          betas=(0.9, 0.999),
-                          momentum_decay=0.004)
+    model = EnhancedLSTMModel()
+    criterion = nn.HuberLoss()  # 改用HuberLoss更鲁棒
+    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
     
-    # 添加学习率调度器
-    scheduler = optim.lr_scheduler.StepLR(optimizer, 
-                                        step_size=lr_scheduler_params['step_size'],
-                                        gamma=lr_scheduler_params['gamma'])
+    # 改进的学习率调度器
+    if lr_scheduler_params['strategy'] == 'reduce_on_plateau':
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode='min',
+            factor=lr_scheduler_params['factor'],
+            patience=lr_scheduler_params['patience'],
+            min_lr=lr_scheduler_params['min_lr']
+        )
+    else:
+        scheduler = optim.lr_scheduler.StepLR(
+            optimizer,
+            step_size=5,
+            gamma=0.5
+        )
 
     # 添加早停机制
     best_loss = float('inf')
@@ -159,11 +182,13 @@ def lstm_prediction(data, prediction_days, params):
             optimizer.step()
             total_loss += loss.item()
         
-        # 更新学习率
-        scheduler.step()
-        
-        # 早停检查
+        # 计算当前轮次的平均损失
         current_loss = total_loss/len(train_loader)
+        
+        # 更新学习率
+        scheduler.step(current_loss) if lr_scheduler_params['strategy'] == 'reduce_on_plateau' else scheduler.step()
+
+        # 早停检查
         if current_loss < best_loss:
             best_loss = current_loss
             patience_counter = 0
@@ -213,7 +238,7 @@ def lstm_prediction(data, prediction_days, params):
     forecast_dates = pd.date_range(
         start=last_date + pd.Timedelta(days=1),
         periods=total_prediction_points,  # 使用periods而不是end来确保点数匹配
-        freq='3H'
+        freq='3h'
     )
     
     # 验证数组长度一致
@@ -472,7 +497,7 @@ def transformer_prediction(data, prediction_days, params):
     forecast_dates = pd.date_range(
         start=last_date + pd.Timedelta(days=1),
         periods=total_prediction_points,  # 改用periods参数确保点数匹配
-        freq='3H'
+        freq='3h'
     )
     
     # 添加长度验证
@@ -601,8 +626,8 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
                           df['value'].median(), 
                           df['value'])
     
-    # 只选择最近30天的数据
-    df = df[df.index >= (df.index.max() - pd.Timedelta(days=30))]
+    # 只选择最近60天的数据
+    df = df[df.index >= (df.index.max() - pd.Timedelta(days=60))]
 
     model_explanation = ""  # 初始化解释字符串
     rmse = 0.0  # 初始化RMSE
