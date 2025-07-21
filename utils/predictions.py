@@ -521,6 +521,75 @@ def transformer_prediction(data, prediction_days, params):
 
     return df, forecast_df, explanation, rmse
 
+def prophet_prediction(data, prediction_days, params):
+    """Facebook Prophet模型预测实现"""
+    # 使用 prophet 替代 fbprophet
+    from prophet import Prophet
+    import pandas as pd
+    import numpy as np
+    
+    # 数据预处理
+    df = pd.DataFrame(data, columns=['ds', 'y'])
+    df['ds'] = pd.to_datetime(df['ds'])
+    
+    # 添加农业数据特定的季节性参数
+    model = Prophet(
+        yearly_seasonality=False,  # 农业数据通常不需要年周期
+        weekly_seasonality=True,   # 周周期对农业数据可能有用
+        daily_seasonality=True,    # 日周期非常重要
+        changepoint_prior_scale=params.get('changepoint_prior_scale', 0.05),
+        seasonality_prior_scale=params.get('seasonality_prior_scale', 10.0),
+        holidays_prior_scale=params.get('holidays_prior_scale', 10.0),
+        seasonality_mode='multiplicative'
+    )
+    
+    # 添加自定义季节性 - 适合农业数据的季节性
+    model.add_seasonality(name='hourly', period=1/24, fourier_order=5)  # 每小时周期
+    
+    # 训练模型
+    model.fit(df)
+    
+    # 生成预测时间戳 - 每天8个时间点(0,3,6,9,12,15,18,21)
+    future = model.make_future_dataframe(
+        periods=prediction_days * 8,  # 每天8个点
+        freq='3H'
+    )
+    
+    # 生成预测
+    forecast = model.predict(future)
+    
+    # 计算历史数据的RMSE
+    y_true = df['y'].values
+    y_pred = forecast.loc[:len(df)-1, 'yhat'].values
+    rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
+    
+    # 准备返回数据
+    forecast_df = forecast[['ds', 'yhat']].rename(columns={'ds': 'timestamp', 'yhat': 'value'})
+    forecast_df = forecast_df[forecast_df['timestamp'] > df['ds'].max()]  # 只返回预测部分
+    
+    explanation = f"""
+    **Prophet模型训练说明**
+    
+    本次预测使用了Facebook Prophet模型，特别针对农业数据优化:
+    
+    **模型特性:**
+    1. 内置日周期和周周期检测
+    2. 自动处理节假日效应
+    3. 对异常值和缺失值鲁棒
+    4. 乘法季节性模式适合农业数据
+    
+    **农业数据优化:**
+    1. 添加了精细的每小时季节性
+    2. 调整了变化点灵敏度
+    3. 优化了季节性强度参数
+    
+    **性能指标:**
+    - 历史数据拟合RMSE: {rmse:.4f}
+    - 预测天数: {prediction_days}天
+    """
+    
+    return df.set_index('ds'), forecast_df, explanation, rmse
+
 def perform_prediction(data, model_type, prediction_days, lstm_params=None):
     df = pd.DataFrame(data, columns=['timestamp', 'value'])
     df['timestamp'] = pd.to_datetime(df['timestamp'])
@@ -578,11 +647,16 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
         return df, forecast_df, model_explanation, rmse
         
     elif model_type == "LSTM":
-        # 调用LSTM预测函数
         return lstm_prediction(data, prediction_days, lstm_params or {})
         
     elif model_type == "Transformer":
         return transformer_prediction(data, prediction_days, lstm_params or {})
+        
+    elif model_type == "Prophet":
+        # 准备Prophet需要的输入格式
+        prophet_data = df.reset_index()
+        prophet_data.columns = ['ds', 'y']
+        return prophet_prediction(prophet_data, prediction_days, lstm_params or {})
         
     return df, pd.DataFrame(), model_explanation, rmse
 
@@ -604,7 +678,7 @@ def get_historical_data(session, data_type):
 def prepare_prediction_ui():
     """准备预测UI组件"""
     data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度"])
-    model_type = st.selectbox("选择预测模型", ["SARIMA", "LSTM", "Transformer"])
+    model_type = st.selectbox("选择预测模型", ["SARIMA", "LSTM", "Transformer", "Prophet"])
     prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
     
     lstm_params = {}
@@ -632,6 +706,12 @@ def prepare_prediction_ui():
                         st.info(f"已自动调整注意力头数为: {lstm_params['nhead']}")
                 
                 lstm_params['num_layers'] = st.slider("编码器层数", 1, 6, 2)
+    elif model_type == "Prophet":
+        with st.expander("Prophet模型参数配置"):
+            lstm_params['changepoint_prior_scale'] = st.slider("变化点灵敏度", 0.001, 0.5, 0.05, step=0.01,
+                help="控制趋势灵活性的参数")
+            lstm_params['seasonality_prior_scale'] = st.slider("季节性强度", 0.1, 20.0, 10.0, step=0.1,
+                help="控制季节性效应强度的参数")
     
     return data_type, model_type, prediction_days, lstm_params
 
@@ -655,9 +735,23 @@ def show_prediction_results(historical_data, forecast_data, model_explanation, r
             with col2:
                 st.markdown("RMSE值越小表示模型预测精度越高")
 
+    # 统一列名处理
+    hist_col = 'y' if 'y' in historical_data.columns else 'value'
+    forecast_col = 'yhat' if 'yhat' in forecast_data.columns else 'value'
+    
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=historical_data.index, y=historical_data['value'], mode='lines', name='历史数据'))
-    fig.add_trace(go.Scatter(x=forecast_data['timestamp'], y=forecast_data['value'], mode='lines', name='预测数据'))
+    fig.add_trace(go.Scatter(
+        x=historical_data.index, 
+        y=historical_data[hist_col], 
+        mode='lines', 
+        name='历史数据'
+    ))
+    fig.add_trace(go.Scatter(
+        x=forecast_data['timestamp'], 
+        y=forecast_data[forecast_col], 
+        mode='lines', 
+        name='预测数据'
+    ))
     fig.update_layout(
         title=f"{data_type} 预测结果",
         xaxis_title="时间",
