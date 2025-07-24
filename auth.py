@@ -97,6 +97,7 @@ def login(session, st):
                     st.session_state['logged_in'] = True
                     st.session_state['username'] = username
                     st.session_state['role'] = user.role
+                    st.session_state['just_logged_in'] = True  # 标记刚登录
                     user.last_login_time = datetime.now()
                     session.commit()
                     log_operation(username, "INFO", "用户登录", f"用户 {username} 成功登录")

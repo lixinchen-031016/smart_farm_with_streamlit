@@ -688,8 +688,30 @@ def main():
     elif page == "register":
         register(session, st)
     else:
+        # 登录成功后显示欢迎信息
+        if st.session_state.get('logged_in'):
+            # 只在刚登录时显示欢迎信息
+            if st.session_state.get('just_logged_in', False):
+                st.success(f"欢迎您，{st.session_state['username']}！您已成功登录智能农场管理系统。")
+                st.session_state['just_logged_in'] = False
+
         # 重构侧边栏菜单逻辑
         with st.sidebar:
+            # 新增：显示当前登录用户信息
+            if st.session_state.get('logged_in'):
+                st.markdown(f"""
+                <div style="background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+                    <p style="margin: 0; font-weight: bold;">当前用户:</p>
+                    <p style="margin: 0; color: #4CAF50;">{st.session_state['username']}</p>
+                    <p style="margin: 0; font-size: 0.9em;">角色: {'管理员' if st.session_state['role'] == 'admin' else '普通用户'}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # 添加退出登录按钮到侧边栏用户信息处
+                if st.button("🚪 退出登录"):
+                    st.session_state['logout_clicked'] = True
+                    st.rerun()
+
             # 新增：根据当前页面自动选中对应菜单项
             page_to_menu_mapping = {
                 "data_preview": "实时数据预览",
