@@ -237,7 +237,6 @@ def login(session, st):
             # 登录表单
             username = st.text_input("👤 用户名", key="login_username")
             password = st.text_input("🔒 密码", type="password", key="login_password")
-            user_type = st.radio("身份类型", ["👨🌾 普通用户", "👨💼 管理员"], horizontal=True)
             
             # 添加验证码功能
             if 'login_captcha' not in st.session_state or 'login_captcha_image' not in st.session_state:
@@ -478,6 +477,9 @@ def register(session, st):
             password = st.text_input("🔒 密码", type="password", key="register_password")
             confirm_password = st.text_input("🔁 确认密码", type="password", key="confirm_password")
             
+            # 添加身份选择
+            user_type = st.radio("身份类型", ["👨🌾 普通用户", "👨💼 管理员"], horizontal=True)
+            
             # 添加验证码功能
             if 'register_captcha' not in st.session_state or 'register_captcha_image' not in st.session_state:
                 captcha_text, captcha_image = generate_captcha()
@@ -528,11 +530,13 @@ def register(session, st):
                         st.error("用户名已存在")
                     else:
                         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+                        # 根据用户选择设置角色
+                        role = 'admin' if user_type == "👨💼 管理员" else 'user'
                         new_user = User(username=username, password=hashed_password.decode('utf-8'),
-                                        last_login_time=datetime.now())
+                                        last_login_time=datetime.now(), role=role)
                         session.add(new_user)
                         session.commit()
-                        log_operation(username, "INFO", "用户注册", f"用户 {username} 注册成功")
+                        log_operation(username, "INFO", "用户注册", f"用户 {username} 注册成功，角色: {role}")
                         # 注册成功后刷新验证码
                         if 'register_captcha' in st.session_state:
                             del st.session_state['register_captcha']
