@@ -1022,25 +1022,63 @@ def show_prediction_results(historical_data, forecast_data, model_explanation, r
     # 修复：确保能正确处理混合模型预测数据的列名
     forecast_col = 'value'  # 混合模型和其他模型统一使用'value'列
     
+    # 性能优化：对大数据集进行采样
+    max_points = 1000
+    if len(historical_data) > max_points:
+        st.info(f"🚀 **性能优化**: 历史数据较大，已对 {max_points} 个数据点进行采样以提升渲染性能")
+        historical_data_sampled = historical_data.sample(n=max_points).sort_index()
+    else:
+        historical_data_sampled = historical_data
+    
+    if len(forecast_data) > max_points:
+        st.info(f"🚀 **性能优化**: 预测数据较大，已对 {max_points} 个数据点进行采样以提升渲染性能")
+        forecast_data_sampled = forecast_data.sample(n=max_points).sort_values('timestamp')
+    else:
+        forecast_data_sampled = forecast_data
+    
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        x=historical_data.index, 
-        y=historical_data[hist_col], 
+        x=historical_data_sampled.index, 
+        y=historical_data_sampled[hist_col], 
         mode='lines', 
-        name='历史数据'
+        name='历史数据',
+        line=dict(width=2),
+        hovertemplate="时间: %{x}<br>值: %{y}<extra></extra>"
     ))
     fig.add_trace(go.Scatter(
-        x=forecast_data['timestamp'], 
-        y=forecast_data[forecast_col], 
+        x=forecast_data_sampled['timestamp'], 
+        y=forecast_data_sampled[forecast_col], 
         mode='lines', 
-        name='预测数据'
+        name='预测数据',
+        line=dict(width=3, dash='dash'),
+        hovertemplate="时间: %{x}<br>预测值: %{y}<extra></extra>"
     ))
+    
+    # 添加置信区间（如果可用）
+    if 'yhat_lower' in forecast_data_sampled.columns and 'yhat_upper' in forecast_data_sampled.columns:
+        fig.add_trace(go.Scatter(
+            x=pd.concat([forecast_data_sampled['timestamp'], forecast_data_sampled['timestamp'][::-1]]),
+            y=pd.concat([forecast_data_sampled['yhat_upper'], forecast_data_sampled['yhat_lower'][::-1]]),
+            fill='toself',
+            fillcolor='rgba(0,100,80,0.2)',
+            line=dict(color='rgba(255,255,255,0)'),
+            hoverinfo="skip",
+            showlegend=True,
+            name='置信区间'
+        ))
+    
     fig.update_layout(
         title=f"{data_type} 预测结果",
         xaxis_title="时间",
         yaxis_title="值",
-        legend_title="数据类型"
+        legend_title="数据类型",
+        hovermode='x unified',  # 统一悬停效果
+        font=dict(size=12)
     )
+    
+    # 启用WebGL加速
+    fig.update_traces(patch=dict(mode='lines'), selector=dict(type='scatter'))
+    
     st.plotly_chart(fig, use_container_width=True)
     
     st.subheader("预测结果评价")
@@ -1053,3 +1091,11 @@ def show_prediction_results(historical_data, forecast_data, model_explanation, r
         st.metric("模型精度 (RMSE)", f"{rmse:.4f}", 
                  delta="优" if rmse < 1.0 else "良" if rmse < 2.5 else "一般",
                  delta_color="inverse")
+    
+    # 添加智能推荐
+    if rmse < 1.0:
+        st.success("✅ **智能推荐**: 模型预测精度较高，可结合实际环境用于决策参考")
+    elif rmse < 2.5:
+        st.warning("⚠️ **智能推荐**: 模型预测精度中等，建议结合实际经验进行判断")
+    else:
+        st.warning("⚠️ **智能推荐**: 模型预测偏差较大，建议结合实际数据趋势进行判断")
