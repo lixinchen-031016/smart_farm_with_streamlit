@@ -19,6 +19,58 @@ session = Session()
 from models import User  # 导入User模型
 from utils.logger import log_operation  # 添加: 引入日志记录函数
 
+# 添加登录尝试记录字典
+login_attempts = {}
+
+# 添加检查登录尝试的函数
+def check_login_attempts(username, max_attempts=10, lockout_time=300):
+    """
+    检查用户登录尝试次数
+    :param username: 用户名
+    :param max_attempts: 最大尝试次数
+    :param lockout_time: 锁定时间(秒)
+    :return: (是否允许登录, 剩余锁定时间)
+    """
+    current_time = datetime.now()
+    
+    if username not in login_attempts:
+        login_attempts[username] = {'attempts': 0, 'last_attempt': current_time}
+        return True, 0
+    
+    user_attempts = login_attempts[username]
+    
+    # 如果已经超过了锁定时间，重置尝试次数
+    if (current_time - user_attempts['last_attempt']).seconds > lockout_time:
+        user_attempts['attempts'] = 0
+    
+    # 如果尝试次数已达到上限，返回剩余锁定时间
+    if user_attempts['attempts'] >= max_attempts:
+        remaining_lockout = lockout_time - (current_time - user_attempts['last_attempt']).seconds
+        return False, max(0, remaining_lockout)
+    
+    return True, 0
+
+# 添加记录登录失败的函数
+def record_failed_login(username):
+    """
+    记录登录失败尝试
+    :param username: 用户名
+    """
+    current_time = datetime.now()
+    if username not in login_attempts:
+        login_attempts[username] = {'attempts': 1, 'last_attempt': current_time}
+    else:
+        login_attempts[username]['attempts'] += 1
+        login_attempts[username]['last_attempt'] = current_time
+
+# 添加重置登录尝试记录的函数
+def reset_login_attempts(username):
+    """
+    重置用户的登录尝试记录
+    :param username: 用户名
+    """
+    if username in login_attempts:
+        del login_attempts[username]
 
 def check_password_complexity(password):
     """
@@ -265,9 +317,21 @@ def login(session, st):
             st.markdown('</div>', unsafe_allow_html=True)
             
             if st.button("🚪 登录", type="primary"):
+                # 检查登录尝试次数
+                can_login, remaining_time = check_login_attempts(username)
+                if not can_login:
+                    st.error(f"登录尝试次数过多，请 {remaining_time} 秒后再试")
+                    log_operation(username, "ERROR", "登录失败", f"因多次尝试失败被锁定，剩余锁定时间: {remaining_time}秒")
+                    # 刷新验证码
+                    captcha_text, captcha_image = generate_captcha()
+                    st.session_state['login_captcha'] = captcha_text
+                    st.session_state['login_captcha_image'] = captcha_image
+                    return
+                
                 # 验证验证码
                 if captcha_input != st.session_state['login_captcha']:
                     st.error("验证码错误")
+                    record_failed_login(username)  # 记录失败尝试
                     log_operation(username, "ERROR", "登录失败", "验证码错误")
                     # 刷新验证码
                     captcha_text, captcha_image = generate_captcha()
@@ -290,6 +354,7 @@ def login(session, st):
                         st.session_state['just_logged_in'] = True  # 标记刚登录
                         user.last_login_time = datetime.now()
                         session.commit()
+                        reset_login_attempts(username)  # 重置登录尝试记录
                         log_operation(username, "INFO", "用户登录", f"用户 {username} 成功登录")
                         # 登录成功后刷新验证码
                         if 'login_captcha' in st.session_state:
@@ -303,6 +368,7 @@ def login(session, st):
                         st.rerun()
                     else:
                         st.error("用户名或密码错误")  # 新增错误提示
+                        record_failed_login(username)  # 记录失败尝试
                         log_operation(username, "ERROR", "登录失败", "用户名或密码错误")
                         # 刷新验证码
                         captcha_text, captcha_image = generate_captcha()
