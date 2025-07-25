@@ -478,14 +478,54 @@ def data_visualization():
         filtered_data = data
         st.info("当前数据没有时间戳列，将使用全部数据进行可视化")
 
+    # 数据质量检查
+    st.subheader("数据质量检查")
+    missing_values = filtered_data.isnull().sum().sum()
+    duplicate_rows = filtered_data.duplicated().sum()
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("缺失值", missing_values)
+    with col2:
+        st.metric("重复行", duplicate_rows)
+    
+    if missing_values > 0:
+        st.warning(f"⚠️ 检测到 {missing_values} 个缺失值，可能影响可视化效果")
+    if duplicate_rows > 0:
+        st.warning(f"⚠️ 检测到 {duplicate_rows} 个重复行，建议先进行数据清洗")
+    
+    # 智能推荐图表类型
+    numeric_columns = filtered_data.select_dtypes(include=['float64', 'int64']).columns
+    categorical_columns = filtered_data.select_dtypes(include=['object']).columns
+    
+    st.subheader("智能推荐")
+    if len(numeric_columns) >= 2:
+        st.info("💡 检测到多个数值型变量，推荐使用散点图探索变量间关系")
+    elif len(numeric_columns) == 1 and len(categorical_columns) >= 1:
+        st.info("💡 检测到数值型和分类型变量，推荐使用柱状图或箱线图进行比较分析")
+    elif len(categorical_columns) >= 1 and 'timestamp' in filtered_data.columns:
+        st.info("💡 检测到时间序列数据，推荐使用线图展示趋势变化")
+    else:
+        st.info("💡 根据当前数据特征，推荐使用直方图查看数据分布")
+
     # 设置统一的主题
     pio.templates.default = "plotly_white"
     color_sequence = px.colors.qualitative.Plotly
 
-    chart_type = st.selectbox("选择图表类型", ["散点图", "线图", "柱状图", "箱线图", "直方图", "饼图", "热力图"])
+    # 添加图表类型说明
+    with st.expander("📊 图表类型说明"):
+        st.markdown("""
+        **常用图表类型适用场景：**
+        - **散点图**: 展示两个数值变量之间的关系
+        - **线图**: 展示数据随时间的变化趋势
+        - **柱状图**: 比较不同类别的数值大小
+        - **箱线图**: 展示数据分布和异常值
+        - **直方图**: 展示单个数值变量的分布情况
+        - **饼图**: 展示各类别占比情况
+        - **热力图**: 展示矩阵数据或相关性分析
+        """)
 
-    numeric_columns = filtered_data.select_dtypes(include=['float64', 'int64']).columns
-    categorical_columns = filtered_data.select_dtypes(include=['object']).columns
+    chart_type = st.selectbox("选择图表类型", ["散点图", "线图", "柱状图", "箱线图", "直方图", "饼图", "热力图"])
 
     if len(numeric_columns) == 0:
         st.warning("数据集中没有数值列，无法进行可视化。")
@@ -537,8 +577,6 @@ def data_visualization():
         - **导出**: 点击右上角相机图标可下载图表
         """)
     
-    #st.plotly_chart(fig_small, use_container_width=True, key="visualization_chart")
-    
     # 添加智能推荐
     if chart_type == "散点图" and x_column and y_column:
         corr = filtered_data[[x_column, y_column]].corr().iloc[0, 1]
@@ -546,6 +584,7 @@ def data_visualization():
             st.success(f"💡 **智能洞察**: {x_column} 和 {y_column} 之间存在强相关性 (相关系数: {corr:.2f})")
         elif abs(corr) > 0.3:
             st.info(f"💡 **智能洞察**: {x_column} 和 {y_column} 之间存在中等相关性 (相关系数: {corr:.2f})")
+
 
 # 函数：高级分析
 def advanced_analysis():
