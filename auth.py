@@ -23,7 +23,7 @@ from utils.logger import log_operation  # 添加: 引入日志记录函数
 login_attempts = {}
 
 # 添加检查登录尝试的函数
-def check_login_attempts(username, max_attempts=10, lockout_time=300):
+def check_login_attempts(username, max_attempts=10, lockout_time=30):
     """
     检查用户登录尝试次数
     :param username: 用户名
