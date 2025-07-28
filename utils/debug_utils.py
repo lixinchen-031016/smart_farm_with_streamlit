@@ -25,8 +25,8 @@ def show_debug_info(username):
 
     st.title("🐛 调试信息面板")
     
-    # 创建选项卡
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs(["环境信息", "系统资源", "数据库状态", "性能分析", "调试工具", "应用状态", "网络与异常", "配置管理", "数据库查询分析器"])
+    # 创建选项卡，添加新的"系统信息查看器"选项卡
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs(["环境信息", "系统资源", "数据库状态", "性能分析", "调试工具", "应用状态", "网络与异常", "配置管理", "数据库查询分析器", "系统信息查看器"])
     
     with tab1:
         show_environment_info()
@@ -54,6 +54,10 @@ def show_debug_info(username):
         
     with tab9:
         show_database_query_analyzer(username)
+        
+    # 添加新的系统信息查看器选项卡
+    with tab10:
+        show_system_info_viewer()
 
 def show_environment_info():
     """显示环境信息"""
@@ -803,3 +807,222 @@ def show_database_query_analyzer(username):
     except Exception as e:
         st.error(f"❌ 数据库连接异常: {str(e)}")
         log_operation(username, "ERROR", "调试信息-数据库查询", f"数据库连接异常: {str(e)}")
+
+def show_system_info_viewer():
+    """显示系统详细信息查看器"""
+    st.subheader("🖥️ 系统信息查看器")
+    st.info("查看详细的系统硬件和软件信息")
+    
+    # 创建子选项卡
+    sys_tab1, sys_tab2, sys_tab3, sys_tab4, sys_tab5 = st.tabs(["基本系统信息", "CPU详细信息", "内存详细信息", "磁盘信息", "网络信息"])
+    
+    # 基本系统信息
+    with sys_tab1:
+        st.subheader("📋 基本系统信息")
+        try:
+            uname = os.uname()
+            system_info = {
+                "系统名称": uname.sysname,
+                "主机名": uname.nodename,
+                "发行版本": uname.release,
+                "版本信息": uname.version,
+                "机器架构": uname.machine
+            }
+            st.json(system_info)
+        except AttributeError:
+            # Windows系统不支持uname
+            import platform
+            system_info = {
+                "系统名称": platform.system(),
+                "主机名": platform.node(),
+                "发行版本": platform.release(),
+                "版本信息": platform.version(),
+                "机器架构": platform.machine()
+            }
+            st.json(system_info)
+        
+        # Python信息
+        st.subheader("🐍 Python信息")
+        python_info = {
+            "Python版本": sys.version,
+            "Python编译器": sys.implementation.name,
+            "Python可执行文件路径": sys.executable,
+            "Python路径": sys.path
+        }
+        st.json(python_info)
+    
+    # CPU详细信息
+    with sys_tab2:
+        st.subheader("🧠 CPU详细信息")
+        try:
+            # CPU基本信息
+            cpu_info = {
+                "物理核心数": psutil.cpu_count(logical=False),
+                "逻辑核心数": psutil.cpu_count(logical=True),
+                "最大频率": f"{psutil.cpu_freq().max:.2f}MHz" if psutil.cpu_freq() else "N/A",
+                "当前频率": f"{psutil.cpu_freq().current:.2f}MHz" if psutil.cpu_freq() else "N/A"
+            }
+            st.json(cpu_info)
+            
+            # CPU使用率（每个核心）
+            st.subheader("📈 各核心使用率")
+            cpu_percent_per_core = psutil.cpu_percent(percpu=True, interval=1)
+            cores_data = {f"Core {i}": f"{percent}%" for i, percent in enumerate(cpu_percent_per_core)}
+            st.json(cores_data)
+            
+            # CPU时间统计
+            st.subheader("⏱️ CPU时间统计")
+            cpu_times = psutil.cpu_times()
+            times_info = {
+                "用户时间": f"{cpu_times.user:.2f}秒",
+                "系统时间": f"{cpu_times.system:.2f}秒",
+                "空闲时间": f"{cpu_times.idle:.2f}秒",
+                "中断时间": f"{cpu_times.interrupt:.2f}秒" if hasattr(cpu_times, 'interrupt') else "N/A"
+            }
+            st.json(times_info)
+            
+        except Exception as e:
+            st.error(f"获取CPU信息时出错: {str(e)}")
+    
+    # 内存详细信息
+    with sys_tab3:
+        st.subheader("💾 内存详细信息")
+        try:
+            # 虚拟内存
+            virtual_mem = psutil.virtual_memory()
+            virtual_info = {
+                "总内存": f"{virtual_mem.total / (1024**3):.2f} GB",
+                "已用内存": f"{virtual_mem.used / (1024**3):.2f} GB",
+                "可用内存": f"{virtual_mem.available / (1024**3):.2f} GB",
+                "内存使用率": f"{virtual_mem.percent}%",
+                "缓冲区": f"{virtual_mem.buffers / (1024**3):.2f} GB" if hasattr(virtual_mem, 'buffers') else "N/A",
+                "缓存": f"{virtual_mem.cached / (1024**3):.2f} GB" if hasattr(virtual_mem, 'cached') else "N/A"
+            }
+            st.json(virtual_info)
+            
+            # 交换内存
+            st.subheader("🔁 交换内存")
+            swap_mem = psutil.swap_memory()
+            swap_info = {
+                "总交换空间": f"{swap_mem.total / (1024**3):.2f} GB",
+                "已用交换空间": f"{swap_mem.used / (1024**3):.2f} GB",
+                "可用交换空间": f"{swap_mem.free / (1024**3):.2f} GB",
+                "交换空间使用率": f"{swap_mem.percent}%",
+                "交换次数": f"输入: {swap_mem.sin}, 输出: {swap_mem.sout}" if hasattr(swap_mem, 'sin') else "N/A"
+            }
+            st.json(swap_info)
+            
+        except Exception as e:
+            st.error(f"获取内存信息时出错: {str(e)}")
+    
+    # 磁盘信息
+    with sys_tab4:
+        st.subheader("💿 磁盘信息")
+        try:
+            # 磁盘分区信息
+            st.subheader("📂 磁盘分区")
+            partitions = psutil.disk_partitions()
+            partition_data = []
+            for partition in partitions:
+                partition_info = {
+                    "设备": partition.device,
+                    "挂载点": partition.mountpoint,
+                    "文件系统类型": partition.fstype,
+                }
+                
+                try:
+                    partition_usage = psutil.disk_usage(partition.mountpoint)
+                    partition_info.update({
+                        "总空间": f"{partition_usage.total / (1024**3):.2f} GB",
+                        "已用空间": f"{partition_usage.used / (1024**3):.2f} GB",
+                        "可用空间": f"{partition_usage.free / (1024**3):.2f} GB",
+                        "使用率": f"{partition_usage.percent}%"
+                    })
+                except PermissionError:
+                    partition_info.update({
+                        "总空间": "N/A (权限不足)",
+                        "已用空间": "N/A (权限不足)",
+                        "可用空间": "N/A (权限不足)",
+                        "使用率": "N/A (权限不足)"
+                    })
+                
+                partition_data.append(partition_info)
+            
+            for i, partition in enumerate(partition_data):
+                st.write(f"**分区 {i+1}**")
+                st.json(partition)
+            
+            # 磁盘IO统计
+            st.subheader("📊 磁盘IO统计")
+            disk_io = psutil.disk_io_counters()
+            if disk_io:
+                io_info = {
+                    "读取次数": disk_io.read_count,
+                    "写入次数": disk_io.write_count,
+                    "读取字节数": f"{disk_io.read_bytes / (1024**2):.2f} MB",
+                    "写入字节数": f"{disk_io.write_bytes / (1024**2):.2f} MB",
+                    "读取时间": f"{disk_io.read_time} ms" if hasattr(disk_io, 'read_time') else "N/A",
+                    "写入时间": f"{disk_io.write_time} ms" if hasattr(disk_io, 'write_time') else "N/A"
+                }
+                st.json(io_info)
+                
+        except Exception as e:
+            st.error(f"获取磁盘信息时出错: {str(e)}")
+    
+    # 网络信息
+    with sys_tab5:
+        st.subheader("🌐 网络信息")
+        try:
+            # 网络接口信息
+            st.subheader("🔌 网络接口")
+            net_if_addrs = psutil.net_if_addrs()
+            for interface_name, interface_addresses in net_if_addrs.items():
+                st.write(f"**{interface_name}**")
+                interface_data = []
+                for address in interface_addresses:
+                    if address.family == psutil.AF_LINK:  # MAC地址
+                        interface_data.append({"类型": "MAC地址", "地址": address.address})
+                    elif address.family == 2:  # IPv4
+                        interface_data.append({"类型": "IPv4", "地址": address.address, "掩码": address.netmask})
+                    elif address.family == 10:  # IPv6
+                        interface_data.append({"类型": "IPv6", "地址": address.address, "掩码": address.netmask})
+                st.dataframe(pd.DataFrame(interface_data), use_container_width=True)
+            
+            # 网络IO统计
+            st.subheader("📊 网络IO统计")
+            net_io = psutil.net_io_counters()
+            io_info = {
+                "字节发送": f"{net_io.bytes_sent / (1024**2):.2f} MB",
+                "字节接收": f"{net_io.bytes_recv / (1024**2):.2f} MB",
+                "数据包发送": net_io.packets_sent,
+                "数据包接收": net_io.packets_recv,
+                "发送错误": net_io.errin,
+                "接收错误": net_io.errout,
+                "发送丢弃": net_io.dropin,
+                "接收丢弃": net_io.dropout
+            }
+            st.json(io_info)
+            
+            # 网络连接信息
+            st.subheader("🔗 网络连接")
+            try:
+                connections = psutil.net_connections()
+                conn_data = []
+                for conn in connections[:50]:  # 限制显示前50个连接
+                    conn_data.append({
+                        "类型": str(conn.type),
+                        "本地地址": f"{conn.laddr.ip}:{conn.laddr.port}" if conn.laddr else "N/A",
+                        "远程地址": f"{conn.raddr.ip}:{conn.raddr.port}" if conn.raddr else "N/A",
+                        "状态": conn.status
+                    })
+                if conn_data:
+                    st.dataframe(pd.DataFrame(conn_data), use_container_width=True)
+                    if len(connections) > 50:
+                        st.info(f"共 {len(connections)} 个连接，仅显示前50个")
+                else:
+                    st.info("暂无网络连接")
+            except psutil.AccessDenied:
+                st.warning("访问网络连接信息需要管理员权限")
+                
+        except Exception as e:
+            st.error(f"获取网络信息时出错: {str(e)}")
