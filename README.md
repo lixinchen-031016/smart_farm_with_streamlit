@@ -35,13 +35,17 @@
 - **数据分析**：提供描述性统计和相关性分析。
 - **数据可视化**：支持9种图表类型和JSON格式图表导出。
 - **高级分析**：进行数据分组和聚合分析。
-- **本地数据分析预测**：ARIMA/SARIMA/LSTM模型预测，支持7-30天数据预测，可视化预测趋势。
+- **本地数据预测**：支持多种预测模型（SARIMA/LSTM/Transformer/Prophet/混合模型），进行7-30天数据预测，可视化预测趋势。
 - **机器学习模型**：对环境数据进行机器学习模型训练和预测，并支持模型预测。
+- **自动化决策**：基于传感器数据的自动决策和建议系统，根据预设规则生成环境调控建议。
+- **使用说明**：完整的系统使用说明书，包含所有功能的操作指南。
 
 ### 管理员功能：
 - **用户管理**：支持密码修改、角色分配、密码重置。
 - **系统监控**：CPU/内存/磁盘使用率可视化，日志可视化。
 - **数据备份与恢复**：AES-256加密备份，支持按时间范围增量备份；支持加密备份文件+密钥文件双重验证恢复。
+- **日志查看**：查看和下载操作日志。
+- **调试信息**：在调试模式下可查看系统环境信息、资源监控、数据库状态、性能分析等详细信息。
 
 ---
 
@@ -86,6 +90,11 @@
     - seaborn
     - requests
     - flask-sqlalchemy
+    - prophet
+    - streamlit-extras
+    - streamlit-option-menu
+    - python-jose
+    - python-dotenv
     - 以及requirements.txt中列出的其他依赖项
 - 数据库：MySQL 8.0及以上版本
 - 运行平台：本地Docker环境或云服务器（如AWS、Azure、阿里云）中Docker环境
@@ -95,7 +104,7 @@
 ## 6. 安装与部署（Linux环境下的Docker容器部署）
 ### 步骤 1：安装必要工具
 在云服务器中安装以下工具：
-```bash
+```
 sudo apt-get update && sudo apt-get install docker.io
 sudo apt update && sudo apt install git
 ```
@@ -106,11 +115,13 @@ sudo apt update && sudo apt install git
 git clone -b login-register_data-visualization_without_random_data_inside --single-branch https://github.com/lixinchen-031016/smart_farm_with_streamlit.git
 ```
 
+
 ### 步骤 3：进入项目目录
 进入拉取下来的项目文件夹：
 ```bash
 cd smart_farm_with_streamlit
 ```
+
 ### 步骤 4：环境变量配置
 - 在项目根目录创建.env文件并配置以下参数：
 ```ini
@@ -120,8 +131,9 @@ DATABASE_URL=mysql+pymysql://root:0000@db/intelligent_farm
 SECRET_KEY=031016
 ```
 
+
 ### 步骤 5：启动服务
-在包含 `docker-compose.yml` 文件的目录下执行以下命令：
+在包含 [docker-compose.yml]文件的目录下执行以下命令：
 ```bash
 docker-compose up
 ```
@@ -170,10 +182,46 @@ sudo systemctl restart docker
 ### 登录与注册
 1. 打开应用首页。
 2. 输入用户名和密码进行登录。
-3. 如果是新用户，请点击“注册”按钮，填写用户名和密码完成注册。
+3. 如果是新用户，请点击"注册"按钮，填写用户名和密码完成注册。
 
 ### 功能操作
-详见各章节功能描述及操作步骤。
+#### 数据管理
+1. **实时数据预览**：登录后默认进入实时数据监控页面，可查看最新的环境数据指标。
+2. **数据概览**：可选择从数据库读取数据或上传CSV/Excel/JSON文件进行分析。
+3. **数据清洗**：处理数据中的重复行、缺失值，可删除不需要的列并进行交互式数据编辑。
+4. **数据分析**：提供描述性统计和相关性分析功能。
+5. **高级分析**：支持数据分组和聚合分析。
+
+#### 数据可视化
+1. 选择数据可视化功能。
+2. 选择时间范围筛选数据。
+3. 选择图表类型（散点图/线图/柱状图/箱线图/直方图/饼图/热力图）。
+4. 配置相应的参数进行可视化展示。
+
+#### 预测分析
+1. 进入本地数据预测功能。
+2. 选择要预测的数据类型（空气温度/湿度、土壤湿度等）。
+3. 选择预测模型（SARIMA/LSTM/Transformer/Prophet/混合模型）。
+4. 设置预测天数（1-30天）。
+5. 查看预测结果和模型说明。
+
+#### 机器学习
+1. 进入机器学习功能。
+2. 选择目标变量和特征列。
+3. 选择模型类型（分类或回归）。
+4. 训练模型并进行预测。
+
+#### 自动化决策
+1. 进入自动化决策功能。
+2. 点击"评估当前环境条件"按钮。
+3. 系统将根据预设规则生成环境调控建议。
+
+#### 系统管理（仅管理员）
+1. **用户管理**：添加、编辑、删除用户，修改用户密码。
+2. **系统监控**：查看服务器资源使用情况。
+3. **日志查看**：查看和下载操作日志。
+4. **数据备份**：按时间范围备份数据。
+5. **数据恢复**：使用备份文件和密钥恢复数据。
 
 ---
 
@@ -182,7 +230,7 @@ sudo systemctl restart docker
 ### 文件结构
 - `app.py`：主程序文件，包含所有功能模块和页面逻辑。
 - `models.py`：数据库模型定义文件。
-- `utils`：工具函数定义文件夹。
+- `utils`：工具函数定义文件夹，包含各功能模块的实现。
 - `requirements.txt`：依赖库列表文件。
 - `docker-compose.yml`：Docker容器配置文件。
 - `.env`：环境变量配置文件。
@@ -191,17 +239,23 @@ sudo systemctl restart docker
 - `auth.py`: 用户认证模块。
 - `data_gen.py`: 数据生成模块。
 - `clear_tables.py`：清空数据库表模块。
-- 依赖库：
-    - `bcrypt`：用于密码加密和验证。
-    - `pandas`：用于数据处理和分析。
-    - `plotly`：用于数据可视化。
-    - `psutil`：用于系统监控。
-    - `sqlalchemy`：用于数据库操作。
-    - `streamlit`：用于构建Web应用程序。
-    - `numpy`：用于数值计算。
-    - `jwt`：用于用户认证。
-    - `bcrypt`：用于密码加密和验证。
-    - `Pytorch`: 用于神经网络模型训练和预测。
+- 各工具模块文件：
+    - `utils/analysis.py`：数据分析工具
+    - `utils/backup.py`：数据备份工具
+    - `utils/database.py`：数据库连接工具
+    - `utils/data_operations.py`：数据操作工具
+    - `utils/data_preview.py`：数据预览工具
+    - `utils/debug_utils.py`：调试工具
+    - `utils/decision_engine.py`：自动化决策引擎
+    - `utils/instruction_manual.py`：使用说明文档
+    - `utils/log_viewer.py`：日志查看工具
+    - `utils/logger.py`：日志记录工具
+    - `utils/machine_learning.py`：机器学习工具
+    - `utils/predictions.py`：预测分析工具
+    - `utils/restore.py`：数据恢复工具
+    - `utils/system_monitoring.py`：系统监控工具
+    - `utils/user_management.py`：用户管理工具
+    - `utils/visualization.py`：数据可视化工具
 
 ### 数据库模型
 - `AirTemperatureHumidity`：存储空气温度和湿度数据。
