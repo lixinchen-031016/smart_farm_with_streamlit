@@ -26,7 +26,7 @@ def show_debug_info(username):
     st.title("🐛 调试信息面板")
     
     # 创建选项卡
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["环境信息", "系统资源", "数据库状态", "性能分析", "调试工具", "应用状态", "网络与异常"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs(["环境信息", "系统资源", "数据库状态", "性能分析", "调试工具", "应用状态", "网络与异常", "配置管理", "数据库查询分析器"])
     
     with tab1:
         show_environment_info()
@@ -48,28 +48,52 @@ def show_debug_info(username):
         
     with tab7:
         show_network_and_exceptions(username)
+        
+    with tab8:
+        show_config_management()
+        
+    with tab9:
+        show_database_query_analyzer(username)
 
 def show_environment_info():
     """显示环境信息"""
     st.subheader("🖥️ 环境信息")
-    st.info("基础环境配置")
-    st.write(f"运行路径: {os.getcwd()}")
-    st.write(f"Python版本: {os.sys.version}")
-    st.write(f"环境变量 DEBUG_MODE: {os.getenv('DEBUG_MODE')}")
     
-    # 显示所有相关环境变量
+    # 修改:将运行路径单独一行显示
+    st.write(f"**运行路径:** {os.getcwd()}")
+    
+    # 使用列布局美化基础环境配置显示
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Python版本", os.sys.version.split()[0])
+    with col2:
+        st.metric("调试模式", os.getenv('DEBUG_MODE', 'False'))
+    
+    # 美化环境变量显示
     st.subheader("⚙️ 相关环境变量")
     env_vars = ['DEBUG_MODE', 'DATABASE_URL', 'SECRET_KEY', 'LOG_LEVEL']
-    for var in env_vars:
-        st.write(f"{var}: {os.getenv(var, '未设置')}")
     
-    # 显示已安装的包信息
+    env_data = []
+    for var in env_vars:
+        value = os.getenv(var, '未设置')
+        status = "✅ 已设置" if value != '未设置' else "❌ 未设置"
+        env_data.append({"变量名": var, "状态": status, "值": value if value != '未设置' else ""})
+    
+    env_df = pd.DataFrame(env_data)
+    st.dataframe(env_df, use_container_width=True, hide_index=True)
+    
+    # 美化已安装的包信息显示
     st.subheader("📦 已安装的Python包")
     try:
         import pkg_resources
         installed_packages = [str(dist) for dist in list(pkg_resources.working_set)]
         installed_packages.sort()
-        st.text("\n".join(installed_packages))
+        
+        # 使用多列显示包信息，提高可读性
+        packages_df = pd.DataFrame({
+            "包名称": installed_packages
+        })
+        st.dataframe(packages_df, use_container_width=True, hide_index=True)
     except Exception as e:
         st.error(f"无法获取包信息: {str(e)}")
 
@@ -197,6 +221,49 @@ def show_performance_analysis(username):
         
         st.subheader("📈 性能分析结果")
         st.text(s.getvalue())
+    
+    # 添加性能趋势图
+    st.subheader("📊 性能趋势监控")
+    if 'perf_data' not in st.session_state:
+        st.session_state.perf_data = []
+    
+    # 模拟性能数据收集
+    if st.button("📈 收集当前性能数据"):
+        cpu_percent = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+        current_process = psutil.Process(os.getpid())
+        process_memory = current_process.memory_info().rss / (1024**2)
+        
+        perf_point = {
+            'time': datetime.now().strftime('%H:%M:%S'),
+            'cpu': cpu_percent,
+            'memory_percent': memory.percent,
+            'process_memory': process_memory
+        }
+        
+        st.session_state.perf_data.append(perf_point)
+        # 保持最近30个数据点
+        if len(st.session_state.perf_data) > 30:
+            st.session_state.perf_data.pop(0)
+        
+        st.success("性能数据已收集")
+    
+    # 显示性能趋势图
+    if st.session_state.perf_data:
+        perf_df = pd.DataFrame(st.session_state.perf_data)
+        st.line_chart(perf_df.set_index('time')[['cpu', 'memory_percent', 'process_memory']])
+        
+        # 显示当前值
+        latest = st.session_state.perf_data[-1]
+        col1, col2, col3 = st.columns(3)
+        col1.metric("CPU使用率", f"{latest['cpu']}%")
+        col2.metric("内存使用率", f"{latest['memory_percent']}%")
+        col3.metric("进程内存", f"{latest['process_memory']:.2f}MB")
+    
+    # 添加重置按钮
+    if st.button("🗑️ 清空性能数据"):
+        st.session_state.perf_data = []
+        st.success("性能数据已清空")
 
 def show_debug_tools(username):
     """显示调试工具"""
@@ -479,3 +546,260 @@ def show_network_and_exceptions(username):
             st.session_state['memory_check_time'] = time.time()
         except Exception as e:
             st.error(f"检查内存使用情况时出错: {str(e)}")
+
+def show_config_management():
+    """显示配置管理面板"""
+    st.subheader("⚙️ 配置管理")
+    st.info("查看和修改应用程序配置")
+    
+    # 添加配置类型选择
+    config_type = st.radio(
+        "选择配置类型",
+        ("程序配置", "全局配置"),
+        help="程序配置仅在当前会话中生效，全局配置将影响整个应用程序"
+    )
+    
+    # 根据配置类型决定显示哪些环境变量
+    env_vars = dict(os.environ)
+    if config_type == "程序配置":
+        # 定义程序相关的环境变量前缀或名称
+        program_config_prefixes = ['DEBUG_MODE', 'DATABASE_URL', 'SECRET_KEY', 'LOG_LEVEL']
+        program_configs = {}
+        for key, value in env_vars.items():
+            # 匹配特定前缀或在预定义列表中的配置项
+            if (key.startswith('DEBUG_') or 
+                key.startswith('DATABASE_') or 
+                key.startswith('LOG_') or 
+                key in program_config_prefixes or
+                'SECRET' in key):
+                program_configs[key] = value
+        env_vars = program_configs
+    
+    # 显示当前配置
+    st.subheader("应用查看配置")
+    config_df = pd.DataFrame([
+        {"配置项": key, "当前值": value} 
+        for key, value in env_vars.items()
+        if not key.startswith('_')  # 过滤掉私有变量
+    ])
+    st.dataframe(config_df, use_container_width=True)
+    
+    # 配置修改区域
+    st.subheader("✏️ 修改配置")
+    
+    # 选择要修改的配置项
+    selected_config = st.selectbox(
+        "选择配置项",
+        options=[key for key in env_vars.keys() if not key.startswith('_')],
+        key="config_selector"
+    )
+    
+    # 显示当前值并允许修改
+    current_value = os.getenv(selected_config, "")
+    new_value = st.text_input("新值", value=current_value, key="config_value")
+    
+    # 保存修改
+    if st.button("💾 保存配置"):
+        if new_value != current_value:
+            os.environ[selected_config] = new_value
+            st.success(f"✅ 配置项 '{selected_config}' 已更新为 '{new_value}'")
+            # 根据配置类型给出不同的提示信息
+            if config_type == "全局配置":
+                st.warning("⚠️ 全局配置修改后需要重启应用程序才能完全生效")
+            st.rerun()
+        else:
+            st.info("ℹ️ 配置值未发生变化")
+    
+    # 添加新配置项
+    st.subheader("➕ 添加新配置项")
+    new_config_key = st.text_input("新配置项名称")
+    new_config_value = st.text_input("新配置项值")
+    
+    if st.button("➕ 添加配置项"):
+        if new_config_key and new_config_value:
+            os.environ[new_config_key] = new_config_value
+            st.success(f"✅ 新配置项 '{new_config_key}' 已添加")
+            # 根据配置类型给出不同的提示信息
+            if config_type == "全局配置":
+                st.warning("⚠️ 全局配置添加后需要重启应用程序才能完全生效")
+            st.rerun()
+        else:
+            st.warning("⚠️ 请填写配置项名称和值")
+    
+    # 配置导入/导出
+    st.subheader("📂 配置导入/导出")
+    
+    # 导出配置
+    config_export = "\n".join([f"{k}={v}" for k, v in env_vars.items()])
+    st.download_button(
+        label="📥 导出配置",
+        data=config_export,
+        file_name="app_config.env",
+        mime="text/plain"
+    )
+    
+    # 导入配置
+    uploaded_file = st.file_uploader("📤 导入配置文件", type=['env'])
+    if uploaded_file is not None:
+        try:
+            content = uploaded_file.getvalue().decode('utf-8')
+            lines = content.split('\n')
+            imported_count = 0
+            
+            for line in lines:
+                if line.strip() and '=' in line and not line.startswith('#'):
+                    key, value = line.split('=', 1)
+                    os.environ[key.strip()] = value.strip()
+                    imported_count += 1
+            
+            st.success(f"✅ 成功导入 {imported_count} 个配置项")
+            if config_type == "全局配置":
+                st.warning("⚠️ 全局配置导入后需要重启应用程序才能完全生效")
+            st.rerun()
+        except Exception as e:
+            st.error(f"❌ 导入配置时出错: {str(e)}")
+
+def show_database_query_analyzer(username):
+    """显示数据库查询分析器"""
+    st.subheader("🔍 数据库查询分析器")
+    st.info("直接执行SQL查询并分析结果")
+    
+    try:
+        session = get_session()
+        
+        # SQL查询输入区域
+        st.subheader("⌨️ SQL查询")
+        default_query = """SELECT * FROM intelligent_farm_airtemperaturehumidity LIMIT 10;"""
+        
+        # 使用session_state存储当前查询内容
+        if 'current_query' not in st.session_state:
+            st.session_state.current_query = default_query
+            
+        sql_query = st.text_area("输入SQL查询语句:", st.session_state.current_query, height=150, key="sql_query_input")
+        
+        # 更新session_state中的查询内容
+        st.session_state.current_query = sql_query
+        
+        # 查询执行按钮
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            execute_btn = st.button("▶️ 执行查询")
+        with col2:
+            explain_btn = st.button("🔍 EXPLAIN查询")
+        with col3:
+            format_btn = st.button("✨ 格式化SQL")
+        
+        # 格式化SQL功能
+        if format_btn:
+            try:
+                import sqlparse
+                formatted_sql = sqlparse.format(sql_query, reindent=True, keyword_case='upper')
+                st.session_state.current_query = formatted_sql
+                st.rerun()
+            except ImportError:
+                st.warning("需要安装sqlparse库来格式化SQL: pip install sqlparse")
+            except Exception as e:
+                st.error(f"格式化SQL时出错: {str(e)}")
+        
+        # EXPLAIN查询功能
+        if explain_btn:
+            if sql_query.strip():
+                try:
+                    # 检查查询是否适用于EXPLAIN（只适用于DML语句）
+                    query_upper = sql_query.strip().upper()
+                    if not any(query_upper.startswith(stmt) for stmt in ['SELECT', 'INSERT', 'UPDATE', 'DELETE']):
+                        st.warning("⚠️ EXPLAIN只能用于SELECT、INSERT、UPDATE、DELETE等DML语句，不能用于SHOW、CREATE等DDL语句")
+                    else:
+                        from sqlalchemy import text
+                        explain_query = f"EXPLAIN {sql_query}"
+                        result = session.execute(text(explain_query))
+                        columns = result.keys()
+                        rows = result.fetchall()
+                        
+                        st.subheader("🔍 EXPLAIN结果")
+                        df = pd.DataFrame(rows, columns=columns)
+                        st.dataframe(df, use_container_width=True)
+                except Exception as e:
+                    st.error(f"执行EXPLAIN查询失败: {str(e)}")
+            else:
+                st.warning("⚠️ 请输入SQL查询语句")
+        
+        # 查询执行按钮
+        if execute_btn:
+            if sql_query.strip():
+                log_operation(username, "INFO", "调试信息-数据库查询", f"执行了查询: {sql_query[:100]}...")
+                st.info("🔍 正在执行查询...")
+                
+                try:
+                    start_time = time.time()
+                    
+                    # 执行查询
+                    from sqlalchemy import text
+                    result = session.execute(text(sql_query))
+                    
+                    end_time = time.time()
+                    execution_time = end_time - start_time
+                    
+                    # 获取列名
+                    columns = result.keys()
+                    
+                    # 获取结果数据
+                    rows = result.fetchall()
+                    
+                    # 显示执行时间
+                    st.success(f"✅ 查询执行成功 (耗时: {execution_time:.4f} 秒)")
+                    
+                    # 显示结果统计
+                    st.subheader("📈 查询结果统计")
+                    st.write(f"返回行数: {len(rows)}")
+                    st.write(f"列数: {len(columns)}")
+                    
+                    # 显示结果数据
+                    if rows:
+                        st.subheader("📋 查询结果")
+                        # 转换为DataFrame显示
+                        df = pd.DataFrame(rows, columns=columns)
+                        st.dataframe(df, use_container_width=True)
+                        
+                        # 提供数据导出
+                        csv = df.to_csv(index=False)
+                        st.download_button(
+                            label="📥 下载CSV结果",
+                            data=csv,
+                            file_name="query_result.csv",
+                            mime="text/csv"
+                        )
+                    else:
+                        st.info("ℹ️ 查询执行成功，但没有返回数据")
+                        
+                except Exception as e:
+                    st.error(f"❌ 查询执行失败: {str(e)}")
+                    log_operation(username, "ERROR", "调试信息-数据库查询", f"查询执行失败: {str(e)}")
+            else:
+                st.warning("⚠️ 请输入SQL查询语句")
+        
+        # 常用查询模板
+        st.subheader("📝 常用查询模板")
+        st.info("选择一个模板，然后点击'应用选中模板'按钮将其加载到查询编辑器中")
+        
+        templates = {
+            "查看最近的温湿度数据": "SELECT * FROM intelligent_farm_airtemperaturehumidity ORDER BY timestamp DESC LIMIT 10;",
+            "查看最近的土壤湿度数据": "SELECT * FROM intelligent_farm_soilmoisture ORDER BY timestamp DESC LIMIT 10;",
+            "查看最近的光照强度数据": "SELECT * FROM intelligent_farm_light_intensity ORDER BY timestamp DESC LIMIT 10;",
+            "统计数据表行数": "SELECT 'intelligent_farm_airtemperaturehumidity' as table_name, COUNT(*) as count FROM intelligent_farm_airtemperaturehumidity UNION ALL SELECT 'intelligent_farm_soilmoisture' as table_name, COUNT(*) as count FROM intelligent_farm_soilmoisture UNION ALL SELECT 'intelligent_farm_light_intensity' as table_name, COUNT(*) as count FROM intelligent_farm_light_intensity;",
+            "查看表结构": "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE();",
+            "查看索引信息": "SHOW INDEX FROM intelligent_farm_airtemperaturehumidity;",
+            "查看表创建语句": "SHOW CREATE TABLE intelligent_farm_airtemperaturehumidity;"
+        }
+        
+        selected_template = st.selectbox("选择查询模板", list(templates.keys()))
+        if st.button("📋 应用选中模板"):
+            st.session_state.current_query = templates[selected_template]
+            st.success(f"已应用模板: {selected_template}")
+            st.rerun()
+            
+        session.close()
+        
+    except Exception as e:
+        st.error(f"❌ 数据库连接异常: {str(e)}")
+        log_operation(username, "ERROR", "调试信息-数据库查询", f"数据库连接异常: {str(e)}")
