@@ -20,6 +20,7 @@ import models
 import utils.system_monitoring
 from utils import machine_learning
 from utils.data_preview import render_header, render_data_metrics
+from utils.debug_utils import show_debug_info
 from utils.decision_engine import show_decision_engine
 # 添加日志查看器模块导入
 from utils.log_viewer import show_log_viewer
@@ -831,17 +832,27 @@ def main():
                 "data_restore": "数据恢复",
                 "log_viewer": "日志查看",
                 "use_instruction": "使用说明",
-                "automated_decision": "自动化决策"
+                "automated_decision": "自动化决策",
+                "debug_info": "调试信息"  # 添加调试信息页面映射
             }
             selected = page_to_menu_mapping.get(page, "数据概览")
 
             # 修改后的菜单配置逻辑
             if st.session_state.get('role') == 'admin':
-                menu_options = [
-                    "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
-                    "高级分析", "本地数据预测", "机器学习",
-                    "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复","自动化决策", "使用说明"
-                ]
+                # 根据调试模式状态决定是否显示调试信息选项
+                debug_mode_enabled = os.getenv('DEBUG_MODE', 'False').lower() == 'true'
+                if debug_mode_enabled:
+                    menu_options = [
+                        "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
+                        "高级分析", "本地数据预测", "机器学习",
+                        "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复","自动化决策", "调试信息", "使用说明"
+                    ]
+                else:
+                    menu_options = [
+                        "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
+                        "高级分析", "本地数据预测", "机器学习",
+                        "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复","自动化决策", "使用说明"
+                    ]
             else:
                 menu_options = [
                     "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
@@ -853,7 +864,7 @@ def main():
                 options=menu_options,
                 icons=["speedometer", "table", "brush", "bar-chart", "graph-up",
                        "gear", "robot", "cpu", "person",
-                       "cloud-upload", "save", "arrow-counterclockwise", "gear-fill", "robot","question-circle"],
+                       "cloud-upload", "save", "arrow-counterclockwise", "gear-fill", "robot", "", "question-circle"],
                 default_index=menu_options.index(selected) if selected in menu_options else 0,
                 styles={
                     "container": {"padding": "5px"},
@@ -880,6 +891,7 @@ def main():
             "数据备份": data_backup,
             "数据恢复": data_restore,
             "自动化决策": lambda: show_decision_engine(session, st.session_state['username']),
+            "调试信息": lambda: show_debug_info(st.session_state['username']),  # 添加调试信息路由
             "使用说明": show_instructions
         }
 
