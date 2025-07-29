@@ -1,6 +1,6 @@
 import pandas as pd
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy import Index
+from sqlalchemy.orm import sessionmaker
 
 from models import AirTemperatureHumidity, SoilMoisture, SoilNutrient, LightIntensity
 from utils.database import engine

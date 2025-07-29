@@ -702,9 +702,7 @@ def prophet_prediction(data, prediction_days, params):
 def prophet_lstm_transformer_prediction(data, prediction_days, params):
     """结合Prophet、LSTM和Transformer的混合模型预测"""
     from prophet import Prophet
-    import torch
-    import torch.nn as nn
-    
+
     # 参数解包
     look_back = params.get('look_back', 7)
     epochs = params.get('epochs', 30)
@@ -721,8 +719,6 @@ def prophet_lstm_transformer_prediction(data, prediction_days, params):
     lstm_weight = params.get('lstm_weight', 0.3)        # LSTM权重
     transformer_weight = params.get('transformer_weight', 0.3)  # Transformer权重
 
-    import time
-    
     # 数据预处理
     df = pd.DataFrame(data, columns=['ds', 'y'])
     df['ds'] = pd.to_datetime(df['ds'])
