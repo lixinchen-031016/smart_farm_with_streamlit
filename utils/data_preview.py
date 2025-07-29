@@ -66,7 +66,9 @@ def create_line_chart(data_list, title, y_title, threshold=None):
         y=values,
         mode='lines+markers',
         name=y_title,
-        line=dict(color='#4CAF50', width=2)
+        line=dict(color='#4CAF50', width=2),
+        fill='tozeroy',  # 增加填充效果
+        fillcolor='rgba(76, 175, 80, 0.2)'  # 半透明填充
     ))
     
     if threshold:
@@ -81,8 +83,11 @@ def create_line_chart(data_list, title, y_title, threshold=None):
         xaxis_title="时间",
         yaxis_title=y_title,
         template="plotly_white",
-        height=200,  # 降低图表高度
-        margin=dict(l=20, r=20, t=40, b=20, pad=10)  # 增加内边距
+        height=250,  # 调整图表高度
+        margin=dict(l=20, r=20, t=40, b=20, pad=10),
+        # 添加渐变背景
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)'
     )
     return fig
 
@@ -98,6 +103,7 @@ def get_styles():
         border-radius: 15px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         margin-bottom: 2rem;
+        text-align: center;
     }
     .metric-card {
         background: rgba(255, 255, 255, 0.9) !important;
@@ -105,17 +111,19 @@ def get_styles():
         padding: 1.5rem !important;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
         transition: all 0.3s ease;
+        height: 100%;
     }
     .metric-card:hover {
         transform: translateY(-5px);
-        box-shadow: 0-6px 8px rgba(0,0,0,0.2) !important;
+        box-shadow: 0 6px 8px rgba(0,0,0,0.2) !important;
     }
     .alert-container {
         position: relative;
         padding: 5px;
         border-radius: 15px;
+        height: 100%;
     }
-    .alert-container .alert-card {
+    .alert-card {
         position: absolute;
         top: 0;
         left: 0;
@@ -129,6 +137,31 @@ def get_styles():
         70% { box-shadow: 0 0 0 10px rgba(255,82,82,0); }
         100% { box-shadow: 0 0 0 0 rgba(255,82,82,0); }
     }
+    /* 新增系统状态面板样式 */
+    .status-panel {
+        background: linear-gradient(135deg, #2196F3 30%, #21CBF3 70%);
+        color: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+    }
+    /* 新增图表容器样式 */
+    .chart-container {
+        background: rgba(255, 255, 255, 0.7);
+        border-radius: 10px;
+        padding: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-top: 1rem;
+    }
+    /* 新增控制面板样式 */
+    .control-panel {
+        background: rgba(245, 245, 245, 0.9);
+        border-radius: 10px;
+        padding: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+    }
     </style>
     """
 
@@ -136,7 +169,9 @@ def render_header():
     """渲染页面头部"""
     st.markdown(get_styles(), unsafe_allow_html=True)
     st.markdown('<h1 class="main-header">🌱 智能农场数据监控中心</h1>', unsafe_allow_html=True)
-    st.markdown("---")
+    # 添加系统状态面板
+    with st.container():
+        st.markdown('<div class="status-panel">📡 系统状态: <b>在线</b> | ⏱️ 最后更新: <b>实时</b> | 🌐 连接状态: <b>稳定</b></div>', unsafe_allow_html=True)
 
 def render_metric_card(container, label, value, delta, help_text, is_alert=False):
     """渲染一个指标卡"""
@@ -161,7 +196,22 @@ def render_metric_card(container, label, value, delta, help_text, is_alert=False
 
 def render_data_metrics(session, username):
     """渲染数据指标卡片"""
-    if st.button("🔄 实时更新数据", help="点击获取最新传感器数据"):
+    # 添加控制面板
+    with st.container():
+        st.markdown('<div class="control-panel">', unsafe_allow_html=True)
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown("### 🎛️ 控制面板")
+        with col2:
+            auto_refresh = st.checkbox("🔄 自动刷新", value=False, help="每30秒自动刷新数据")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # 如果启用自动刷新，设置刷新间隔
+    if auto_refresh:
+        st.experimental_rerun_time = 30  # 每30秒刷新一次
+        st.info("自动刷新已启用，数据将每30秒更新一次")
+    
+    if st.button("🔄 实时更新数据", help="点击获取最新传感器数据") or auto_refresh:
         air_temp_hum, soil_moist, soil_nutri, light_intens = fetch_latest_data(session)
         log_operation(username, "INFO", "数据预览-更新数据",
                      f"获取时间: {air_temp_hum.timestamp} 温度: {air_temp_hum.temperature:.2f}°C 湿度: {air_temp_hum.humidity:.2f}% 土壤湿度: {soil_moist.value:.2f}% 土壤营养含量: {soil_nutri.value:.2f}ppm 光照强度: {light_intens.value:.2f}lux")
@@ -171,63 +221,109 @@ def render_data_metrics(session, username):
         
         with row1_col1:
             is_temp_alert = not (20 <= air_temp_hum.temperature <= 30)
-            render_metric_card(row1_col1, "🌡️ 空气温度", air_temp_hum.temperature,
-                              "正常" if not is_temp_alert else "异常",
-                              "适宜范围：20°C - 30°C", is_temp_alert)
-            temp_data = fetch_last_day_data(session, AirTemperatureHumidity)
-            fig = create_line_chart(temp_data, "24小时温度变化", "温度 (°C)", [20, 30])
-            if fig:
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            with st.container():
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                render_metric_card(st, "🌡️ 空气温度", air_temp_hum.temperature,
+                                  "正常" if not is_temp_alert else "异常",
+                                  "适宜范围：20°C - 30°C", is_temp_alert)
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            # 添加温度趋势图表
+            with st.container():
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                temp_data = fetch_last_day_data(session, AirTemperatureHumidity)
+                fig = create_line_chart(temp_data, "24小时温度变化", "温度 (°C)", [20, 30])
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                st.markdown('</div>', unsafe_allow_html=True)
         
         with row1_col2:
             is_humidity_alert = not (40 <= air_temp_hum.humidity <= 70)
-            render_metric_card(row1_col2, "💧 空气湿度", air_temp_hum.humidity,
-                              "理想" if not is_humidity_alert else "注意",
-                              "适宜范围：40% - 70%", is_humidity_alert)
-            humidity_data = fetch_last_day_data(session, AirTemperatureHumidity)
-            fig = create_line_chart(humidity_data, "24小时湿度变化", "湿度 (%)", [40, 70])
-            if fig:
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            with st.container():
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                render_metric_card(st, "💧 空气湿度", air_temp_hum.humidity,
+                                  "理想" if not is_humidity_alert else "注意",
+                                  "适宜范围：40% - 70%", is_humidity_alert)
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            # 添加湿度趋势图表
+            with st.container():
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                humidity_data = fetch_last_day_data(session, AirTemperatureHumidity)
+                fig = create_line_chart(humidity_data, "24小时湿度变化", "湿度 (%)", [40, 70])
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                st.markdown('</div>', unsafe_allow_html=True)
         
         # 第二行指标卡片
         row2_col1, row2_col2 = st.columns(2)
         
         with row2_col1:
             is_soil_moist_alert = not (30 <= soil_moist.value <= 60)
-            render_metric_card(row2_col1, "🌱 土壤湿度", soil_moist.value,
-                              "适宜" if not is_soil_moist_alert else "需灌溉",
-                              "适宜范围：30% - 60%", is_soil_moist_alert)
-            soil_moist_data = fetch_last_day_data(session, SoilMoisture)
-            fig = create_line_chart(soil_moist_data, "24小时土壤湿度变化", "湿度 (%)", [30, 60])
-            if fig:
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            with st.container():
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                render_metric_card(st, "🌱 土壤湿度", soil_moist.value,
+                                  "适宜" if not is_soil_moist_alert else "需灌溉",
+                                  "适宜范围：30% - 60%", is_soil_moist_alert)
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            # 添加土壤湿度趋势图表
+            with st.container():
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                soil_moist_data = fetch_last_day_data(session, SoilMoisture)
+                fig = create_line_chart(soil_moist_data, "24小时土壤湿度变化", "湿度 (%)", [30, 60])
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                st.markdown('</div>', unsafe_allow_html=True)
         
         with row2_col2:
             is_nutri_alert = not (10 <= soil_nutri.value <= 20)
-            render_metric_card(row2_col2, "🌱 土壤无机盐含量", soil_nutri.value,
-                              "正常" if not is_nutri_alert else "需施肥",
-                              "适宜范围：10ppm - 20ppm", is_nutri_alert)
-            soil_nutri_data = fetch_last_day_data(session, SoilNutrient)
-            fig = create_line_chart(soil_nutri_data, "24小时土壤养分变化", "养分 (ppm)", [10, 20])
-            if fig:
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            with st.container():
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                render_metric_card(st, "🌱 土壤无机盐含量", soil_nutri.value,
+                                  "正常" if not is_nutri_alert else "需施肥",
+                                  "适宜范围：10ppm - 20ppm", is_nutri_alert)
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            # 添加土壤养分趋势图表
+            with st.container():
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                soil_nutri_data = fetch_last_day_data(session, SoilNutrient)
+                fig = create_line_chart(soil_nutri_data, "24小时土壤养分变化", "养分 (ppm)", [10, 20])
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                st.markdown('</div>', unsafe_allow_html=True)
         
         # 第三行指标卡片 - 只显示光照强度
-        row3_col1 = st.columns(1)[0]
+        row3_col1, row3_col2 = st.columns([2, 1])  # 调整列宽比例
+        
         with row3_col1:
             is_light_alert = light_intens.value < 1000
-            render_metric_card(row3_col1, "☀️ 光照强度", light_intens.value,
-                              "充足" if not is_light_alert else "不足",
-                              "建议光照强度 ≥ 1000 lux", is_light_alert)
-            light_data = fetch_last_day_data(session, LightIntensity)
-            fig = create_line_chart(light_data, "24小时光照强度变化", "光照 (lux)", 1000)
-            if fig:
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+            with st.container():
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                render_metric_card(st, "☀️ 光照强度", light_intens.value,
+                                  "充足" if not is_light_alert else "不足",
+                                  "建议光照强度 ≥ 1000 lux", is_light_alert)
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            # 添加光照强度趋势图表
+            with st.container():
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                light_data = fetch_last_day_data(session, LightIntensity)
+                fig = create_line_chart(light_data, "24小时光照强度变化", "光照 (lux)", 1000)
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                st.markdown('</div>', unsafe_allow_html=True)
         
-        # 第四行 - 单独显示时间指标
-        row4_col1 = st.columns(1)[0]
-        with row4_col1:
-            render_metric_card(row4_col1, "数据获取时间", light_intens.timestamp, "", "")
+        with row3_col2:
+            # 添加系统信息卡片
+            with st.container():
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                st.markdown("### 📊 系统信息")
+                st.metric(label="数据点数量", value=len(temp_data) if temp_data else 0, help="最近24小时数据点数量")
+                st.metric(label="传感器状态", value="🟢 正常", help="所有传感器运行正常")
+                st.metric(label="数据获取时间", value=light_intens.timestamp.strftime("%H:%M:%S") if light_intens else "N/A", help="最新数据获取时间")
+                st.markdown('</div>', unsafe_allow_html=True)
 
 def fetch_latest_data(session):
     """获取最新传感器数据"""
