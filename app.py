@@ -25,6 +25,7 @@ from utils.decision_engine import show_decision_engine
 # 添加日志查看器模块导入
 from utils.log_viewer import show_log_viewer
 from utils.logger import log_operation
+from utils.sync_manager import sync_databases_ui
 
 # 创建基类
 Base = sqlalchemy.orm.declarative_base()
@@ -845,18 +846,18 @@ def main():
                     menu_options = [
                         "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
                         "高级分析", "本地数据预测", "机器学习",
-                        "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复","自动化决策", "调试信息", "使用说明"
+                        "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复", "数据库同步","自动化决策", "调试信息", "使用说明"
                     ]
                 else:
                     menu_options = [
                         "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
                         "高级分析", "本地数据预测", "机器学习",
-                        "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复","自动化决策", "使用说明"
+                        "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复", "数据库同步", "自动化决策", "使用说明"
                     ]
             else:
                 menu_options = [
                     "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
-                    "高级分析", "本地数据预测", "机器学习", "自动化决策","使用说明"
+                    "高级分析", "本地数据预测", "机器学习", "数据库同步", "自动化决策","使用说明"
                 ]
 
             selected = option_menu(
@@ -882,7 +883,6 @@ def main():
             "数据分析": data_analysis,
             "可视化": data_visualization,
             "高级分析": advanced_analysis,
-            #"AI数据分析": ai_data_analysis_and_prediction,
             "本地数据预测": data_prediction,
             "机器学习": machine_learning_page,
             "用户管理": lambda: user_management(session, st.session_state['username'], st.session_state['role']),
@@ -890,6 +890,7 @@ def main():
             "日志查看": show_log_viewer,
             "数据备份": data_backup,
             "数据恢复": data_restore,
+            "数据库同步": lambda: utils.sync_manager.sync_databases_ui(),
             "自动化决策": lambda: show_decision_engine(session, st.session_state['username']),
             "调试信息": lambda: show_debug_info(st.session_state['username']),  # 添加调试信息路由
             "使用说明": show_instructions

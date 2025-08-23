@@ -1,0 +1,174 @@
+# 定义Web应用的Deployment
+apiVersion: apps/v1  # 使用的Kubernetes API版本
+kind: Deployment     # 资源类型为Deployment
+metadata:
+  name: smart-farm-web    # Deployment名称
+  labels:
+    app: smart-farm-web   # 标签，用于标识应用
+spec:
+  replicas: 1        # 副本数量为1
+  selector:          # 选择器，用于选择要管理的Pod
+    matchLabels:
+      app: smart-farm-web   # 匹配具有此标签的Pod
+  template:          # Pod模板定义
+    metadata:
+      labels:
+        app: smart-farm-web   # Pod标签
+    spec:
+      containers:    # 容器定义
+      - name: smart-farm-web    # 容器名称
+        image: smart-farm:latest  # 使用的镜像
+        ports:
+        - containerPort: 8502     # 容器暴露的端口
+        env:                    # 环境变量设置
+        - name: DATABASE_URL      # 数据库连接URL
+          value: mysql+pymysql://root:0000@smart-farm-db:3306/intelligent_farm
+        - name: SECRET_KEY        # 应用密钥
+          value: "031016"
+---
+# 定义Web应用的服务(Service)
+apiVersion: v1       # 使用的Kubernetes API版本
+kind: Service        # 资源类型为Service
+metadata:
+  name: smart-farm-web-service  # Service名称
+spec:
+  selector:
+    app: smart-farm-web         # 选择具有此标签的Pod
+  ports:
+    - protocol: TCP             # 协议类型
+      port: 80                  # 服务端口
+      targetPort: 8502          # 目标端口(Pod端口)
+  type: LoadBalancer            # 服务类型为LoadBalancer(外部可访问)
+---
+# 定义数据库的Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smart-farm-db         # Deployment名称
+  labels:
+    app: smart-farm-db        # 标签
+spec:
+  replicas: 1                 # 副本数量
+  selector:                   # 选择器
+    matchLabels:
+      app: smart-farm-db
+  template:                   # Pod模板
+    metadata:
+      labels:
+        app: smart-farm-db
+    spec:
+      containers:
+      - name: smart-farm-db         # 容器名称
+        image: mysql:8.0            # MySQL 8.0镜像
+        ports:
+        - containerPort: 3306       # MySQL默认端口
+        env:                        # 环境变量
+        - name: MYSQL_ROOT_PASSWORD # MySQL root用户密码
+          value: "0000"
+        - name: MYSQL_DATABASE      # 默认创建的数据库名
+          value: "intelligent_farm"
+        volumeMounts:               # 挂载卷
+        - name: mysql-data          # 数据卷挂载点
+          mountPath: /var/lib/mysql
+        - name: mysql-initdb        # 初始化脚本卷挂载点
+          mountPath: /docker-entrypoint-initdb.d
+          readOnly: true            # 只读模式
+      volumes:                    # 卷定义
+      - name: mysql-data          # 数据卷
+        persistentVolumeClaim:
+          claimName: mysql-pvc    # 使用的PersistentVolumeClaim
+      - name: mysql-initdb        # 初始化脚本卷
+        configMap:
+          name: mysql-initdb-config  # 使用的ConfigMap
+---
+# 定义数据库服务
+apiVersion: v1
+kind: Service
+metadata:
+  name: smart-farm-db       # Service名称
+spec:
+  selector:
+    app: smart-farm-db      # 选择具有此标签的Pod
+  ports:
+    - protocol: TCP         # 协议类型
+      port: 3306            # 服务端口
+      targetPort: 3306      # 目标端口
+  type: ClusterIP           # 服务类型为ClusterIP(集群内部访问)
+---
+# 定义持久卷声明
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc           # PVC名称
+spec:
+  accessModes:
+    - ReadWriteOnce         # 访问模式：单节点读写
+  resources:
+    requests:
+      storage: 1Gi          # 请求存储空间大小
+---
+# 定义配置映射，用于初始化数据库
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-initdb-config   # ConfigMap名称
+data:
+  intelligent_farm.sql: |   # SQL初始化脚本内容
+    CREATE DATABASE IF NOT EXISTS intelligent_farm;  # 创建数据库(如果不存在)
+    USE intelligent_farm;                            # 使用该数据库
+    
+    # 创建用户表
+    CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,           # 用户ID，自增主键
+        username VARCHAR(50) UNIQUE NOT NULL,        # 用户名，唯一且非空
+        password VARCHAR(255) NOT NULL,              # 密码，非空
+        role ENUM('admin', 'user') DEFAULT 'user',   # 角色，枚举类型，默认为user
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP  # 创建时间，默认当前时间
+    );
+    
+    # 创建空气温湿度表
+    CREATE TABLE IF NOT EXISTS air_temperature_humidity (
+        id INT AUTO_INCREMENT PRIMARY KEY,           # 记录ID，自增主键
+        temperature FLOAT NOT NULL,                   # 温度值，非空
+        humidity FLOAT NOT NULL,                      # 湿度值，非空
+        record_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP  # 记录时间，默认当前时间
+    );
+    
+    # 创建土壤湿度表
+    CREATE TABLE IF NOT EXISTS soil_moisture (
+        id INT AUTO_INCREMENT PRIMARY KEY,           # 记录ID，自增主键
+        moisture FLOAT NOT NULL,                      # 湿度值，非空
+        record_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP  # 记录时间，默认当前时间
+    );
+    
+    # 创建土壤养分表
+    CREATE TABLE IF NOT EXISTS soil_nutrient (
+        id INT AUTO_INCREMENT PRIMARY KEY,           # 记录ID，自增主键
+        nitrogen FLOAT NOT NULL,                      # 氮含量，非空
+        phosphorus FLOAT NOT NULL,                    # 磷含量，非空
+        potassium FLOAT NOT NULL,                     # 钾含量，非空
+        record_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP  # 记录时间，默认当前时间
+    );
+    
+    # 创建光照强度表
+    CREATE TABLE IF NOT EXISTS light_intensity (
+        id INT AUTO_INCREMENT PRIMARY KEY,           # 记录ID，自增主键
+        intensity FLOAT NOT NULL,                     # 光照强度，非空
+        record_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP  # 记录时间，默认当前时间
+    );
+    
+    # 创建操作日志表
+    CREATE TABLE IF NOT EXISTS operation_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,           # 日志ID，自增主键
+        user_id INT,                                 # 用户ID
+        operation VARCHAR(255),                      # 操作描述
+        details TEXT,                                # 操作详情
+        operation_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  # 操作时间，默认当前时间
+        FOREIGN KEY (user_id) REFERENCES users(id)   # 外键约束，关联用户表
+    );
+    
+    # 插入默认用户数据
+    INSERT INTO users (username, password, role) VALUES 
+    ('admin', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj/RK.PZvO.S', 'admin'),  # 管理员用户
+    ('user1', '$2b$12$hN61HnUfDgWUEt/7.9i5e.XPjDq6y4X2EM77a4ovZa2f.wvF8C88i', 'user')    # 普通用户
+    ON DUPLICATE KEY UPDATE username=username;  # 如果主键或唯一键冲突，则更新用户名(实际不会更新)
