@@ -642,6 +642,15 @@ def show_instructions():
 from utils.user_management import user_management  # 添加导入
 
 
+# 函数：日志分析
+def show_log_analysis():
+    """
+    显示日志分析页面
+    """
+    from utils.log_analyzer import show_log_analysis as show_log_analysis_ui
+    show_log_analysis_ui()
+
+
 # 函数：系统监控
 def system_monitoring():
     """
@@ -649,6 +658,13 @@ def system_monitoring():
     """
     utils.system_monitoring.system_monitoring()
 
+
+# 函数：日志分析
+def log_analysis():
+    """
+    显示日志分析页面
+    """
+    show_log_analysis()
 
 # 函数：数据备份
 def data_backup():
