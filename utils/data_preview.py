@@ -146,6 +146,12 @@ def get_styles():
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         margin-bottom: 1rem;
     }
+    .status-panel.offline {
+        background: linear-gradient(135deg, #f44336 30%, #ff9800 70%);
+    }
+    .status-panel.warning {
+        background: linear-gradient(135deg, #ff9800 30%, #ffc107 70%);
+    }
     /* 新增图表容器样式 */
     .chart-container {
         background: rgba(255, 255, 255, 0.7);
@@ -165,13 +171,47 @@ def get_styles():
     </style>
     """
 
-def render_header():
+def render_header(session):
     """渲染页面头部"""
     st.markdown(get_styles(), unsafe_allow_html=True)
     st.markdown('<h1 class="main-header">🌱 智能农场数据监控中心</h1>', unsafe_allow_html=True)
-    # 添加系统状态面板
+    
+    # 检查数据库连接状态
+    db_status = check_database_status(session)
+    
+    # 添加系统状态面板，根据实际状态显示不同样式
     with st.container():
-        st.markdown('<div class="status-panel">📡 系统状态: <b>在线</b> | ⏱️ 最后更新: <b>实时</b> | 🌐 连接状态: <b>稳定</b></div>', unsafe_allow_html=True)
+        status_class = "status-panel"
+        status_text = "在线"
+        update_text = "实时"
+        connection_text = "稳定"
+        
+        if not db_status['connected']:
+            status_class += " offline"
+            status_text = "离线"
+            update_text = "N/A"
+            connection_text = "断开"
+        elif db_status['latency'] > 1.0:  # 延迟大于1秒认为是警告状态
+            status_class += " warning"
+            connection_text = "延迟较高"
+        
+        last_update = datetime.datetime.now().strftime("%H:%M:%S")
+        st.markdown(f'<div class="{status_class}">📡 系统状态: <b>{status_text}</b> | ⏱️ 最后更新: <b>{last_update}</b> | 🌐 连接状态: <b>{connection_text}</b></div>', unsafe_allow_html=True)
+
+def check_database_status(session):
+    """
+    检查数据库连接状态
+    返回包含连接状态和延迟信息的字典
+    """
+    import time
+    try:
+        start_time = time.time()
+        # 执行一个简单的查询来测试连接
+        session.query(AirTemperatureHumidity).first()
+        latency = time.time() - start_time
+        return {'connected': True, 'latency': latency}
+    except Exception as e:
+        return {'connected': False, 'latency': None, 'error': str(e)}
 
 def render_metric_card(container, label, value, delta, help_text, is_alert=False):
     """渲染一个指标卡"""

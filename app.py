@@ -72,8 +72,17 @@ def data_preview():
         st.query_params.page = "login"
         return
 
-    render_header()
+    # 获取数据库会话
+    session = get_session()
+    
+    # 调用render_header时传入session参数
+    render_header(session)
+    
+    # 渲染数据指标卡片，同时传入session和username参数
     render_data_metrics(session, st.session_state['username'])
+    
+    # 关闭会话
+    session.close()
 
     # 优化卡片样式
     style_metric_cards(
