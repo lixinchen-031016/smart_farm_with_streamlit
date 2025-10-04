@@ -90,6 +90,26 @@ def show_module_config_ui(username: str, is_admin: bool = False):
                                     st.error(f"禁用模块失败: {module.display_name}（可能有其他模块依赖此模块）")
                                     # 重置开关状态
                                     st.rerun()
+                        
+                        # 添加权限设置
+                        admin_only = st.toggle(
+                            "仅管理员可用",
+                            value=module.admin_only,
+                            key=f"admin_only_{module.name}",
+                            help="设置模块是否仅管理员可用"
+                        )
+                        
+                        # 如果权限设置发生变化，更新配置
+                        if admin_only != module.admin_only:
+                            if module_manager.update_module(module.name, admin_only=admin_only):
+                                st.success(f"已更新模块权限: {module.display_name}")
+                                log_operation(username, "INFO", "模块管理", 
+                                            f"更新模块权限: {module.name} -> {'仅管理员' if admin_only else '所有用户'}")
+                                st.rerun()
+                            else:
+                                st.error(f"更新模块权限失败: {module.display_name}")
+                                # 重置开关状态
+                                st.rerun()
     
     # 添加模块状态概览
     st.subheader("📊 模块状态概览")
