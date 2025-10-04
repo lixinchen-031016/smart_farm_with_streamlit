@@ -1,0 +1,186 @@
+{
+  "data_preview": {
+    "name": "data_preview",
+    "enabled": true,
+    "display_name": "实时数据预览",
+    "description": "实时查看农场环境数据",
+    "category": "核心功能",
+    "icon": "speedometer",
+    "admin_only": false,
+    "dependencies": []
+  },
+  "data_overview": {
+    "name": "data_overview",
+    "enabled": true,
+    "display_name": "数据概览",
+    "description": "查看和导出历史数据",
+    "category": "核心功能",
+    "icon": "table",
+    "admin_only": false,
+    "dependencies": []
+  },
+  "data_cleaning": {
+    "name": "data_cleaning",
+    "enabled": true,
+    "display_name": "数据清洗",
+    "description": "清洗和处理数据",
+    "category": "数据处理",
+    "icon": "brush",
+    "admin_only": false,
+    "dependencies": [
+      "data_overview"
+    ]
+  },
+  "data_analysis": {
+    "name": "data_analysis",
+    "enabled": true,
+    "display_name": "数据分析",
+    "description": "进行统计分析和相关性分析",
+    "category": "数据分析",
+    "icon": "bar-chart",
+    "admin_only": false,
+    "dependencies": [
+      "data_overview"
+    ]
+  },
+  "data_visualization": {
+    "name": "data_visualization",
+    "enabled": true,
+    "display_name": "可视化",
+    "description": "创建各种数据图表",
+    "category": "数据处理",
+    "icon": "graph-up",
+    "admin_only": false,
+    "dependencies": [
+      "data_overview"
+    ]
+  },
+  "advanced_analysis": {
+    "name": "advanced_analysis",
+    "enabled": true,
+    "display_name": "高级分析",
+    "description": "进行数据分组和聚合分析",
+    "category": "数据分析",
+    "icon": "gear",
+    "admin_only": false,
+    "dependencies": [
+      "data_overview"
+    ]
+  },
+  "data_prediction": {
+    "name": "data_prediction",
+    "enabled": true,
+    "display_name": "本地数据预测",
+    "description": "使用机器学习模型进行数据预测",
+    "category": "预测分析",
+    "icon": "robot",
+    "admin_only": false,
+    "dependencies": [
+      "data_overview"
+    ]
+  },
+  "machine_learning": {
+    "name": "machine_learning",
+    "enabled": true,
+    "display_name": "机器学习",
+    "description": "训练和使用机器学习模型",
+    "category": "预测分析",
+    "icon": "cpu",
+    "admin_only": false,
+    "dependencies": [
+      "data_overview"
+    ]
+  },
+  "user_management": {
+    "name": "user_management",
+    "enabled": true,
+    "display_name": "用户管理",
+    "description": "管理系统用户和权限",
+    "category": "系统管理",
+    "icon": "person",
+    "admin_only": true,
+    "dependencies": []
+  },
+  "system_monitoring": {
+    "name": "system_monitoring",
+    "enabled": true,
+    "display_name": "系统监控",
+    "description": "监控系统资源使用情况和性能分析",
+    "category": "系统管理",
+    "icon": "cloud-upload",
+    "admin_only": true,
+    "dependencies": []
+  },
+  "log_viewer": {
+    "name": "log_viewer",
+    "enabled": true,
+    "display_name": "日志查看",
+    "description": "查看系统操作日志",
+    "category": "系统管理",
+    "icon": "save",
+    "admin_only": false,
+    "dependencies": []
+  },
+  "data_backup": {
+    "name": "data_backup",
+    "enabled": true,
+    "display_name": "数据备份",
+    "description": "备份系统数据",
+    "category": "数据管理",
+    "icon": "arrow-counterclockwise",
+    "admin_only": true,
+    "dependencies": []
+  },
+  "data_restore": {
+    "name": "data_restore",
+    "enabled": true,
+    "display_name": "数据恢复",
+    "description": "恢复备份的数据",
+    "category": "数据管理",
+    "icon": "arrow-clockwise",
+    "admin_only": true,
+    "dependencies": []
+  },
+  "sync_manager": {
+    "name": "sync_manager",
+    "enabled": true,
+    "display_name": "数据库同步",
+    "description": "同步本地和云端数据库",
+    "category": "数据管理",
+    "icon": "arrow-repeat",
+    "admin_only": false,
+    "dependencies": []
+  },
+  "decision_engine": {
+    "name": "decision_engine",
+    "enabled": true,
+    "display_name": "自动化决策",
+    "description": "基于数据分析生成决策建议",
+    "category": "智能分析",
+    "icon": "lightbulb",
+    "admin_only": false,
+    "dependencies": [
+      "data_preview"
+    ]
+  },
+  "debug_info": {
+    "name": "debug_info",
+    "enabled": false,
+    "display_name": "调试信息",
+    "description": "查看系统调试信息",
+    "category": "系统管理",
+    "icon": "bug",
+    "admin_only": true,
+    "dependencies": []
+  },
+  "instruction_manual": {
+    "name": "instruction_manual",
+    "enabled": true,
+    "display_name": "使用说明",
+    "description": "查看系统使用说明",
+    "category": "帮助",
+    "icon": "question-circle",
+    "admin_only": false,
+    "dependencies": []
+  }
+}

@@ -18,14 +18,12 @@ from streamlit_option_menu import option_menu
 
 import models
 import utils.system_monitoring
-from utils import machine_learning
-from utils.data_preview import render_header, render_data_metrics
-from utils.debug_utils import show_debug_info
-from utils.decision_engine import show_decision_engine
+from auth import session
 # 添加日志查看器模块导入
-from utils.log_viewer import show_log_viewer
 from utils.logger import log_operation
 from utils.sync_manager import sync_databases_ui
+from utils.module_manager import get_module_manager
+from utils.module_config_ui import show_module_config_ui, get_enabled_modules_for_sidebar, is_module_enabled
 
 # 创建基类
 Base = sqlalchemy.orm.declarative_base()
@@ -37,17 +35,26 @@ from dotenv import load_dotenv
 load_dotenv()
 # 添加: 引入新的数据库模块
 from utils.database import get_session
+from utils.lazy_importer import lazy_import
 
-# 替换: 使用get_session()方法获取会话对象
-session = get_session()
-
-from auth import login, register  # 导入登录和注册函数
-import utils.analysis  # 导入新的数据分析模块
-from utils.predictions import perform_prediction, prepare_prediction_ui, get_historical_data, \
-    show_prediction_results  # 导入预测模块
-from utils.visualization import visualize_data  # 导入可视化模块
-
-from utils.data_operations import fetch_data_in_bulk
+# 延迟导入模块
+machine_learning = lazy_import('utils.machine_learning')
+render_header = lazy_import('utils.data_preview', 'render_header')
+render_data_metrics = lazy_import('utils.data_preview', 'render_data_metrics')
+show_debug_info = lazy_import('utils.debug_utils', 'show_debug_info')
+show_decision_engine = lazy_import('utils.decision_engine', 'show_decision_engine')
+show_log_viewer = lazy_import('utils.log_viewer', 'show_log_viewer')
+fetch_data_in_bulk = lazy_import('utils.data_operations', 'fetch_data_in_bulk')
+login = lazy_import('auth', 'login')
+register = lazy_import('auth', 'register')
+utils_analysis = lazy_import('utils.analysis')
+perform_prediction = lazy_import('utils.predictions', 'perform_prediction')
+prepare_prediction_ui = lazy_import('utils.predictions', 'prepare_prediction_ui')
+get_historical_data = lazy_import('utils.predictions', 'get_historical_data')
+show_prediction_results = lazy_import('utils.predictions', 'show_prediction_results')
+visualize_data = lazy_import('utils.visualization', 'visualize_data')
+user_management = lazy_import('utils.user_management', 'user_management')
+system_monitoring = lazy_import('utils.system_monitoring', 'system_monitoring')
 
 
 # 函数：获取最新数据
@@ -395,7 +402,7 @@ def data_analysis():
         - **25%/75%分位数**: 四分位数，帮助了解数据分布情况
         """)
     
-    desc_data = utils.analysis.describe_data(data)
+    desc_data = utils_analysis.describe_data(data)
     st.dataframe(desc_data)
     
     # 添加智能推荐
@@ -628,7 +635,7 @@ def advanced_analysis():
     if st.button("开始分析"):
         log_operation(st.session_state['username'], "INFO", "高级分析-分组聚合",
                       f"分组列: {group_column} 聚合列: {agg_column} 函数: {agg_function}")
-        grouped_data = utils.analysis.group_and_aggregate(data, group_column, agg_column, agg_function)
+        grouped_data = utils_analysis.group_and_aggregate(data, group_column, agg_column, agg_function)
 
         st.write("分组聚合结果：")
         st.dataframe(grouped_data)
@@ -818,6 +825,11 @@ def main():
         login(session, st)
     elif page == "register":
         register(session, st)
+    elif page == "module_config":
+        if st.session_state.get('role') == 'admin':
+            show_module_config_ui(st.session_state['username'], True)
+        else:
+            st.error("仅管理员可以访问模块配置管理")
     else:
         # 登录成功后显示欢迎信息
         if st.session_state.get('logged_in'):
@@ -842,6 +854,12 @@ def main():
                 if st.button("🚪 退出登录"):
                     st.session_state['logout_clicked'] = True
                     st.rerun()
+                
+                # 为管理员添加模块配置管理快捷链接
+                if st.session_state.get('role') == 'admin':
+                    if st.button("🔧 模块配置管理"):
+                        st.query_params.page = "module_config"
+                        st.rerun()
 
             # 新增：根据当前页面自动选中对应菜单项
             page_to_menu_mapping = {
@@ -859,38 +877,24 @@ def main():
                 "log_viewer": "日志查看",
                 "use_instruction": "使用说明",
                 "automated_decision": "自动化决策",
-                "debug_info": "调试信息"  # 添加调试信息页面映射
+                "debug_info": "调试信息",  # 添加调试信息页面映射
+                "module_config": "模块配置管理"  # 添加模块配置管理页面映射
             }
             selected = page_to_menu_mapping.get(page, "数据概览")
 
-            # 修改后的菜单配置逻辑
-            if st.session_state.get('role') == 'admin':
-                # 根据调试模式状态决定是否显示调试信息选项
-                debug_mode_enabled = os.getenv('DEBUG_MODE', 'False').lower() == 'true'
-                if debug_mode_enabled:
-                    menu_options = [
-                        "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
-                        "高级分析", "本地数据预测", "机器学习",
-                        "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复", "数据库同步","自动化决策", "调试信息", "使用说明"
-                    ]
-                else:
-                    menu_options = [
-                        "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
-                        "高级分析", "本地数据预测", "机器学习",
-                        "用户管理", "系统监控", "日志查看", "数据备份", "数据恢复", "数据库同步", "自动化决策", "使用说明"
-                    ]
-            else:
-                menu_options = [
-                    "实时数据预览", "数据概览", "数据清洗", "数据分析", "可视化",
-                    "高级分析", "本地数据预测", "机器学习", "数据库同步", "自动化决策","使用说明"
-                ]
+            # 使用模块管理系统获取启用的模块
+            enabled_modules = get_enabled_modules_for_sidebar(st.session_state.get('role') == 'admin')
+            menu_options = [module[0] for module in enabled_modules]
+            menu_icons = [module[1] for module in enabled_modules]
+            
+            # 确保当前选中的页面在菜单选项中
+            if selected not in menu_options:
+                selected = menu_options[0] if menu_options else "数据概览"
 
             selected = option_menu(
                 menu_title="📚 功能菜单",
                 options=menu_options,
-                icons=["speedometer", "table", "brush", "bar-chart", "graph-up",
-                       "gear", "robot", "cpu", "person",
-                       "cloud-upload", "save", "arrow-counterclockwise", "gear-fill", "robot", "", "question-circle"],
+                icons=menu_icons,
                 default_index=menu_options.index(selected) if selected in menu_options else 0,
                 styles={
                     "container": {"padding": "5px"},
@@ -911,14 +915,15 @@ def main():
             "本地数据预测": data_prediction,
             "机器学习": machine_learning_page,
             "用户管理": lambda: user_management(session, st.session_state['username'], st.session_state['role']),
-            "系统监控": system_monitoring,
-            "日志查看": show_log_viewer,
+            "系统监控": lambda: system_monitoring(),
+            "日志查看": lambda: show_log_viewer(),
             "数据备份": data_backup,
             "数据恢复": data_restore,
-            "数据库同步": lambda: utils.sync_manager.sync_databases_ui(),
+            "数据库同步": lambda: sync_databases_ui(),
             "自动化决策": lambda: show_decision_engine(session, st.session_state['username']),
             "调试信息": lambda: show_debug_info(st.session_state['username']),  # 添加调试信息路由
-            "使用说明": show_instructions
+            "使用说明": show_instructions,
+            "模块配置管理": lambda: show_module_config_ui(st.session_state['username'], st.session_state.get('role') == 'admin')
         }
 
         # 执行路由跳转
