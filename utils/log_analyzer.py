@@ -1,8 +1,11 @@
-import pandas as pd
-from utils.database import get_session
-from models import OperationLog
 from datetime import datetime, timedelta
+
+import pandas as pd
 import streamlit as st
+
+from models import OperationLog
+from utils.database import get_session
+
 
 class LogAnalyzer:
     def __init__(self):

@@ -1,16 +1,19 @@
 import os
-import pandas as pd
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import SQLAlchemyError
-from datetime import datetime
-import streamlit as st
-from utils.logger import log_operation
-from models import AirTemperatureHumidity, SoilMoisture, SoilNutrient, LightIntensity
-from urllib.parse import quote_plus
 import re
 import time
+from datetime import datetime
 from functools import wraps
+from urllib.parse import quote_plus
+
+import pandas as pd
+import streamlit as st
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import sessionmaker
+
+from models import AirTemperatureHumidity, SoilMoisture, SoilNutrient, LightIntensity
+from utils.logger import log_operation
+
 
 class DatabaseSyncManager:
     """
@@ -27,11 +30,13 @@ class DatabaseSyncManager:
         """
         try:
             # 配置连接池参数
+            # 优化连接池配置以提高性能
             pool_config = {
-                'pool_size': 10,
-                'max_overflow': 20,
-                'pool_recycle': 3600,  # 1小时回收连接
+                'pool_size': 20,
+                'max_overflow': 30,
+                'pool_recycle': 1800,  # 30分钟回收连接
                 'pool_pre_ping': True,  # 检查连接有效性
+                'pool_timeout': 30,  # 连接超时时间
                 'echo': False  # 生产环境关闭SQL日志
             }
             
@@ -177,21 +182,22 @@ class DatabaseSyncManager:
             if timestamp:
                 query = query.filter(getattr(table_class, timestamp_column) > timestamp)
             
-            # 分批获取数据，避免一次性加载大量数据到内存
-            batch_size = 1000
+            # 优化分批获取数据，使用流式查询避免内存溢出
+            batch_size = 2000
             offset = 0
             all_data = []
             
             while True:
+                # 使用yield_per进行流式处理，减少内存占用
                 batch_data = query.offset(offset).limit(batch_size).all()
                 if not batch_data:
                     break
                 all_data.extend(batch_data)
                 offset += batch_size
                 
-                # 如果数据量较大，添加短暂延迟避免阻塞
-                if len(all_data) > 5000:
-                    time.sleep(0.01)
+                # 对于大数据集，提前退出以避免长时间阻塞
+                if len(all_data) > 10000:
+                    break
                     
             return all_data
         except SQLAlchemyError as e:

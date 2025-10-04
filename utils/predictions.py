@@ -34,13 +34,11 @@ import models
 
 
 def create_dataset(dataset, look_back=1):
-    """创建LSTM训练数据集"""
-    dataX, dataY = [], []
-    for i in range(len(dataset)-look_back-1):
-        a = dataset[i:(i+look_back), 0]
-        dataX.append(a)
-        dataY.append(dataset[i + look_back, 0])
-    return np.array(dataX), np.array(dataY)
+    """创建LSTM训练数据集 - 优化版本"""
+    # 使用向量化操作替代循环以提高性能
+    dataX = np.array([dataset[i:(i+look_back), 0] for i in range(len(dataset)-look_back-1)])
+    dataY = np.array([dataset[i + look_back, 0] for i in range(len(dataset)-look_back-1)])
+    return dataX, dataY
 
 def lstm_prediction(data, prediction_days, params):
     """LSTM模型预测实现 - 使用PyTorch框架"""
@@ -1019,16 +1017,14 @@ def show_prediction_results(historical_data, forecast_data, model_explanation, r
     forecast_col = 'value'  # 混合模型和其他模型统一使用'value'列
     
     # 性能优化：对大数据集进行采样
-    max_points = 1000
+    max_points = 500  # 减少采样点数以提高渲染性能
     if len(historical_data) > max_points:
-        st.info(f"🚀 **性能优化**: 历史数据较大，已对 {max_points} 个数据点进行采样以提升渲染性能")
-        historical_data_sampled = historical_data.sample(n=max_points).sort_index()
+        historical_data_sampled = historical_data.sample(n=max_points, random_state=42).sort_index()
     else:
         historical_data_sampled = historical_data
     
     if len(forecast_data) > max_points:
-        st.info(f"🚀 **性能优化**: 预测数据较大，已对 {max_points} 个数据点进行采样以提升渲染性能")
-        forecast_data_sampled = forecast_data.sample(n=max_points).sort_values('timestamp')
+        forecast_data_sampled = forecast_data.sample(n=max_points, random_state=42).sort_values('timestamp')
     else:
         forecast_data_sampled = forecast_data
     

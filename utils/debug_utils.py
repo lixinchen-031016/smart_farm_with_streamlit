@@ -354,12 +354,22 @@ def measure_execution_time(func):
     """
     装饰器：测量函数执行时间
     """
+    execution_times = []
+    
     def wrapper(*args, **kwargs):
         if os.getenv('DEBUG_MODE', 'False').lower() == 'true':
-            start_time = time.time()
+            start_time = time.perf_counter()
             result = func(*args, **kwargs)
-            end_time = time.time()
-            st.sidebar.info(f"⏱️ {func.__name__} 执行时间: {end_time - start_time:.4f} 秒")
+            end_time = time.perf_counter()
+            execution_time = end_time - start_time
+            execution_times.append(execution_time)
+            
+            # 计算平均执行时间
+            if len(execution_times) > 10:  # 保留最近10次的执行时间
+                execution_times.pop(0)
+            avg_time = sum(execution_times) / len(execution_times)
+            
+            st.sidebar.info(f"⏱️ {func.__name__} 执行时间: {execution_time:.4f} 秒 (平均: {avg_time:.4f} 秒)")
             return result
         else:
             return func(*args, **kwargs)

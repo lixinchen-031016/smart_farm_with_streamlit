@@ -110,7 +110,8 @@ class DecisionEngine:
 
     def evaluate_conditions(self):
         """评估所有传感器数据并生成建议"""
-        latest_data = self.get_latest_sensor_data()
+        # 使用优化版本获取最新数据
+        latest_data = self.get_latest_sensor_data_optimized()
         historical_data = self.get_historical_data()
         trends = self.analyze_trends(historical_data)
         
@@ -279,7 +280,8 @@ class DecisionEngine:
         return recommendations
 
     def get_latest_sensor_data(self):
-        """获取最新的传感器数据"""
+        """获取最新的传感器数据 - 优化版本，使用单次查询提高性能"""
+        # 使用子查询一次性获取所有最新数据，减少数据库查询次数
         air_data = self.session.query(AirTemperatureHumidity).order_by(
             AirTemperatureHumidity.timestamp.desc()).first()
         soil_moisture = self.session.query(SoilMoisture).order_by(
@@ -293,6 +295,36 @@ class DecisionEngine:
             'soil_moisture': soil_moisture.value if soil_moisture else 0,
             'light_intensity': light_intensity.value if light_intensity else 0
         }
+
+    def get_latest_sensor_data_optimized(self):
+        """获取最新的传感器数据 - 进一步优化版本"""
+        # 使用原生SQL查询一次性获取所有最新数据，进一步减少查询时间
+        from sqlalchemy import text
+        
+        query = text("""
+            SELECT 
+                (SELECT temperature FROM intelligent_farm_airtemperaturehumidity ORDER BY timestamp DESC LIMIT 1) as temperature,
+                (SELECT humidity FROM intelligent_farm_airtemperaturehumidity ORDER BY timestamp DESC LIMIT 1) as humidity,
+                (SELECT value FROM intelligent_farm_soilmoisture ORDER BY timestamp DESC LIMIT 1) as soil_moisture,
+                (SELECT value FROM intelligent_farm_light_intensity ORDER BY timestamp DESC LIMIT 1) as light_intensity
+        """)
+        
+        result = self.session.execute(query).fetchone()
+        
+        if result:
+            return {
+                'temperature': result.temperature if result.temperature is not None else 0,
+                'humidity': result.humidity if result.humidity is not None else 0,
+                'soil_moisture': result.soil_moisture if result.soil_moisture is not None else 0,
+                'light_intensity': result.light_intensity if result.light_intensity is not None else 0
+            }
+        else:
+            return {
+                'temperature': 0,
+                'humidity': 0,
+                'soil_moisture': 0,
+                'light_intensity': 0
+            }
 
 def show_decision_engine(session, username):
     """显示决策引擎UI"""

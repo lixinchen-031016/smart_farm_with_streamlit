@@ -1,7 +1,17 @@
+from functools import lru_cache
+
 import psutil
 import streamlit as st
 from streamlit_extras.metric_cards import style_metric_cards  # 添加卡片样式库
 
+
+@lru_cache(maxsize=1)
+def get_cached_system_metrics():
+    """缓存系统指标以提高性能"""
+    cpu_usage = psutil.cpu_percent(interval=0.1)  # 减少采样时间
+    memory = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
+    return cpu_usage, memory, disk
 
 def system_monitoring():
     if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
@@ -27,10 +37,8 @@ def system_monitoring():
     st.title("🖥️ 系统监控")
     st.write("服务器资源使用情况：")
 
-    # 获取资源使用数据
-    cpu_usage = psutil.cpu_percent(interval=1)
-    memory = psutil.virtual_memory()
-    disk = psutil.disk_usage('/')
+    # 使用缓存的系统指标
+    cpu_usage, memory, disk = get_cached_system_metrics()
 
     # 使用卡片布局展示核心指标
     col1, col2, col3 = st.columns(3)
@@ -50,7 +58,7 @@ def system_monitoring():
     # 应用卡片样式
     style_metric_cards(background_color="#FFFFFF", border_color="#E0E0E0",
                        border_left_color="#4CAF50", box_shadow=True)
-    
+
     # 详细资源信息展示
     with st.expander("📊 详细资源信息", expanded=True):
         col1, col2 = st.columns(2)
@@ -65,8 +73,9 @@ def system_monitoring():
     st.subheader("📈 资源使用趋势")
     col1, col2 = st.columns(2)
     with col1:
-        st.line_chart([psutil.cpu_percent(interval=1) for _ in range(10)], height=200)
+        # 使用更少的数据点和更快的采样速度
+        st.line_chart([psutil.cpu_percent(interval=0.1) for _ in range(5)], height=200)
         st.caption("CPU 使用率趋势")
     with col2:
-        st.line_chart([psutil.virtual_memory().percent for _ in range(10)], height=200)
+        st.line_chart([psutil.virtual_memory().percent for _ in range(5)], height=200)
         st.caption("内存使用率趋势")
