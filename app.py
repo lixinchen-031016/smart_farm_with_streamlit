@@ -18,6 +18,10 @@ from streamlit_option_menu import option_menu
 
 import models
 import utils.system_monitoring
+# 应用PyTorch补丁以解决兼容性问题
+from utils.torch_patch import apply_torch_patches
+apply_torch_patches()
+
 from auth import session
 # 添加日志查看器模块导入
 from utils.logger import log_operation

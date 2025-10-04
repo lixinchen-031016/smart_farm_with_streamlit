@@ -81,7 +81,7 @@
   },
   "machine_learning": {
     "name": "machine_learning",
-    "enabled": true,
+    "enabled": false,
     "display_name": "机器学习",
     "description": "训练和使用机器学习模型",
     "category": "预测分析",
@@ -165,7 +165,7 @@
   },
   "debug_info": {
     "name": "debug_info",
-    "enabled": true,
+    "enabled": false,
     "display_name": "调试信息",
     "description": "查看系统调试信息",
     "category": "系统管理",
