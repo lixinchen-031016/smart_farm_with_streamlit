@@ -165,12 +165,12 @@
   },
   "debug_info": {
     "name": "debug_info",
-    "enabled": false,
+    "enabled": true,
     "display_name": "调试信息",
     "description": "查看系统调试信息",
     "category": "系统管理",
     "icon": "bug",
-    "admin_only": false,
+    "admin_only": true,
     "dependencies": []
   },
   "instruction_manual": {
