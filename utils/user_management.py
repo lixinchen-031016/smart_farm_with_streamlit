@@ -40,11 +40,43 @@ def user_management(session, username, role):
             log_operation(username, 'INFO', "添加用户", f"添加用户 {new_username}")
             st.success("用户添加成功")
 
+    # 管理员申请审批
+    st.header("管理员申请审批")
+    pending_admins = session.query(User).filter_by(admin_request=True).all()
+    
+    if pending_admins:
+        st.subheader("待审批的管理员申请")
+        for user in pending_admins:
+            col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
+            with col1:
+                st.write(f"用户名: {user.username}")
+            with col2:
+                st.write(f"申请时间: {user.admin_request_time.strftime('%Y-%m-%d %H:%M:%S') if user.admin_request_time else 'N/A'}")
+            with col3:
+                if st.button("批准", key=f"approve_{user.id}"):
+                    user.role = 'admin'
+                    user.admin_request = False
+                    user.admin_request_time = None
+                    session.commit()
+                    log_operation(username, 'INFO', "管理员审批", f"批准用户 {user.username} 的管理员申请")
+                    st.success(f"已批准 {user.username} 的管理员申请")
+                    st.rerun()
+            with col4:
+                if st.button("拒绝", key=f"reject_{user.id}"):
+                    user.admin_request = False
+                    user.admin_request_time = None
+                    session.commit()
+                    log_operation(username, 'INFO', "管理员审批", f"拒绝用户 {user.username} 的管理员申请")
+                    st.success(f"已拒绝 {user.username} 的管理员申请")
+                    st.rerun()
+    else:
+        st.info("暂无待审批的管理员申请")
+
     # 用户列表
     st.header("用户列表")
     users = session.query(User).all()
-    user_data = [(user.id, user.username, user.role) for user in users]
-    df = pd.DataFrame(user_data, columns=['ID', '用户名', '角色'])
+    user_data = [(user.id, user.username, user.role, "是" if user.admin_request else "否") for user in users]
+    df = pd.DataFrame(user_data, columns=['ID', '用户名', '角色', '管理员申请中'])
     st.dataframe(df)
 
     # 编辑和删除用户

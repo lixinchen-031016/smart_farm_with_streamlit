@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, DateTime, String, Text, JSON, Computed, Index
+from sqlalchemy import Column, Integer, Float, DateTime, String, Text, JSON, Computed, Index, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -40,6 +40,10 @@ class User(Base):
     password = Column(String(255), nullable=False)
     last_login_time = Column(DateTime, nullable=False)
     role = Column(String(50), nullable=False, default='user')
+    # 添加管理员申请状态字段
+    admin_request = Column(Boolean, nullable=False, default=False)
+    # 添加管理员申请时间字段
+    admin_request_time = Column(DateTime, nullable=True)
 
 
 class OperationLog(Base):

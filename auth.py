@@ -597,18 +597,37 @@ def register(session, st):
                     else:
                         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
                         # 根据用户选择设置角色
-                        role = 'admin' if user_type == "👨💼 管理员" else 'user'
-                        new_user = User(username=username, password=hashed_password.decode('utf-8'),
-                                        last_login_time=datetime.now(), role=role)
-                        session.add(new_user)
-                        session.commit()
-                        log_operation(username, "INFO", "用户注册", f"用户 {username} 注册成功，角色: {role}")
-                        # 注册成功后刷新验证码
-                        if 'register_captcha' in st.session_state:
-                            del st.session_state['register_captcha']
-                        if 'register_captcha_image' in st.session_state:
-                            del st.session_state['register_captcha_image']
-                        st.success("注册成功，请登录")
+                        # 修改逻辑：如果用户选择管理员，则标记为待审批状态
+                        if user_type == "👨💼 管理员":
+                            new_user = User(username=username, 
+                                          password=hashed_password.decode('utf-8'),
+                                          last_login_time=datetime.now(), 
+                                          role='user',  # 默认为普通用户
+                                          admin_request=True,  # 标记为管理员申请
+                                          admin_request_time=datetime.now())
+                            session.add(new_user)
+                            session.commit()
+                            log_operation(username, "INFO", "用户注册", f"用户 {username} 申请注册为管理员，等待审批")
+                            # 注册成功后刷新验证码
+                            if 'register_captcha' in st.session_state:
+                                del st.session_state['register_captcha']
+                            if 'register_captcha_image' in st.session_state:
+                                del st.session_state['register_captcha_image']
+                            st.success("注册申请已提交，请等待管理员审批。审批通过前将以普通用户身份登录。")
+                        else:
+                            new_user = User(username=username, 
+                                          password=hashed_password.decode('utf-8'),
+                                          last_login_time=datetime.now(), 
+                                          role='user')
+                            session.add(new_user)
+                            session.commit()
+                            log_operation(username, "INFO", "用户注册", f"用户 {username} 注册成功，角色: user")
+                            # 注册成功后刷新验证码
+                            if 'register_captcha' in st.session_state:
+                                del st.session_state['register_captcha']
+                            if 'register_captcha_image' in st.session_state:
+                                del st.session_state['register_captcha_image']
+                            st.success("注册成功，请登录")
                         st.query_params.page = "login"
                         st.rerun()  # 新增: 注册成功后强制跳转回登录页
 
