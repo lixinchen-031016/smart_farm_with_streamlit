@@ -16,7 +16,21 @@ def show_module_config_ui(username: str, is_admin: bool = False):
     
     # 添加返回主界面按钮
     if st.button("⬅️ 返回主界面"):
-        st.query_params.page = "user_management"  # 管理员返回用户管理页面
+        # 根据用户角色或上一个页面动态设置返回链接
+        # 默认返回数据预览页面
+        return_page = "data_preview"
+        
+        # 如果是管理员，优先返回用户管理页面
+        if is_admin:
+            return_page = "user_management"
+        
+        # 如果 session_state 中有上一个页面信息，则返回上一个页面
+        if 'previous_page' in st.session_state:
+            return_page = st.session_state['previous_page']
+        
+        st.query_params.page = return_page
+        # 更新 previous_page 为当前页面，为下一次导航做准备
+        st.session_state['previous_page'] = "module_config"
         st.rerun()
     
     st.title("🔧 模块配置管理")

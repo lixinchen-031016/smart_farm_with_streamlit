@@ -242,16 +242,10 @@ def render_data_metrics(session, username):
         col1, col2 = st.columns([3, 1])
         with col1:
             st.markdown("### 🎛️ 控制面板")
-        with col2:
-            auto_refresh = st.checkbox("🔄 自动刷新", value=False, help="每30秒自动刷新数据")
+
         st.markdown('</div>', unsafe_allow_html=True)
     
-    # 如果启用自动刷新，设置刷新间隔
-    if auto_refresh:
-        st.experimental_rerun_time = 30  # 每30秒刷新一次
-        st.info("自动刷新已启用，数据将每30秒更新一次")
-    
-    if st.button("🔄 实时更新数据", help="点击获取最新传感器数据") or auto_refresh:
+
         air_temp_hum, soil_moist, soil_nutri, light_intens = fetch_latest_data(session)
         log_operation(username, "INFO", "数据预览-更新数据",
                      f"获取时间: {air_temp_hum.timestamp} 温度: {air_temp_hum.temperature:.2f}°C 湿度: {air_temp_hum.humidity:.2f}% 土壤湿度: {soil_moist.value:.2f}% 土壤营养含量: {soil_nutri.value:.2f}ppm 光照强度: {light_intens.value:.2f}lux")

@@ -39,7 +39,7 @@ from dotenv import load_dotenv
 load_dotenv()
 # 添加: 引入新的数据库模块
 from utils.database import get_session
-from utils.lazy_importer import lazy_import
+from utils.lazy_importer import lazy_import, preload_modules
 
 # 延迟导入模块
 machine_learning = lazy_import('utils.machine_learning')
@@ -59,6 +59,13 @@ show_prediction_results = lazy_import('utils.predictions', 'show_prediction_resu
 visualize_data = lazy_import('utils.visualization', 'visualize_data')
 user_management = lazy_import('utils.user_management', 'user_management')
 system_monitoring = lazy_import('utils.system_monitoring', 'system_monitoring')
+
+# 预加载频繁使用的模块以提高性能
+preload_modules([
+    'utils.data_preview',  # 数据预览是核心功能，频繁使用
+    'utils.analysis',      # 数据分析功能经常使用
+    'utils.visualization', # 可视化功能经常使用
+])
 
 
 # 函数：获取最新数据
@@ -791,6 +798,9 @@ def main():
     """
     应用的主函数，负责页面路由和功能调用
     """
+    # 初始化应用，预加载关键模块
+    initialize_app()
+    
     # 新增：自动登录逻辑
     if 'jwt_token' in st.query_params:
         try:
@@ -862,6 +872,9 @@ def main():
                 # 为管理员添加模块配置管理快捷链接
                 if st.session_state.get('role') == 'admin':
                     if st.button("🔧 模块配置管理"):
+                        # 保存当前页面作为返回页面
+                        if 'page' in st.query_params:
+                            st.session_state['previous_page'] = st.query_params['page']
                         st.query_params.page = "module_config"
                         st.rerun()
 
@@ -935,6 +948,14 @@ def main():
             route_mapping[selected]()
         else:
             st.error("无效的页面配置")
+
+
+def initialize_app():
+    """
+    初始化应用，预加载关键模块
+    """
+    # 这里可以添加任何需要在应用启动时执行的初始化代码
+    pass
 
 
 if __name__ == '__main__':
