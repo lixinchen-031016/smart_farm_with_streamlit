@@ -51,7 +51,7 @@ show_log_viewer = lazy_import('utils.log_viewer', 'show_log_viewer')
 fetch_data_in_bulk = lazy_import('utils.data_operations', 'fetch_data_in_bulk')
 login = lazy_import('auth', 'login')
 register = lazy_import('auth', 'register')
-utils_analysis = lazy_import('utils.analysis')
+utils_analysis_module = lazy_import('utils.analysis')
 perform_prediction = lazy_import('utils.predictions', 'perform_prediction')
 prepare_prediction_ui = lazy_import('utils.predictions', 'prepare_prediction_ui')
 get_historical_data = lazy_import('utils.predictions', 'get_historical_data')
@@ -413,7 +413,7 @@ def data_analysis():
         - **25%/75%分位数**: 四分位数，帮助了解数据分布情况
         """)
     
-    desc_data = utils_analysis.describe_data(data)
+    desc_data = utils_analysis_module().describe_data(data)
     st.dataframe(desc_data)
     
     # 添加智能推荐
@@ -438,7 +438,7 @@ def data_analysis():
             - **0~0.3**: 弱正相关
             """)
         
-        corr_matrix = utils.analysis.calculate_correlation(data)
+        corr_matrix = utils_analysis_module().calculate_correlation(data)
         
         # 性能优化：对大数据集进行采样
         sample_size = min(1000, len(data)) if len(data) > 1000 else len(data)
@@ -646,7 +646,7 @@ def advanced_analysis():
     if st.button("开始分析"):
         log_operation(st.session_state['username'], "INFO", "高级分析-分组聚合",
                       f"分组列: {group_column} 聚合列: {agg_column} 函数: {agg_function}")
-        grouped_data = utils_analysis.group_and_aggregate(data, group_column, agg_column, agg_function)
+        grouped_data = utils_analysis_module().group_and_aggregate(data, group_column, agg_column, agg_function)
 
         st.write("分组聚合结果：")
         st.dataframe(grouped_data)
