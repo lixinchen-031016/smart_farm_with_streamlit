@@ -242,7 +242,16 @@ def render_data_metrics(session, username):
         col1, col2 = st.columns([3, 1])
         with col1:
             st.markdown("### 🎛️ 控制面板")
-
+        with col2:
+            # 添加刷新按钮
+            if st.button("🔄 刷新数据", key="refresh_button"):
+                # 重新获取最新数据
+                air_temp_hum, soil_moist, soil_nutri, light_intens = fetch_latest_data(session)
+                # 更新日志
+                log_operation(username, "INFO", "数据预览-更新数据",
+                             f"获取时间: {air_temp_hum.timestamp} 温度: {air_temp_hum.temperature:.2f}°C 湿度: {air_temp_hum.humidity:.2f}% 土壤湿度: {soil_moist.value:.2f}% 土壤营养含量: {soil_nutri.value:.2f}ppm 光照强度: {light_intens.value:.2f}lux")
+                # 使用st.experimental_rerun()强制重新渲染页面
+                st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
     
 
