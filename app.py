@@ -851,8 +851,36 @@ def data_prediction():
         progress_bar = st.progress(0)
         st.write("预测进度: 数据准备中...")
 
-        # 获取历史数据
-        data = get_historical_data(session, data_type)
+        # 修改：使用清洗后的数据而不是直接从数据库读取
+        if 'data' in st.session_state:
+            # 从session_state获取清洗后的数据
+            cleaned_data = st.session_state['data'].copy()
+            
+            # 根据选择的数据类型提取相应列的数据
+            if data_type == "空气温度":
+                if 'temperature' in cleaned_data.columns:
+                    data = [(row['timestamp'], row['temperature']) for _, row in cleaned_data.iterrows() if 'temperature' in row and not pd.isna(row['temperature'])]
+                else:
+                    st.error("清洗后的数据中未找到温度列")
+                    return
+            elif data_type == "空气湿度":
+                if 'humidity' in cleaned_data.columns:
+                    data = [(row['timestamp'], row['humidity']) for _, row in cleaned_data.iterrows() if 'humidity' in row and not pd.isna(row['humidity'])]
+                else:
+                    st.error("清洗后的数据中未找到湿度列")
+                    return
+            elif data_type == "土壤湿度":
+                if 'soil_moisture' in cleaned_data.columns:
+                    data = [(row['timestamp'], row['soil_moisture']) for _, row in cleaned_data.iterrows() if 'soil_moisture' in row and not pd.isna(row['soil_moisture'])]
+                else:
+                    st.error("清洗后的数据中未找到土壤湿度列")
+                    return
+            else:
+                st.error("不支持的数据类型")
+                return
+        else:
+            # 如果没有清洗后的数据，则从数据库读取（保持向后兼容）
+            data = get_historical_data(session, data_type)
 
         # 更新进度条
         progress_bar.progress(33)

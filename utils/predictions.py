@@ -814,9 +814,21 @@ def prophet_lstm_transformer_prediction(data, prediction_days, params):
     return historical_data, combined_forecast, explanation, combined_rmse
 
 def perform_prediction(data, model_type, prediction_days, lstm_params=None):
-    df = pd.DataFrame(data, columns=['timestamp', 'value'])
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    df.set_index('timestamp', inplace=True)
+    # 修改：检查传入的数据类型
+    if isinstance(data, list) and len(data) > 0 and isinstance(data[0], tuple):
+        # 从数据库获取的原始数据格式
+        df = pd.DataFrame(data, columns=['timestamp', 'value'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df.set_index('timestamp', inplace=True)
+    else:
+        # 已经是DataFrame格式（来自清洗后的数据）
+        df = data.copy()
+        # 确保列名正确
+        if 'value' not in df.columns and len(df.columns) >= 1:
+            # 假设最后一列是我们要预测的值
+            value_col = df.columns[-1]
+            df = df.rename(columns={value_col: 'value'})
+        df.index = pd.to_datetime(df.index)
 
     # 农业数据预处理 - 处理异常值和缺失值
     df = df.interpolate(method='time')  # 时间序列插值
@@ -870,10 +882,14 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
         return df, forecast_df, model_explanation, rmse
         
     elif model_type == "LSTM":
-        return lstm_prediction(data, prediction_days, lstm_params or {})
+        # 将DataFrame转换为原始格式以兼容LSTM函数
+        data_list = [(idx, row['value']) for idx, row in df.iterrows()]
+        return lstm_prediction(data_list, prediction_days, lstm_params or {})
         
     elif model_type == "Transformer":
-        return transformer_prediction(data, prediction_days, lstm_params or {})
+        # 将DataFrame转换为原始格式以兼容Transformer函数
+        data_list = [(idx, row['value']) for idx, row in df.iterrows()]
+        return transformer_prediction(data_list, prediction_days, lstm_params or {})
         
     elif model_type == "Prophet":
         # 准备Prophet需要的输入格式
@@ -885,6 +901,8 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
         # 准备混合模型需要的输入格式
         prophet_data = df.reset_index()
         prophet_data.columns = ['ds', 'y']
+        # 将DataFrame转换为原始格式以兼容混合模型函数
+        data_list = [(idx, row['value']) for idx, row in df.iterrows()]
         return prophet_lstm_transformer_prediction(prophet_data, prediction_days, lstm_params or {})
         
     return df, pd.DataFrame(), model_explanation, rmse
