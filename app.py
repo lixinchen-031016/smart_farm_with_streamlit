@@ -251,136 +251,207 @@ def data_cleaning():
         return
 
     st.title("数据清洗")
+    
+    # 添加标签页
+    tab1, tab2, tab3, tab4 = st.tabs(["基础清洗", "缺失值处理", "异常值检测", "数据导出"])
+    
     if 'data' not in st.session_state:
         st.warning("请先在数据概览页面上传数据")
         return
 
     data = st.session_state['data']
-
-    st.subheader("删除重复行")
-    if st.button("删除重复行"):
-        progress_bar = st.progress(0)
-        original_rows = data.shape[0]
-        progress_bar.progress(33)  # 第一步完成
-        data = data.drop_duplicates()
-        log_operation(st.session_state['username'], "INFO", "数据清洗-删除重复行",
-                      f"删除{original_rows - data.shape[0]}行 剩余{data.shape[0]}行")
-        st.success(f"删除了 {original_rows - data.shape[0]} 行重复数据")
-        progress_bar.progress(100)  # 操作完成
-
-    st.subheader("处理缺失值")
-    missing_columns = data.columns[data.isnull().any()].tolist()
-    for column in missing_columns:
-        method = st.selectbox(f"选择处理 {column} 缺失值的方法",
-                              ["保持不变", "删除", "填充平均值", "填充中位数", "填充众数"])
-        if method != "保持不变":
-            log_operation(st.session_state['username'], "INFO", "数据清洗-处理缺失值",
-                          f"列: {column} 方法: {method}")
+    
+    # 基础清洗标签页
+    with tab1:
+        st.subheader("删除重复行")
+        if st.button("删除重复行"):
             progress_bar = st.progress(0)
-            if method == "删除":
-                data = data.dropna(subset=[column])
+            original_rows = data.shape[0]
+            progress_bar.progress(33)  # 第一步完成
+            data = data.drop_duplicates()
+            log_operation(st.session_state['username'], "INFO", "数据清洗-删除重复行",
+                          f"删除{original_rows - data.shape[0]}行 剩余{data.shape[0]}行")
+            st.success(f"删除了 {original_rows - data.shape[0]} 行重复数据")
+            progress_bar.progress(100)  # 操作完成
+
+        st.subheader("删除不需要的数据列")
+        columns_to_drop = st.multiselect("选择要删除的列", data.columns.tolist())
+        if st.button("删除选中的列"):
+            log_operation(st.session_state['username'], "INFO", "数据清洗-删除列",
+                          f"删除列: {', '.join(columns_to_drop)}")
+            if columns_to_drop:
+                progress_bar = st.progress(0)
+                data = data.drop(columns=columns_to_drop)
+                progress_bar.progress(100)  # 操作完成
+                st.success(f"已删除列: {', '.join(columns_to_drop)}")
             else:
-                # 新增: 创建标识列
-                fill_flag_col = f"{column}_filled"
+                st.warning("未选择任何列进行删除")
 
-                # 初始化标识列为False
-                data[fill_flag_col] = False
+        # 拖拽式数据列映射功能
+        st.subheader("拖拽式数据列映射")
+        columns = data.columns.tolist()
+        reordered_columns = st.columns(len(columns))
+        for i, col in enumerate(columns):
+            with reordered_columns[i]:
+                st.write(col)
+                if st.button(f"拖拽 {col}", key=f"drag_{col}"):
+                    columns.remove(col)
+                    columns.insert(0, col)  # 将拖拽的列移到第一位
+        data = data[columns]  # 更新数据列顺序
 
-                # 获取缺失值的索引
-                missing_index = data[column].isnull()
-
-                # 确定环境数据类型
-                env_type = "其他"
-                if 'temperature' in column.lower():
-                    env_type = "空气温度"
-                elif 'humidity' in column.lower():
-                    env_type = "空气湿度"
-                elif 'soil' in column.lower():
-                    env_type = "土壤数据"
-                elif 'light' in column.lower():
-                    env_type = "光照强度"
-
-                # 计算填充值
-                if method == "填充平均值":
-                    fill_value = data[column].mean()
-                elif method == "填充中位数":
-                    fill_value = data[column].median()
-                elif method == "填充众数":
-                    fill_value = data[column].mode()[0]
-
-                # 填充并记录信息
-                data.loc[missing_index, column] = fill_value
-                data.loc[missing_index, fill_flag_col] = data.loc[missing_index].apply(
-                    lambda row: f"行号:{row.name} | 类型:{env_type} | 填充值:{fill_value:.2f}",
-                    axis=1
-                )
-                log_operation(st.session_state['username'], "INFO", "数据清洗-数据填充",
-                              f"已填充{missing_index.sum()}个缺失值并添加标识列: {fill_flag_col}")
-                st.success(f"已填充{missing_index.sum()}个缺失值并添加标识列: {fill_flag_col}")
-
-            progress_bar.progress(100)  # 操作完成
-
-    st.subheader("删除不需要的数据列")
-    columns_to_drop = st.multiselect("选择要删除的列", data.columns.tolist())
-    if st.button("删除选中的列"):
-        log_operation(st.session_state['username'], "INFO", "数据清洗-删除列",
-                      f"删除列: {', '.join(columns_to_drop)}")
-        if columns_to_drop:
-            progress_bar = st.progress(0)
-            data = data.drop(columns=columns_to_drop)
-            progress_bar.progress(100)  # 操作完成
-            st.success(f"已删除列: {', '.join(columns_to_drop)}")
+        st.session_state['data'] = data
+        st.success("数据清洗完成")
+    
+    # 缺失值处理标签页
+    with tab2:
+        st.subheader("处理缺失值")
+        missing_columns = data.columns[data.isnull().any()].tolist()
+        if not missing_columns:
+            st.info("当前数据没有缺失值")
         else:
-            st.warning("未选择任何列进行删除")
+            for column in missing_columns:
+                method = st.selectbox(f"选择处理 {column} 缺失值的方法",
+                                      ["保持不变", "删除", "填充平均值", "填充中位数", "填充众数"])
+                if method != "保持不变":
+                    log_operation(st.session_state['username'], "INFO", "数据清洗-处理缺失值",
+                                  f"列: {column} 方法: {method}")
+                    progress_bar = st.progress(0)
+                    if method == "删除":
+                        data = data.dropna(subset=[column])
+                    else:
+                        # 新增: 创建标识列
+                        fill_flag_col = f"{column}_filled"
 
-    # 拖拽式数据列映射功能
-    st.subheader("拖拽式数据列映射")
-    columns = data.columns.tolist()
-    reordered_columns = st.columns(len(columns))
-    for i, col in enumerate(columns):
-        with reordered_columns[i]:
-            st.write(col)
-            if st.button(f"拖拽 {col}", key=f"drag_{col}"):
-                columns.remove(col)
-                columns.insert(0, col)  # 将拖拽的列移到第一位
-    data = data[columns]  # 更新数据列顺序
+                        # 初始化标识列为False
+                        data[fill_flag_col] = False
 
-    st.session_state['data'] = data
-    st.success("数据清洗完成")
+                        # 获取缺失值的索引
+                        missing_index = data[column].isnull()
 
-    # 添加交互式数据编辑功能
-    st.subheader("交互式数据编辑")
-    if st.button("保存编辑"):
-        progress_bar = st.progress(0)
-        edited_df = st.data_editor(st.session_state['data'])
-        edited_df['timestamp'] = pd.to_datetime(edited_df['timestamp'], errors='coerce')
-        st.session_state['data'] = edited_df
-        progress_bar.progress(100)  # 操作完成
-        st.success("数据编辑已保存")
+                        # 确定环境数据类型
+                        env_type = "其他"
+                        if 'temperature' in column.lower():
+                            env_type = "空气温度"
+                        elif 'humidity' in column.lower():
+                            env_type = "空气湿度"
+                        elif 'soil' in column.lower():
+                            env_type = "土壤数据"
+                        elif 'light' in column.lower():
+                            env_type = "光照强度"
 
-    # 新增: 数据导出功能
-    st.subheader("导出清洗后的数据")
-    export_format = st.selectbox("选择导出格式", ["CSV", "Excel", "JSON"])
-    if st.button("导出数据"):
-        log_operation(st.session_state['username'], "INFO", "数据清洗-数据导出",
-                      f"导出格式: {export_format} 文件名: cleaned_data.{export_format.lower()}")
-        progress_bar = st.progress(0)
-        if export_format == "CSV":
-            csv = data.to_csv(index=False)
-            b64 = base64.b64encode(csv.encode()).decode()
-            href = f'<a href="data:file/csv;base64,{b64}" download="cleaned_data.csv">下载 CSV 文件</a>'
-        elif export_format == "Excel":
-            excel = io.BytesIO()
-            data.to_excel(excel, index=False)
-            excel.seek(0)
-            b64 = base64.b64encode(excel.read()).decode()
-            href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="cleaned_data.xlsx">下载 Excel 文件</a>'
-        elif export_format == "JSON":
-            json_str = data.to_json(orient='records')
-            b64 = base64.b64encode(json_str.encode()).decode()
-            href = f'<a href="data:application/json;base64,{b64}" download="cleaned_data.json">下载 JSON 文件</a>'
-        progress_bar.progress(100)  # 操作完成
-        st.markdown(href, unsafe_allow_html=True)
+                        # 计算填充值
+                        if method == "填充平均值":
+                            fill_value = data[column].mean()
+                        elif method == "填充中位数":
+                            fill_value = data[column].median()
+                        elif method == "填充众数":
+                            fill_value = data[column].mode()[0]
+
+                        # 填充并记录信息
+                        data.loc[missing_index, column] = fill_value
+                        data.loc[missing_index, fill_flag_col] = data.loc[missing_index].apply(
+                            lambda row: f"行号:{row.name} | 类型:{env_type} | 填充值:{fill_value:.2f}",
+                            axis=1
+                        )
+                        log_operation(st.session_state['username'], "INFO", "数据清洗-数据填充",
+                                      f"已填充{missing_index.sum()}个缺失值并添加标识列: {fill_flag_col}")
+                        st.success(f"已填充{missing_index.sum()}个缺失值并添加标识列: {fill_flag_col}")
+
+                    progress_bar.progress(100)  # 操作完成
+
+            st.session_state['data'] = data
+            st.success("缺失值处理完成")
+    
+    # 异常值检测标签页
+    with tab3:
+        st.subheader("异常值检测与清除")
+        
+        # 导入异常检测工具
+        from utils.anomaly_detection import detect_outliers_iqr, detect_outliers_zscore, detect_outliers_isolation_forest, remove_anomalies, get_anomaly_summary
+        
+        # 选择检测方法
+        detection_method = st.radio("选择异常值检测方法", 
+                                   ["四分位距法 (IQR)", "Z-Score法", "孤立森林算法"],
+                                   horizontal=True)
+        
+        # 选择要检测的列
+        numeric_columns = data.select_dtypes(include=['float64', 'int64']).columns.tolist()
+        if not numeric_columns:
+            st.warning("数据中没有数值型列，无法进行异常值检测")
+        else:
+            selected_columns = st.multiselect("选择要检测的列", numeric_columns, default=numeric_columns[:3] if len(numeric_columns) > 3 else numeric_columns)
+            
+            if st.button("检测异常值"):
+                if not selected_columns:
+                    st.warning("请至少选择一列进行检测")
+                else:
+                    # 根据选择的方法进行异常值检测
+                    anomalies = {}
+                    method_key = ""
+                    if detection_method == "四分位距法 (IQR)":
+                        method_key = "iqr"
+                        for col in selected_columns:
+                            anomalies[col] = data[detect_outliers_iqr(data, col)].index.tolist()
+                    elif detection_method == "Z-Score法":
+                        method_key = "zscore"
+                        for col in selected_columns:
+                            anomalies[col] = data[detect_outliers_zscore(data, col)].index.tolist()
+                    elif detection_method == "孤立森林算法":
+                        method_key = "isolation_forest"
+                        for col in selected_columns:
+                            anomalies[col] = data[detect_outliers_isolation_forest(data, [col])].index.tolist()
+                    
+                    # 显示异常值摘要
+                    summary = get_anomaly_summary(anomalies)
+                    st.write("异常值检测结果:")
+                    summary_df = pd.DataFrame(summary).T
+                    st.dataframe(summary_df)
+                    
+                    # 保存异常值索引到session_state
+                    st.session_state['anomalies'] = anomalies
+                    st.session_state['anomaly_summary'] = summary
+                    
+                    # 显示详细异常值
+                    with st.expander("查看详细异常值"):
+                        for col, indices in anomalies.items():
+                            if indices:
+                                st.write(f"**{col}** 列的异常值:")
+                                st.dataframe(data.loc[indices, [col]])
+            
+            # 提供清除异常值的选项
+            if 'anomalies' in st.session_state:
+                if st.button("清除检测到的异常值"):
+                    data = remove_anomalies(data, st.session_state['anomalies'])
+                    st.session_state['data'] = data
+                    st.success("已清除异常值")
+                    # 清除异常值信息
+                    del st.session_state['anomalies']
+                    del st.session_state['anomaly_summary']
+    
+    # 数据导出标签页
+    with tab4:
+        st.subheader("导出清洗后的数据")
+        export_format = st.selectbox("选择导出格式", ["CSV", "Excel", "JSON"])
+        if st.button("导出数据"):
+            log_operation(st.session_state['username'], "INFO", "数据清洗-数据导出",
+                          f"导出格式: {export_format} 文件名: cleaned_data.{export_format.lower()}")
+            progress_bar = st.progress(0)
+            if export_format == "CSV":
+                csv = data.to_csv(index=False)
+                b64 = base64.b64encode(csv.encode()).decode()
+                href = f'<a href="data:file/csv;base64,{b64}" download="cleaned_data.csv">下载 CSV 文件</a>'
+            elif export_format == "Excel":
+                excel = io.BytesIO()
+                data.to_excel(excel, index=False)
+                excel.seek(0)
+                b64 = base64.b64encode(excel.read()).decode()
+                href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="cleaned_data.xlsx">下载 Excel 文件</a>'
+            elif export_format == "JSON":
+                json_str = data.to_json(orient='records')
+                b64 = base64.b64encode(json_str.encode()).decode()
+                href = f'<a href="data:application/json;base64,{b64}" download="cleaned_data.json">下载 JSON 文件</a>'
+            progress_bar.progress(100)  # 操作完成
+            st.markdown(href, unsafe_allow_html=True)
 
 
 # 函数：数据分析
