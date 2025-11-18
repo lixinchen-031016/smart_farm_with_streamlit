@@ -287,18 +287,6 @@ def data_cleaning():
             else:
                 st.warning("未选择任何列进行删除")
 
-        # 拖拽式数据列映射功能
-        st.subheader("拖拽式数据列映射")
-        columns = data.columns.tolist()
-        reordered_columns = st.columns(len(columns))
-        for i, col in enumerate(columns):
-            with reordered_columns[i]:
-                st.write(col)
-                if st.button(f"拖拽 {col}", key=f"drag_{col}"):
-                    columns.remove(col)
-                    columns.insert(0, col)  # 将拖拽的列移到第一位
-        data = data[columns]  # 更新数据列顺序
-
         st.session_state['data'] = data
         st.success("数据清洗完成")
     
@@ -374,6 +362,46 @@ def data_cleaning():
                                    ["四分位距法 (IQR)", "Z-Score法", "孤立森林算法"],
                                    horizontal=True)
         
+        # 为孤立森林算法提供参数调整选项
+        isolation_forest_params = {}
+        if detection_method == "孤立森林算法":
+            st.subheader("孤立森林算法参数设置")
+            col1, col2 = st.columns(2)
+            with col1:
+                # 使用session state保存contamination值
+                if 'isolation_forest_contamination' not in st.session_state:
+                    st.session_state.isolation_forest_contamination = 0.1
+                
+                contamination = st.slider("异常值比例估计", 0.01, 0.5, st.session_state.isolation_forest_contamination, 0.01, 
+                                        help="预计数据中异常值的比例，较低的值会使算法更敏感",
+                                        key="isolation_forest_contamination_slider")
+                st.session_state.isolation_forest_contamination = contamination
+                
+            with col2:
+                # 使用session state保存n_estimators值
+                if 'isolation_forest_n_estimators' not in st.session_state:
+                    st.session_state.isolation_forest_n_estimators = 100
+                
+                n_estimators = st.slider("树的数量", 50, 500, st.session_state.isolation_forest_n_estimators, 10,
+                                       help="孤立树的数量，更多的树可以提高准确性但会增加计算时间",
+                                       key="isolation_forest_n_estimators_slider")
+                st.session_state.isolation_forest_n_estimators = n_estimators
+            
+            # 使用session state保存max_samples值
+            if 'isolation_forest_max_samples' not in st.session_state:
+                st.session_state.isolation_forest_max_samples = 1.0
+                
+            max_samples = st.slider("样本数量", 0.1, 1.0, st.session_state.isolation_forest_max_samples, 0.1,
+                                  help="每棵树使用的样本比例，较小的值可以提高速度但可能降低准确性",
+                                  key="isolation_forest_max_samples_slider")
+            st.session_state.isolation_forest_max_samples = max_samples
+            
+            isolation_forest_params = {
+                'contamination': contamination,
+                'n_estimators': n_estimators,
+                'max_samples': max_samples if max_samples < 1.0 else 'auto'
+            }
+        
         # 选择要检测的列
         numeric_columns = data.select_dtypes(include=['float64', 'int64']).columns.tolist()
         if not numeric_columns:
@@ -398,8 +426,10 @@ def data_cleaning():
                             anomalies[col] = data[detect_outliers_zscore(data, col)].index.tolist()
                     elif detection_method == "孤立森林算法":
                         method_key = "isolation_forest"
+                        # 使用改进的孤立森林算法
+                        outlier_series = detect_outliers_isolation_forest(data, selected_columns, **isolation_forest_params)
                         for col in selected_columns:
-                            anomalies[col] = data[detect_outliers_isolation_forest(data, [col])].index.tolist()
+                            anomalies[col] = data[outlier_series].index.tolist()
                     
                     # 显示异常值摘要
                     summary = get_anomaly_summary(anomalies)
