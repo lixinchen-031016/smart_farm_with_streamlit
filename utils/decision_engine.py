@@ -5,6 +5,7 @@ import streamlit as st
 
 from models import AirTemperatureHumidity, SoilMoisture, LightIntensity
 from utils.logger import log_operation
+from utils.sensor_data import get_latest_sensor_data, get_historical_sensor_data
 
 
 class DecisionEngine:
@@ -48,28 +49,7 @@ class DecisionEngine:
 
     def get_historical_data(self, hours=24):
         """获取历史传感器数据用于趋势分析"""
-        since = datetime.now() - timedelta(hours=hours)
-        
-        # 获取历史空气温湿度数据
-        air_data = self.session.query(AirTemperatureHumidity).filter(
-            AirTemperatureHumidity.timestamp >= since
-        ).order_by(AirTemperatureHumidity.timestamp).all()
-        
-        # 获取历史土壤湿度数据
-        soil_moisture_data = self.session.query(SoilMoisture).filter(
-            SoilMoisture.timestamp >= since
-        ).order_by(SoilMoisture.timestamp).all()
-        
-        # 获取历史光照强度数据
-        light_data = self.session.query(LightIntensity).filter(
-            LightIntensity.timestamp >= since
-        ).order_by(LightIntensity.timestamp).all()
-        
-        return {
-            'air': [(d.timestamp, d.temperature, d.humidity) for d in air_data],
-            'soil_moisture': [(d.timestamp, d.value) for d in soil_moisture_data],
-            'light': [(d.timestamp, d.value) for d in light_data]
-        }
+        return get_historical_sensor_data(self.session, hours)
 
     def calculate_trend(self, data_points):
         """计算数据趋势"""
@@ -281,50 +261,11 @@ class DecisionEngine:
 
     def get_latest_sensor_data(self):
         """获取最新的传感器数据 - 优化版本，使用单次查询提高性能"""
-        # 使用子查询一次性获取所有最新数据，减少数据库查询次数
-        air_data = self.session.query(AirTemperatureHumidity).order_by(
-            AirTemperatureHumidity.timestamp.desc()).first()
-        soil_moisture = self.session.query(SoilMoisture).order_by(
-            SoilMoisture.timestamp.desc()).first()
-        light_intensity = self.session.query(LightIntensity).order_by(
-            LightIntensity.timestamp.desc()).first()
-        
-        return {
-            'temperature': air_data.temperature if air_data else 0,
-            'humidity': air_data.humidity if air_data else 0,
-            'soil_moisture': soil_moisture.value if soil_moisture else 0,
-            'light_intensity': light_intensity.value if light_intensity else 0
-        }
+        return get_latest_sensor_data(self.session)
 
     def get_latest_sensor_data_optimized(self):
         """获取最新的传感器数据 - 进一步优化版本"""
-        # 使用原生SQL查询一次性获取所有最新数据，进一步减少查询时间
-        from sqlalchemy import text
-        
-        query = text("""
-            SELECT 
-                (SELECT temperature FROM intelligent_farm_airtemperaturehumidity ORDER BY timestamp DESC LIMIT 1) as temperature,
-                (SELECT humidity FROM intelligent_farm_airtemperaturehumidity ORDER BY timestamp DESC LIMIT 1) as humidity,
-                (SELECT value FROM intelligent_farm_soilmoisture ORDER BY timestamp DESC LIMIT 1) as soil_moisture,
-                (SELECT value FROM intelligent_farm_light_intensity ORDER BY timestamp DESC LIMIT 1) as light_intensity
-        """)
-        
-        result = self.session.execute(query).fetchone()
-        
-        if result:
-            return {
-                'temperature': result.temperature if result.temperature is not None else 0,
-                'humidity': result.humidity if result.humidity is not None else 0,
-                'soil_moisture': result.soil_moisture if result.soil_moisture is not None else 0,
-                'light_intensity': result.light_intensity if result.light_intensity is not None else 0
-            }
-        else:
-            return {
-                'temperature': 0,
-                'humidity': 0,
-                'soil_moisture': 0,
-                'light_intensity': 0
-            }
+        return get_latest_sensor_data(self.session)
 
 def show_decision_engine(session, username):
     """显示决策引擎UI"""

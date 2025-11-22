@@ -362,9 +362,9 @@ def login(session, st):
                         if 'login_captcha_image' in st.session_state:
                             del st.session_state['login_captcha_image']
                         if user.role == 'admin':
-                            st.query_params.page = "user_management"
+                            st.query_params.page = "dashboard"
                         else:
-                            st.query_params.page = "data_preview"
+                            st.query_params.page = "dashboard"
                         st.rerun()
                     else:
                         st.error("用户名或密码错误")  # 新增错误提示

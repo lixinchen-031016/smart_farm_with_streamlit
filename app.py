@@ -39,6 +39,7 @@ from utils.lazy_importer import lazy_import, preload_modules
 
 # 添加仪表盘导入
 from utils.dashboard import show_dashboard
+from utils.integrated_dashboard import show_integrated_dashboard
 
 # 延迟导入模块
 machine_learning = lazy_import('utils.machine_learning')
@@ -64,7 +65,8 @@ preload_modules([
     'utils.data_preview',  # 数据预览是核心功能，频繁使用
     'utils.analysis',      # 数据分析功能经常使用
     'utils.visualization', # 可视化功能经常使用
-    'utils.dashboard'
+    'utils.dashboard',
+    'utils.integrated_dashboard'  # 综合仪表板功能
 ])
 
 
@@ -1031,6 +1033,13 @@ def main():
 
             # 使用模块管理系统获取启用的模块
             enabled_modules = get_enabled_modules_for_sidebar(st.session_state.get('role') == 'admin')
+            
+            # 添加综合监控仪表板选项
+            integrated_dashboard_option = ("综合监控仪表板", "activity")
+            # 将综合监控仪表板插入到实时数据预览和数据概览之间
+            insert_index = next((i for i, module in enumerate(enabled_modules) if module[0] == "数据概览"), 1)
+            enabled_modules.insert(insert_index, integrated_dashboard_option)
+            
             menu_options = [module[0] for module in enabled_modules]
             menu_icons = [module[1] for module in enabled_modules]
             
@@ -1055,6 +1064,7 @@ def main():
         route_mapping = {
             "控制面板": show_dashboard,
             "实时数据预览": data_preview,
+            "综合监控仪表板": show_integrated_dashboard,
             "数据概览": data_overview,
             "数据清洗": data_cleaning,
             "数据分析": data_analysis,

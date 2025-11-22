@@ -45,6 +45,16 @@ class ModuleManager:
                 dependencies=[]
             ),
             ModuleConfig(
+                name="integrated_dashboard",
+                enabled=True,
+                display_name="综合监控仪表板",
+                description="综合监控农场环境数据和系统状态",
+                category="核心功能",
+                icon="activity",
+                admin_only=False,
+                dependencies=[]
+            ),
+            ModuleConfig(
                 name="data_preview",
                 enabled=True,
                 display_name="实时数据预览",
@@ -192,7 +202,7 @@ class ModuleManager:
                 category="智能分析",
                 icon="lightbulb",
                 admin_only=False,
-                dependencies=["data_preview"]
+                dependencies=[]
             ),
             ModuleConfig(
                 name="debug_info",

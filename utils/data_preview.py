@@ -5,31 +5,16 @@ import streamlit as st
 
 from models import AirTemperatureHumidity, SoilMoisture, SoilNutrient, LightIntensity
 from utils.logger import log_operation
+from utils.sensor_data import get_latest_sensor_data, get_last_day_data
 
 
 def fetch_last_day_data(session, model_class):
     """获取最近24小时的数据"""
     try:
-        # 获取数据库中最新一条记录的时间
-        latest_data = session.query(model_class).order_by(model_class.timestamp.desc()).first()
-        if not latest_data:
-            st.warning(f"没有找到{model_class.__name__}的数据")
-            return None
-            
-        end_time = latest_data.timestamp
-        start_time = end_time - timedelta(days=1)
-        
-        # 查询数据并按时间降序排列，确保获取的是最新数据
-        data = session.query(model_class).filter(
-            model_class.timestamp >= start_time,
-            model_class.timestamp <= end_time
-        ).order_by(model_class.timestamp.desc()).all()
-        
+        data = get_last_day_data(session, model_class)
         if not data:
             st.warning(f"没有找到{model_class.__name__}在最近24小时内的数据")
-            return None
-            
-        return data[::-1]  # 将数据按时间升序返回
+        return data
     except Exception as e:
         st.error(f"获取数据时发生错误: {str(e)}")
         return None
@@ -370,10 +355,21 @@ def render_data_metrics(session, username):
 
 def fetch_latest_data(session):
     """获取最新传感器数据"""
-    air_temp_hum = session.query(AirTemperatureHumidity).order_by(
-        AirTemperatureHumidity.timestamp.desc()).first()
-    soil_moist = session.query(SoilMoisture).order_by(SoilMoisture.timestamp.desc()).first()
-    soil_nutri = session.query(SoilNutrient).order_by(SoilNutrient.timestamp.desc()).first()
-    light_intens = session.query(LightIntensity).order_by(
-        LightIntensity.timestamp.desc()).first()
+    sensor_data = get_latest_sensor_data(session)
+    
+    # 创建模拟对象以保持接口兼容性
+    class MockSensorData:
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+    
+    air_temp_hum = MockSensorData(
+        temperature=sensor_data['temperature'],
+        humidity=sensor_data['humidity'],
+        timestamp=datetime.datetime.now()
+    )
+    soil_moist = MockSensorData(value=sensor_data['soil_moisture'], timestamp=datetime.datetime.now())
+    soil_nutri = MockSensorData(value=sensor_data['soil_nutrient'], timestamp=datetime.datetime.now())
+    light_intens = MockSensorData(value=sensor_data['light_intensity'], timestamp=datetime.datetime.now())
+    
     return air_temp_hum, soil_moist, soil_nutri, light_intens

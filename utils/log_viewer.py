@@ -9,8 +9,9 @@ from utils.database import get_session
 
 def show_log_viewer():
     """显示日志查看器页面"""
-    if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
-        st.experimental_set_query_params(page="login")
+    if not st.session_state.get('logged_in'):
+        st.query_params.page = "login"
+        st.rerun()
         return
 
     st.title("📜 操作日志查看器")

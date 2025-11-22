@@ -427,7 +427,7 @@ def render_user_dashboard(session, username):
     
     with user_action_cols2[3]:
         if st.button("📱 同步管理"):
-            st.query_params.page = "sync_manager"
+            st.query_params.page = "database_sync"
             st.rerun()
     
     # Charts section

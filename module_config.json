@@ -1,7 +1,7 @@
 {
   "dashboard": {
     "name": "dashboard",
-    "enabled": true,
+    "enabled": false,
     "display_name": "控制面板",
     "description": "查看定制化仪表板",
     "category": "核心功能",
@@ -9,9 +9,19 @@
     "admin_only": false,
     "dependencies": []
   },
+  "integrated_dashboard": {
+    "name": "integrated_dashboard",
+    "enabled": true,
+    "display_name": "综合监控仪表板",
+    "description": "综合监控农场环境数据和系统状态",
+    "category": "核心功能",
+    "icon": "activity",
+    "admin_only": false,
+    "dependencies": []
+  },
   "data_preview": {
     "name": "data_preview",
-    "enabled": true,
+    "enabled": false,
     "display_name": "实时数据预览",
     "description": "实时查看农场环境数据",
     "category": "核心功能",
@@ -169,9 +179,7 @@
     "category": "智能分析",
     "icon": "lightbulb",
     "admin_only": false,
-    "dependencies": [
-      "data_preview"
-    ]
+    "dependencies": []
   },
   "debug_info": {
     "name": "debug_info",
