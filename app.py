@@ -959,7 +959,7 @@ def main():
 
     # 优化登录态处理逻辑
     if page in ["login", "register"] and st.session_state['logged_in']:
-        st.query_params.page = "dashboard"
+        st.query_params.page = "integrated_dashboard"
         st.rerun()
 
     # 新增：统一路由处理逻辑
@@ -1059,11 +1059,9 @@ def main():
                     "nav-link-selected": {"background-color": "#4CAF50", "font-weight": "normal"},
                 }
             )
-        from utils.dashboard import show_dashboard
+        from utils.integrated_dashboard import show_integrated_dashboard
         # 统一路由映射
         route_mapping = {
-            "控制面板": show_dashboard,
-            "实时数据预览": data_preview,
             "综合监控仪表板": show_integrated_dashboard,
             "数据概览": data_overview,
             "数据清洗": data_cleaning,
@@ -1088,9 +1086,9 @@ def main():
         if selected in route_mapping:
             route_mapping[selected]()
         else:
-            # 默认显示仪表盘
-            from utils.dashboard import show_dashboard
-            show_dashboard()
+            # 默认显示综合监控仪表板
+            from utils.integrated_dashboard import show_integrated_dashboard
+            show_integrated_dashboard()
 
 
 def initialize_app():

@@ -224,7 +224,7 @@ def render_user_controls(session, username):
     st.subheader("⚡ 快捷操作")
     
     # First row of user actions
-    user_action_cols = st.columns(4)
+    user_action_cols = st.columns(3)
     
     with user_action_cols[0]:
         if st.button("🔄 刷新数据"):
@@ -240,13 +240,10 @@ def render_user_controls(session, username):
             st.query_params.page = "data_prediction"
             st.rerun()
     
-    with user_action_cols[3]:
-        if st.button("💡 决策建议"):
-            st.query_params.page = "decision_engine"
-            st.rerun()
+
     
     # Second row of user actions
-    user_action_cols2 = st.columns(4)
+    user_action_cols2 = st.columns(3)
     
     with user_action_cols2[0]:
         if st.button("📈 数据可视化"):

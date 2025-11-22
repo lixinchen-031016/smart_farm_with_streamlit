@@ -36,7 +36,7 @@ class ModuleManager:
         default_modules = [
             ModuleConfig(
                 name="dashboard",
-                enabled=True,
+                enabled=False,
                 display_name="控制面板",
                 description="查看定制化仪表板",
                 category="核心功能",
@@ -56,7 +56,7 @@ class ModuleManager:
             ),
             ModuleConfig(
                 name="data_preview",
-                enabled=True,
+                enabled=False,
                 display_name="实时数据预览",
                 description="实时查看农场环境数据",
                 category="核心功能",

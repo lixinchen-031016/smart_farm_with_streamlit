@@ -824,6 +824,9 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
         # 已经是DataFrame格式（来自清洗后的数据）
         df = data.copy()
         # 确保列名正确
+        if not isinstance(df, pd.DataFrame):
+            # 如果不是DataFrame，尝试转换为DataFrame
+            df = pd.DataFrame(df)
         if 'value' not in df.columns and len(df.columns) >= 1:
             # 假设最后一列是我们要预测的值
             value_col = df.columns[-1]
