@@ -1,4 +1,14 @@
 {
+  "dashboard": {
+    "name": "dashboard",
+    "enabled": true,
+    "display_name": "控制面板",
+    "description": "查看定制化仪表板",
+    "category": "核心功能",
+    "icon": "grid-3x3-gap",
+    "admin_only": false,
+    "dependencies": []
+  },
   "data_preview": {
     "name": "data_preview",
     "enabled": true,

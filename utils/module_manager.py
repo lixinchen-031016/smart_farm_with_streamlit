@@ -35,6 +35,16 @@ class ModuleManager:
         """加载默认模块配置"""
         default_modules = [
             ModuleConfig(
+                name="dashboard",
+                enabled=True,
+                display_name="控制面板",
+                description="查看定制化仪表板",
+                category="核心功能",
+                icon="grid-3x3-gap",
+                admin_only=False,
+                dependencies=[]
+            ),
+            ModuleConfig(
                 name="data_preview",
                 enabled=True,
                 display_name="实时数据预览",

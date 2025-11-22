@@ -187,7 +187,7 @@ def get_enabled_modules_for_sidebar(is_admin: bool = False) -> list:
     
     # 按照预定义的顺序排序
     module_order = [
-        "data_preview", "data_overview", "data_cleaning", "data_analysis", 
+        "dashboard", "data_preview", "data_overview", "data_cleaning", "data_analysis", 
         "data_visualization", "advanced_analysis", "data_prediction", 
         "machine_learning", "sync_manager", "decision_engine", 
         "user_management", "system_monitoring", "log_viewer", 

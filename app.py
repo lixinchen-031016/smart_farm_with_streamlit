@@ -1,5 +1,6 @@
 import base64
 import io
+import os
 import json
 from datetime import datetime
 from io import BytesIO
@@ -29,17 +30,15 @@ from utils.sync_manager import sync_databases_ui
 from utils.module_manager import get_module_manager
 from utils.module_config_ui import show_module_config_ui, get_enabled_modules_for_sidebar, is_module_enabled
 
-# 创建基类
-Base = sqlalchemy.orm.declarative_base()
-
-import os
+# 添加: 加载环境变量
 from dotenv import load_dotenv
 
-# 添加: 加载环境变量
-load_dotenv()
 # 添加: 引入新的数据库模块
 from utils.database import get_session
 from utils.lazy_importer import lazy_import, preload_modules
+
+# 添加仪表盘导入
+from utils.dashboard import show_dashboard
 
 # 延迟导入模块
 machine_learning = lazy_import('utils.machine_learning')
@@ -65,6 +64,7 @@ preload_modules([
     'utils.data_preview',  # 数据预览是核心功能，频繁使用
     'utils.analysis',      # 数据分析功能经常使用
     'utils.visualization', # 可视化功能经常使用
+    'utils.dashboard'
 ])
 
 
@@ -957,10 +957,7 @@ def main():
 
     # 优化登录态处理逻辑
     if page in ["login", "register"] and st.session_state['logged_in']:
-        if st.session_state['role'] == 'admin':
-            st.query_params.page = "user_management"
-        else:
-            st.query_params.page = "data_preview"
+        st.query_params.page = "dashboard"
         st.rerun()
 
     # 新增：统一路由处理逻辑
@@ -973,6 +970,9 @@ def main():
             show_module_config_ui(st.session_state['username'], True)
         else:
             st.error("仅管理员可以访问模块配置管理")
+    elif page == "dashboard":
+        from utils.dashboard import show_dashboard
+        show_dashboard()
     else:
         # 登录成功后显示欢迎信息
         if st.session_state.get('logged_in'):
@@ -1009,6 +1009,7 @@ def main():
 
             # 新增：根据当前页面自动选中对应菜单项
             page_to_menu_mapping = {
+                "dashboard": "控制面板",
                 "data_preview": "实时数据预览",
                 "data_overview": "数据概览",
                 "data_cleaning": "数据清洗",
@@ -1026,7 +1027,7 @@ def main():
                 "debug_info": "调试信息",  # 添加调试信息页面映射
                 "module_config": "模块配置管理"  # 添加模块配置管理页面映射
             }
-            selected = page_to_menu_mapping.get(page, "数据概览")
+            selected = page_to_menu_mapping.get(page, "控制面板")
 
             # 使用模块管理系统获取启用的模块
             enabled_modules = get_enabled_modules_for_sidebar(st.session_state.get('role') == 'admin')
@@ -1049,9 +1050,10 @@ def main():
                     "nav-link-selected": {"background-color": "#4CAF50", "font-weight": "normal"},
                 }
             )
-
+        from utils.dashboard import show_dashboard
         # 统一路由映射
         route_mapping = {
+            "控制面板": show_dashboard,
             "实时数据预览": data_preview,
             "数据概览": data_overview,
             "数据清洗": data_cleaning,
@@ -1076,7 +1078,9 @@ def main():
         if selected in route_mapping:
             route_mapping[selected]()
         else:
-            st.error("无效的页面配置")
+            # 默认显示仪表盘
+            from utils.dashboard import show_dashboard
+            show_dashboard()
 
 
 def initialize_app():
