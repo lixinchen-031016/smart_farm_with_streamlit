@@ -272,9 +272,6 @@ def render_realtime_metrics(session, username):
         st.markdown('<div class="control-panel">', unsafe_allow_html=True)
         col1, col2 = st.columns([3, 1])
         with col1:
-            st.markdown("### 🎛️ 控制面板")
-        with col2:
-            # Refresh button
             if st.button("🔄 刷新数据", key="refresh_button"):
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
