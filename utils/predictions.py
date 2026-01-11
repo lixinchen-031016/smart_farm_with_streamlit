@@ -834,10 +834,16 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
         df.index = pd.to_datetime(df.index)
 
     # 农业数据预处理 - 处理异常值和缺失值
-    df = df.interpolate(method='time')  # 时间序列插值
-    df['value'] = np.where(df['value'] > df['value'].quantile(0.99), 
-                          df['value'].median(), 
-                          df['value'])
+    # 只对数值列进行时间序列插值
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_columns) > 0:
+        df[numeric_columns] = df[numeric_columns].interpolate(method='time')
+    
+    # 处理异常值
+    if 'value' in df.columns:
+        df['value'] = np.where(df['value'] > df['value'].quantile(0.99), 
+                              df['value'].median(), 
+                              df['value'])
     
     # 只选择最近60天的数据
     df = df[df.index >= (df.index.max() - pd.Timedelta(days=60))]

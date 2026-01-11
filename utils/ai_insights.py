@@ -16,9 +16,9 @@ class AIInsightsAnalyzer:
         self.chat = OllamaChat(model_name)
         self.model_name = model_name
         
-    def analyze_data_insights(self, data, data_description=None):
+    def analyze_data_insights_stream(self, data, data_description=None, on_chunk_callback=None):
         """
-        分析数据洞察并使用AI进行智能解读
+        分析数据洞察并使用AI进行智能解读（流式输出）
         """
         try:
             # 获取基本统计信息
@@ -38,18 +38,20 @@ class AIInsightsAnalyzer:
             # 生成AI分析提示
             prompt = self._generate_data_analysis_prompt(data_summary, data_description)
             
-            # 获取AI分析结果
-            ai_response = self.chat.send_message(prompt)
+            # 获取AI分析结果（流式）
+            ai_response = self.chat.send_message_stream(prompt, on_chunk_callback)
             
             return ai_response, data_summary
             
         except Exception as e:
             st.error(f"AI数据分析过程中发生错误: {str(e)}")
+            if on_chunk_callback:
+                on_chunk_callback(f"AI分析失败: {str(e)}")
             return f"AI分析失败: {str(e)}", {}
 
-    def analyze_prediction_insights(self, historical_data, forecast_data, model_explanation, prediction_description=None):
+    def analyze_prediction_insights_stream(self, historical_data, forecast_data, model_explanation, prediction_description=None, on_chunk_callback=None):
         """
-        分析预测结果并使用AI进行智能解读和建议
+        分析预测结果并使用AI进行智能解读和建议（流式输出）
         """
         try:
             # 准备预测摘要
@@ -66,13 +68,15 @@ class AIInsightsAnalyzer:
             # 生成AI预测分析提示
             prompt = self._generate_prediction_analysis_prompt(prediction_summary, prediction_description)
             
-            # 获取AI分析结果
-            ai_response = self.chat.send_message(prompt)
+            # 获取AI分析结果（流式）
+            ai_response = self.chat.send_message_stream(prompt, on_chunk_callback)
             
             return ai_response, prediction_summary
             
         except Exception as e:
             st.error(f"AI预测分析过程中发生错误: {str(e)}")
+            if on_chunk_callback:
+                on_chunk_callback(f"AI预测分析失败: {str(e)}")
             return f"AI预测分析失败: {str(e)}", {}
 
     def _generate_data_analysis_prompt(self, data_summary, data_description=None):
@@ -146,7 +150,7 @@ class AIInsightsAnalyzer:
 
     def integrate_analysis_with_ai(self, data, data_description=None):
         """
-        整合数据分析与AI洞察
+        整合数据分析与AI洞察（流式输出版本）
         """
         st.subheader("🤖 AI驱动的数据分析洞察")
         
@@ -156,8 +160,35 @@ class AIInsightsAnalyzer:
         
         # AI智能分析
         st.markdown("#### AI智能解读与建议")
+        
+        # 创建一个容器来显示流式输出
+        response_container = st.container()
+        
+        with response_container:
+            response_text = st.empty()  # 创建一个空的文本元素来逐步显示响应
+            
+        full_response = ""
+        
+        def on_token_receive(token):
+            nonlocal full_response
+            full_response += token
+            response_text.info(full_response)  # 实时更新显示
+        
+        # 准备数据以供AI分析 - 只使用数值列
+        numeric_data = data.select_dtypes(include=[np.number])
+        if numeric_data.empty:
+            # 如果没有数值列，尝试转换可能的数值列
+            for col in data.columns:
+                if col != 'timestamp':  # 排除时间戳列
+                    try:
+                        numeric_series = pd.to_numeric(data[col], errors='coerce')
+                        if not numeric_series.isna().all():  # 如果不是全部为NaN
+                            numeric_data = pd.concat([numeric_data, numeric_series], axis=1)
+                    except:
+                        continue
+        
         with st.spinner("AI正在分析数据并生成洞察..."):
-            ai_insights, data_summary = self.analyze_data_insights(data, data_description)
+            ai_insights, data_summary = self.analyze_data_insights_stream(numeric_data, data_description, on_token_receive)
         
         # 显示AI分析结果
         st.markdown("#### AI分析结果")
@@ -170,7 +201,7 @@ class AIInsightsAnalyzer:
 
     def integrate_prediction_with_ai(self, data, model_type, prediction_days, params=None, prediction_description=None):
         """
-        整合预测分析与AI洞察
+        整合预测分析与AI洞察（流式输出版本）
         """
         st.subheader("🤖 AI驱动的预测分析与建议")
         
@@ -186,9 +217,43 @@ class AIInsightsAnalyzer:
         
         # AI智能分析预测结果
         st.markdown("#### AI对预测结果的智能解读")
+        
+        # 创建一个容器来显示流式输出
+        response_container = st.container()
+        
+        with response_container:
+            response_text = st.empty()  # 创建一个空的文本元素来逐步显示响应
+            
+        full_response = ""
+        
+        def on_token_receive(token):
+            nonlocal full_response
+            full_response += token
+            response_text.info(full_response)  # 实时更新显示
+        
         with st.spinner("AI正在分析预测结果并生成建议..."):
-            ai_prediction_insights, prediction_summary = self.analyze_prediction_insights(
-                historical_data, forecast_data, model_explanation, prediction_description
+            # 确保数据适合AI分析
+            if historical_data is not None and not historical_data.empty:
+                # 只选择数值列进行AI分析
+                numeric_historical = historical_data.select_dtypes(include=[np.number])
+                if numeric_historical.empty:
+                    # 如果没有数值列，使用原始数据但确保时间列被排除
+                    numeric_columns = [col for col in historical_data.columns if col != historical_data.index.name]
+                    for col in numeric_columns:
+                        if pd.api.types.is_numeric_dtype(historical_data[col]):
+                            continue
+                        else:
+                            # 尝试转换为数值类型
+                            try:
+                                historical_data[col] = pd.to_numeric(historical_data[col], errors='coerce')
+                            except:
+                                pass  # 如果转换失败，保持原样
+                    numeric_historical = historical_data.select_dtypes(include=[np.number])
+            else:
+                numeric_historical = historical_data
+                
+            ai_prediction_insights, prediction_summary = self.analyze_prediction_insights_stream(
+                numeric_historical, forecast_data, model_explanation, prediction_description, on_token_receive
             )
         
         # 显示AI分析结果
@@ -248,7 +313,21 @@ class AIInsightsAnalyzer:
                 
                 提供具体、可操作的建议，并解释这些建议背后的原理。
                 """
-                ai_response = self.chat.send_message(prompt)
+                
+                # 为单独的AI建议也使用流式输出
+                response_container = st.container()
+                
+                with response_container:
+                    response_text = st.empty()  # 创建一个空的文本元素来逐步显示响应
+                    
+                full_response = ""
+                
+                def on_token_receive(token):
+                    nonlocal full_response
+                    full_response += token
+                    response_text.success(full_response)  # 实时更新显示
+                
+                ai_response = self.chat.send_message_stream(prompt, on_token_receive)
                 st.success(ai_response)
 
     def _provide_prediction_recommendations(self, prediction_summary):
@@ -280,7 +359,21 @@ class AIInsightsAnalyzer:
                 
                 提供具体、可操作的建议，并说明这些建议的时间敏感性。
                 """
-                ai_response = self.chat.send_message(prompt)
+                
+                # 为预测建议也使用流式输出
+                response_container = st.container()
+                
+                with response_container:
+                    response_text = st.empty()  # 创建一个空的文本元素来逐步显示响应
+                    
+                full_response = ""
+                
+                def on_token_receive(token):
+                    nonlocal full_response
+                    full_response += token
+                    response_text.success(full_response)  # 实时更新显示
+                
+                ai_response = self.chat.send_message_stream(prompt, on_token_receive)
                 st.success(ai_response)
 
 

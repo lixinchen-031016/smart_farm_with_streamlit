@@ -116,6 +116,52 @@ class OllamaChat:
             st.error(error_msg)
             return error_msg
 
+    def send_message_stream(self, message, on_chunk_callback=None):
+        """发送消息并以流式方式获取响应"""
+        try:
+            # 添加用户消息到历史记录
+            self.chat_history.append({
+                'role': 'user',
+                'content': message,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            # 准备请求数据
+            messages = [{'role': msg['role'], 'content': msg['content']} for msg in self.chat_history]
+            
+            # 调用Ollama流式API
+            full_response = ""
+            for chunk in ollama.chat(
+                model=self.model_name,
+                messages=messages,
+                options={
+                    'temperature': 0.7,  # 控制随机性
+                    'top_p': 0.9,       # 控制多样性
+                },
+                stream=True
+            ):
+                if 'message' in chunk and 'content' in chunk['message']:
+                    chunk_content = chunk['message']['content']
+                    full_response += chunk_content
+                    
+                    # 如果提供了回调函数，则调用它
+                    if on_chunk_callback:
+                        on_chunk_callback(chunk_content)
+            
+            # 添加AI回复到历史记录
+            self.chat_history.append({
+                'role': 'assistant',
+                'content': full_response,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            return full_response
+            
+        except Exception as e:
+            error_msg = f"发生错误: {str(e)}"
+            st.error(error_msg)
+            return error_msg
+
     def reset_chat(self):
         """重置聊天历史"""
         self.chat_history = []
