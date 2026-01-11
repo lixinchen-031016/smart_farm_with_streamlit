@@ -61,6 +61,9 @@ visualize_data = lazy_import('utils.visualization', 'visualize_data')
 user_management = lazy_import('utils.user_management', 'user_management')
 system_monitoring = lazy_import('utils.system_monitoring', 'system_monitoring')
 
+# AI洞察模块导入
+from utils.ai_insights import AIInsightsAnalyzer
+
 # 预加载频繁使用的模块以提高性能
 preload_modules([
     'utils.data_preview',  # 数据预览是核心功能，频繁使用
@@ -1139,6 +1142,81 @@ def data_prediction():
         st.success("预测完成")
 
 
+def ai_insights_analysis():
+    """AI洞察分析页面，结合数据分析和预测结果进行智能解读"""
+    if not st.session_state.get('logged_in'):
+        st.query_params.page = "login"
+        return
+
+    st.title("🤖 AI洞察分析")
+    st.caption("利用AI大模型对数据分析和预测结果进行智能解读和建议")
+    
+    # 初始化AI分析器
+    if 'ai_analyzer' not in st.session_state:
+        st.session_state.ai_analyzer = AIInsightsAnalyzer("qwen3:4b")
+    
+    analyzer = st.session_state.ai_analyzer
+    
+    # 检查模型可用性
+    is_available, available_models = analyzer.chat.check_model_available()
+    
+    if not is_available:
+        st.warning(f"⚠️ AI模型 {analyzer.model_name} 未安装或不可用")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            model_input = st.text_input("输入要使用的AI模型名称:", value=analyzer.model_name)
+        with col2:
+            if st.button("🔄 切换模型"):
+                analyzer.chat.model_name = model_input
+                analyzer.model_name = model_input
+                st.rerun()
+        
+        if st.button("📥 拉取AI模型", type="primary"):
+            success = analyzer.chat.pull_model_if_needed()
+            if success:
+                st.rerun()
+    else:
+        st.success(f"✅ AI模型 {analyzer.model_name} 可用")
+        
+        # 选择分析类型
+        analysis_type = st.radio(
+            "选择分析类型:",
+            ["数据洞察分析", "预测结果分析"]
+        )
+        
+        if analysis_type == "数据洞察分析":
+            st.markdown("### 数据洞察分析")
+            
+            if 'data' not in st.session_state:
+                st.warning("请先在数据概览页面上传数据")
+                return
+            
+            data = st.session_state['data']
+            data_description = st.text_area("数据背景描述（可选）", placeholder="请输入关于数据来源、用途或其他相关信息的描述...", height=100)
+            
+            if st.button("执行AI数据洞察分析", type="primary"):
+                with st.spinner("AI正在分析数据并生成洞察..."):
+                    ai_insights, data_summary = analyzer.integrate_analysis_with_ai(data, data_description)
+                    
+        elif analysis_type == "预测结果分析":
+            st.markdown("### 预测结果分析")
+            
+            if 'data' not in st.session_state:
+                st.warning("请先在数据概览页面上传数据")
+                return
+            
+            data = st.session_state['data']
+            model_type = st.selectbox("选择预测模型", ["SARIMA", "LSTM", "Transformer", "Prophet", "Hybrid"])
+            prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
+            prediction_description = st.text_area("预测背景描述（可选）", placeholder="请输入关于预测目标、应用场景或其他相关信息的描述...", height=100)
+            
+            if st.button("执行AI预测分析", type="primary"):
+                with st.spinner("AI正在分析预测结果并生成建议..."):
+                    ai_prediction_insights, prediction_summary = analyzer.integrate_prediction_with_ai(
+                        data, model_type, prediction_days, None, prediction_description
+                    )
+
+
 # 函数：机器学习
 
 
@@ -1279,6 +1357,12 @@ def main():
             insert_index = next((i for i, module in enumerate(enabled_modules) if module[0] == "数据概览"), 1)
             enabled_modules.insert(insert_index, integrated_dashboard_option)
             
+            # 添加AI洞察分析选项
+            ai_insights_option = ("AI洞察分析", "brain")
+            # 将AI洞察分析插入到数据分析和可视化之间
+            analysis_insert_index = next((i for i, module in enumerate(enabled_modules) if module[0] == "数据分析"), 3)
+            enabled_modules.insert(analysis_insert_index + 1, ai_insights_option)
+            
             menu_options = [module[0] for module in enabled_modules]
             menu_icons = [module[1] for module in enabled_modules]
             
@@ -1308,6 +1392,7 @@ def main():
             "可视化": data_visualization,
             "高级分析": advanced_analysis,
             "本地数据预测": data_prediction,
+            "AI洞察分析": ai_insights_analysis,
             "机器学习": machine_learning_page,
             "用户管理": lambda: user_management(session, st.session_state['username'], st.session_state['role']),
             "系统监控": lambda: system_monitoring(),
