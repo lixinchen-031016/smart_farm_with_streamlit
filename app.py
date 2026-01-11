@@ -6,6 +6,7 @@ from datetime import datetime
 from io import BytesIO
 
 import jwt
+import numpy as np
 import pandas as pd
 import plotly
 import plotly.express as px
