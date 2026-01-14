@@ -834,10 +834,10 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
         df.index = pd.to_datetime(df.index)
 
     # 农业数据预处理 - 处理异常值和缺失值
-    # 只对数值列进行时间序列插值
+    # 只对数值列进行线性插值（避免对时间索引进行插值）
     numeric_columns = df.select_dtypes(include=[np.number]).columns
     if len(numeric_columns) > 0:
-        df[numeric_columns] = df[numeric_columns].interpolate(method='time')
+        df[numeric_columns] = df[numeric_columns].interpolate(method='linear')
     
     # 处理异常值
     if 'value' in df.columns:
@@ -903,13 +903,25 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
     elif model_type == "Prophet":
         # 准备Prophet需要的输入格式
         prophet_data = df.reset_index()
-        prophet_data.columns = ['ds', 'y']
+        # 确保数据包含正确的列名，只取时间列和值列
+        if 'value' in prophet_data.columns:
+            prophet_data = prophet_data[['timestamp', 'value']].rename(columns={'timestamp': 'ds', 'value': 'y'})
+        else:
+            # 如果没有'value'列，则使用第一列作为时间，最后一列作为值
+            prophet_data = prophet_data.iloc[:, [0, -1]]
+            prophet_data.columns = ['ds', 'y']
         return prophet_prediction(prophet_data, prediction_days, lstm_params or {})
         
     elif model_type == "Hybrid":
         # 准备混合模型需要的输入格式
         prophet_data = df.reset_index()
-        prophet_data.columns = ['ds', 'y']
+        # 确保数据包含正确的列名，只取时间列和值列
+        if 'value' in prophet_data.columns:
+            prophet_data = prophet_data[['timestamp', 'value']].rename(columns={'timestamp': 'ds', 'value': 'y'})
+        else:
+            # 如果没有'value'列，则使用第一列作为时间，最后一列作为值
+            prophet_data = prophet_data.iloc[:, [0, -1]]
+            prophet_data.columns = ['ds', 'y']
         # 将DataFrame转换为原始格式以兼容混合模型函数
         data_list = [(idx, row['value']) for idx, row in df.iterrows()]
         return prophet_lstm_transformer_prediction(prophet_data, prediction_days, lstm_params or {})
