@@ -1181,7 +1181,7 @@ def ai_insights_analysis():
         # 选择分析类型
         analysis_type = st.radio(
             "选择分析类型:",
-            ["数据洞察分析", "预测结果分析"]
+            ["数据洞察分析"]
         )
         
         if analysis_type == "数据洞察分析":
@@ -1197,25 +1197,6 @@ def ai_insights_analysis():
             if st.button("执行AI数据洞察分析", type="primary"):
                 with st.spinner("AI正在分析数据并生成洞察..."):
                     ai_insights, data_summary = analyzer.integrate_analysis_with_ai(data, data_description)
-                    
-        elif analysis_type == "预测结果分析":
-            st.markdown("### 预测结果分析")
-            
-            if 'data' not in st.session_state:
-                st.warning("请先在数据概览页面上传数据")
-                return
-            
-            data = st.session_state['data']
-            model_type = st.selectbox("选择预测模型", ["SARIMA", "LSTM", "Transformer", "Prophet", "Hybrid"])
-            prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
-            prediction_description = st.text_area("预测背景描述（可选）", placeholder="请输入关于预测目标、应用场景或其他相关信息的描述...", height=100)
-            
-            if st.button("执行AI预测分析", type="primary"):
-                with st.spinner("AI正在分析预测结果并生成建议..."):
-                    ai_prediction_insights, prediction_summary = analyzer.integrate_prediction_with_ai(
-                        data, model_type, prediction_days, None, prediction_description
-                    )
-
 
 # 函数：机器学习
 
