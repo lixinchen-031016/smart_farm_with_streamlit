@@ -697,121 +697,6 @@ def prophet_prediction(data, prediction_days, params):
     
     return df.set_index('ds'), forecast_df, explanation, rmse
 
-def prophet_lstm_transformer_prediction(data, prediction_days, params):
-    """结合Prophet、LSTM和Transformer的混合模型预测"""
-    from prophet import Prophet
-
-    # 参数解包
-    look_back = params.get('look_back', 7)
-    epochs = params.get('epochs', 30)
-    batch_size = params.get('batch_size', 32)
-    units = params.get('units', 32)
-    d_model = params.get('d_model', 64)
-    nhead = params.get('nhead', 4)
-    num_layers = params.get('num_layers', 2)
-    dim_feedforward = params.get('dim_feedforward', 256)
-    dropout = params.get('dropout', 0.1)
-    learning_rate = params.get('learning_rate', 0.001)
-    patience = params.get('patience', 5)
-    prophet_weight = params.get('prophet_weight', 0.4)  # Prophet权重
-    lstm_weight = params.get('lstm_weight', 0.3)        # LSTM权重
-    transformer_weight = params.get('transformer_weight', 0.3)  # Transformer权重
-
-    # 数据预处理
-    df = pd.DataFrame(data, columns=['ds', 'y'])
-    df['ds'] = pd.to_datetime(df['ds'])
-    
-    # Prophet模型预测
-    model_prophet = Prophet(
-        yearly_seasonality=False,
-        weekly_seasonality=True,
-        daily_seasonality=True,
-        seasonality_mode='multiplicative'
-    )
-    model_prophet.add_seasonality(name='hourly', period=1/24, fourier_order=5)
-    model_prophet.fit(df)
-    
-    # 生成Prophet预测
-    future = model_prophet.make_future_dataframe(
-        periods=prediction_days * 8,
-        freq='3H'
-    )
-    forecast_prophet = model_prophet.predict(future)
-    prophet_predictions = forecast_prophet[['ds', 'yhat']].rename(columns={'ds': 'timestamp', 'yhat': 'value'})
-    
-    # 准备用于LSTM和Transformer的数据
-    data_for_nn = df[['ds', 'y']].rename(columns={'ds': 'timestamp', 'y': 'value'})
-    data_for_nn['timestamp'] = pd.to_datetime(data_for_nn['timestamp'])
-    
-    # 使用LSTM预测
-    _, lstm_forecast_df, _, lstm_rmse = lstm_prediction(
-        data_for_nn.values, 
-        prediction_days, 
-        {**params, 'epochs': epochs//2}  # 减少训练轮次以节省时间
-    )
-    
-    # 使用Transformer预测
-    _, transformer_forecast_df, _, transformer_rmse = transformer_prediction(
-        data_for_nn.values, 
-        prediction_days, 
-        {**params, 'epochs': epochs//2}  # 减少训练轮次以节省时间
-    )
-    
-    # 组合预测结果
-    # 确保三个模型的预测时间戳对齐
-    prophet_future_predictions = prophet_predictions[prophet_predictions['timestamp'] > df['ds'].max()]
-    prophet_future_predictions.reset_index(drop=True, inplace=True)
-    
-    # 确保长度一致，取相同时间段的数据进行组合
-    min_length = min(len(prophet_future_predictions), len(lstm_forecast_df), len(transformer_forecast_df))
-    
-    # 截取相同长度的数据
-    prophet_aligned = prophet_future_predictions.iloc[:min_length].copy()
-    lstm_aligned = lstm_forecast_df.iloc[:min_length].copy()
-    transformer_aligned = transformer_forecast_df.iloc[:min_length].copy()
-    
-    # 创建最终的预测结果DataFrame
-    combined_forecast = pd.DataFrame({
-        'timestamp': prophet_aligned['timestamp'],
-        'value': (
-            prophet_weight * prophet_aligned['value'] +
-            lstm_weight * lstm_aligned['value'] +
-            transformer_weight * transformer_aligned['value']
-        )
-    })
-    
-    # 计算组合模型的RMSE（使用历史拟合数据）
-    # 这里简化处理，实际应该用验证集
-    combined_rmse = (prophet_weight * lstm_rmse + 
-                     lstm_weight * lstm_rmse + 
-                     transformer_weight * transformer_rmse)
-    
-    explanation = f"""
-    **Prophet-LSTM-Transformer混合模型预测说明**
-    
-    本次预测使用了三种模型的加权组合，充分发挥各模型优势:
-    
-    **模型组成:**
-    1. Prophet模型({prophet_weight*100:.1f}%权重): 擅长处理季节性和趋势变化，对农业数据的周期性特征建模
-    2. LSTM模型({lstm_weight*100:.1f}%权重): 捕捉短期时序依赖关系，处理温度/湿度的渐进变化
-    3. Transformer模型({transformer_weight*100:.1f}%权重): 建立长期全局依赖，识别复杂模式和异常
-    
-    **组合策略:**
-    1. 各模型独立训练和预测
-    2. 采用加权平均法融合预测结果
-    3. 权重根据各模型在验证集上的表现动态调整
-    
-    **性能指标:**
-    - Prophet模型RMSE: {lstm_rmse:.4f}
-    - LSTM模型RMSE: {lstm_rmse:.4f}
-    - Transformer模型RMSE: {transformer_rmse:.4f}
-    - 混合模型综合RMSE: {combined_rmse:.4f}
-    - 预测天数: {prediction_days}天
-    """
-    
-    # 返回历史数据（Prophet格式）和预测结果
-    historical_data = df.set_index('ds')
-    return historical_data, combined_forecast, explanation, combined_rmse
 
 def perform_prediction(data, model_type, prediction_days, lstm_params=None):
     # 修改：检查传入的数据类型
@@ -911,20 +796,7 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
             prophet_data = prophet_data.iloc[:, [0, -1]]
             prophet_data.columns = ['ds', 'y']
         return prophet_prediction(prophet_data, prediction_days, lstm_params or {})
-        
-    elif model_type == "Hybrid":
-        # 准备混合模型需要的输入格式
-        prophet_data = df.reset_index()
-        # 确保数据包含正确的列名，只取时间列和值列
-        if 'value' in prophet_data.columns:
-            prophet_data = prophet_data[['timestamp', 'value']].rename(columns={'timestamp': 'ds', 'value': 'y'})
-        else:
-            # 如果没有'value'列，则使用第一列作为时间，最后一列作为值
-            prophet_data = prophet_data.iloc[:, [0, -1]]
-            prophet_data.columns = ['ds', 'y']
-        # 将DataFrame转换为原始格式以兼容混合模型函数
-        data_list = [(idx, row['value']) for idx, row in df.iterrows()]
-        return prophet_lstm_transformer_prediction(prophet_data, prediction_days, lstm_params or {})
+
         
     return df, pd.DataFrame(), model_explanation, rmse
 
@@ -946,7 +818,7 @@ def get_historical_data(session, data_type):
 def prepare_prediction_ui():
     """准备预测UI组件"""
     data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度"])
-    model_type = st.selectbox("选择预测模型", ["SARIMA", "LSTM", "Transformer", "Prophet", "Hybrid"])
+    model_type = st.selectbox("选择预测模型", ["SARIMA", "LSTM", "Transformer", "Prophet"])
     prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
     
     lstm_params = {}
