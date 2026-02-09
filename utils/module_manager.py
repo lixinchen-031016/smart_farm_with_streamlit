@@ -124,16 +124,7 @@ class ModuleManager:
                 admin_only=False,
                 dependencies=["data_overview"]
             ),
-            ModuleConfig(
-                name="machine_learning",
-                enabled=True,
-                display_name="机器学习",
-                description="训练和使用机器学习模型",
-                category="预测分析",
-                icon="cpu",
-                admin_only=False,
-                dependencies=["data_overview"]
-            ),
+
             ModuleConfig(
                 name="user_management",
                 enabled=True,

@@ -43,7 +43,7 @@ from utils.dashboard import show_dashboard
 from utils.integrated_dashboard import show_integrated_dashboard
 
 # 延迟导入模块
-machine_learning = lazy_import('utils.machine_learning')
+
 render_header = lazy_import('utils.data_preview', 'render_header')
 render_data_metrics = lazy_import('utils.data_preview', 'render_data_metrics')
 show_debug_info = lazy_import('utils.debug_utils', 'show_debug_info')
@@ -1201,25 +1201,6 @@ def ai_insights_analysis():
 # 函数：机器学习
 
 
-def machine_learning_page():
-    """
-    显示机器学习页面，允许用户训练模型并进行预测
-    """
-    if not st.session_state.get('logged_in'):
-        st.query_params.page = "login"
-        return
-
-    st.title("🤖 机器学习")
-
-    # 添加装饰性分隔线
-    st.markdown("---")
-
-    if 'data' not in st.session_state:
-        st.warning("请先在数据概览页面上传数据")
-        return
-
-    # 调用机器学习模块的UI渲染函数
-    machine_learning.render_ui(st.session_state['data'])
 
 
 # 函数：主函数
@@ -1374,7 +1355,7 @@ def main():
             "高级分析": advanced_analysis,
             "本地数据预测": data_prediction,
             "AI洞察分析": ai_insights_analysis,
-            "机器学习": machine_learning_page,
+
             "用户管理": lambda: user_management(session, st.session_state['username'], st.session_state['role']),
             "系统监控": lambda: system_monitoring(),
             "日志查看": lambda: show_log_viewer(),

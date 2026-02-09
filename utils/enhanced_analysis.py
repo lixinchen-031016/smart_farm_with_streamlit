@@ -351,7 +351,7 @@ def provide_smart_insights(data):
     if len(numeric_columns) >= 2:
         st.write("• 数据包含多个数值指标，适合进行相关性分析、聚类分析和预测建模")
     if data.shape[0] > 1000:
-        st.write("• 数据量较大，可以进行更复杂的分析和建模，如机器学习")
+        st.write("• 数据量较大，可以进行更复杂的统计分析和建模")
     else:
         st.write("• 数据量适中，适合进行探索性数据分析和基础统计建模")
     

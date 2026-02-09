@@ -99,18 +99,6 @@
       "data_overview"
     ]
   },
-  "machine_learning": {
-    "name": "machine_learning",
-    "enabled": false,
-    "display_name": "机器学习",
-    "description": "训练和使用机器学习模型",
-    "category": "预测分析",
-    "icon": "cpu",
-    "admin_only": false,
-    "dependencies": [
-      "data_overview"
-    ]
-  },
   "user_management": {
     "name": "user_management",
     "enabled": true,
