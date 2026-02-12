@@ -1088,6 +1088,16 @@ def data_prediction():
 
     # 使用预测模块的UI组件
     data_type, model_type, prediction_days, lstm_params = prepare_prediction_ui()
+    
+    # 模型类型映射
+    model_mapping = {
+        "Prophet+SARIMA(推荐)": "SARIMA",
+        "纯Prophet": "Prophet",
+        "纯SARIMA": "SARIMA",
+        "LSTM": "LSTM",
+        "Transformer": "Transformer"
+    }
+    actual_model_type = model_mapping.get(model_type, model_type)
 
     if st.button("开始预测"):
         log_operation(st.session_state['username'], "INFO", "数据预测",
@@ -1132,7 +1142,7 @@ def data_prediction():
 
         # 调用预测模块
         historical_data, forecast_data, model_explanation, rmse = perform_prediction(
-            data, model_type, prediction_days, lstm_params)
+            data, actual_model_type, prediction_days, lstm_params)
 
         # 显示结果
         show_prediction_results(historical_data, forecast_data, model_explanation, rmse, data_type)

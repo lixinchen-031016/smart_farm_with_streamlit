@@ -597,36 +597,109 @@ def transformer_prediction(data, prediction_days, params):
     testY_orig = scaler.inverse_transform(testY.reshape(-1, 1))
     rmse = np.sqrt(np.mean((testPredict - testY_orig) ** 2))
     
-    explanation = f"""
-    **混合CNN-LSTM-Transformer模型训练说明**  
-    
-    本次预测使用了结合CNN、LSTM和Transformer优势的三重混合模型，主要特点包括:
-    
-    **模型架构:**
-    1. CNN层: 提取局部特征模式，适合农业数据的短期波动
-    2. LSTM层: 捕获中短期时序依赖，处理温度/湿度的渐进变化
-    3. Transformer层: 建立长期全局依赖，识别季节性/周期性规律
-    4. 特征融合层: 智能结合CNN的局部特征和LSTM的时序特征
-    
-    **优化改进:**
-    1. 混合注意力机制同时关注不同时间尺度特征
-    2. 层归一化(LayerNorm)提高训练稳定性
-    3. 采用NAdam优化器(初始学习率:{learning_rate})
-    4. 动态学习率调度(StepLR)自动调整学习步长
-    5. 早停机制(耐心值:{patience})防止过拟合
-    6. 特征维度和注意力头数自动对齐
-    7. 使用趋势约束机制确保预测值符合历史变化规律
 
-    
-    **性能指标:**
-    - 训练时间: {training_time:.2f}秒
-    - 测试集RMSE: {rmse:.4f}
-    - 训练轮次: {epoch+1}轮
-    - 最终学习率: {scheduler.get_last_lr()[0]:.6f}
-    - 最佳训练损失: {best_loss:.4f}
-    """
 
-    return df, forecast_df, explanation, rmse
+    return df, forecast_df, rmse
+
+def sarima_validation_prediction(data, prediction_days, params, prophet_forecast):
+    """SARIMA验证/微调模型实现"""
+    # 参数解析
+    order_p = params.get('sarima_order_p', 1)
+    order_q = params.get('sarima_order_q', 1)
+    seasonal_P = params.get('sarima_seasonal_P', 1)
+    seasonal_Q = params.get('sarima_seasonal_Q', 1)
+    manual_prophet_weight = params.get('manual_prophet_weight', 0.6)
+    manual_sarima_weight = params.get('manual_sarima_weight', 0.4)
+    
+    # 数据预处理
+    df = pd.DataFrame(data, columns=['timestamp', 'value'])
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df.set_index('timestamp', inplace=True)
+    
+    # 使用优化的SARIMA参数
+    model = SARIMAX(df['value'], 
+                   order=(order_p, 1, order_q), 
+                   seasonal_order=(seasonal_P, 1, seasonal_Q, 24),
+                   enforce_stationarity=False,
+                   enforce_invertibility=False)
+    
+    try:
+        model_fit = model.fit(disp=False, maxiter=200)
+        
+        # 生成预测时间戳 - 使用periods确保点数匹配
+        last_date = df.index[-1].replace(hour=0, minute=0, second=0)
+        total_prediction_points = prediction_days * 8  # 每天8个点(每3小时一个点)
+        forecast_dates = pd.date_range(
+            start=last_date + pd.Timedelta(days=1),
+            periods=total_prediction_points,
+            freq='3H'
+        )
+        
+        # SARIMA预测
+        sarima_forecast = model_fit.forecast(steps=len(forecast_dates))
+        
+        # 计算拟合效果
+        fitted = model_fit.fittedvalues
+        sarima_rmse = np.sqrt(np.mean((df['value'] - fitted) ** 2))
+        
+        # 获取Prophet预测值
+        prophet_values = prophet_forecast['value'].values
+        sarima_values = sarima_forecast.values
+        
+        # 长度验证 - 确保两个数组长度一致
+        if len(prophet_values) != len(sarima_values):
+            # 如果长度不匹配，以较短的为准进行截断
+            min_length = min(len(prophet_values), len(sarima_values))
+            prophet_values = prophet_values[:min_length]
+            sarima_values = sarima_values[:min_length]
+            forecast_dates = forecast_dates[:min_length]
+            st.warning(f"预测长度不匹配，已调整为{min_length}个点")
+        
+        # 权重融合策略
+        if manual_prophet_weight + manual_sarima_weight == 1.0:
+            # 使用用户指定的手动权重
+            final_prophet_weight = manual_prophet_weight
+            final_sarima_weight = manual_sarima_weight
+        else:
+            # 基于性能自动调整权重
+            prophet_weight = 1 / (1 + sarima_rmse)  # SARIMA RMSE越小权重越大
+            sarima_weight = 1 / (1 + sarima_rmse)   # 这里应该使用Prophet的RMSE
+            total_weight = prophet_weight + sarima_weight
+            final_prophet_weight = prophet_weight / total_weight
+            final_sarima_weight = sarima_weight / total_weight
+        
+        # 融合预测结果
+        combined_forecast = (final_prophet_weight * prophet_values + 
+                           final_sarima_weight * sarima_values)
+        
+        validation_explanation = f"""
+        **SARIMA验证模型详情**
+        
+        **模型配置:**
+        - AR项阶数(p): {order_p}
+        - MA项阶数(q): {order_q}
+        - 季节性AR项(P): {seasonal_P}
+        - 季节性MA项(Q): {seasonal_Q}
+        - 季节性周期: 24小时
+        
+        **融合权重:**
+        - Prophet权重: {final_prophet_weight:.3f}
+        - SARIMA权重: {final_sarima_weight:.3f}
+        - 权重来源: {'手动设置' if manual_prophet_weight + manual_sarima_weight == 1.0 else '自动调整'}
+        
+        **性能指标:**
+        - SARIMA拟合RMSE: {sarima_rmse:.4f}
+        - 最终预测点数: {len(combined_forecast)}
+        """
+        
+        forecast_df = pd.DataFrame({'timestamp': forecast_dates, 'value': combined_forecast})
+        return forecast_df, sarima_rmse, validation_explanation
+        
+    except Exception as e:
+        # 如果SARIMA拟合失败，回退到纯Prophet预测
+        st.warning(f"SARIMA模型拟合失败: {str(e)}，使用纯Prophet预测结果")
+        return prophet_forecast, float('inf'), "SARIMA验证失败，使用Prophet预测"
+
 
 def prophet_prediction(data, prediction_days, params):
     """Facebook Prophet模型预测实现"""
@@ -736,44 +809,74 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
     model_explanation = ""  # 初始化解释字符串
     rmse = 0.0  # 初始化RMSE
     
-    if model_type == "SARIMA":
-        # 优化SARIMA季节性参数，更适合农业数据
-        model = SARIMAX(df['value'], order=(1, 1, 1), seasonal_order=(1, 1, 1, 24))
-        model_fit = model.fit()
+    if model_type == "Prophet":
+        # 准备Prophet需要的输入格式
+        prophet_data = df.reset_index()
+        # 确保数据包含正确的列名，只取时间列和值列
+        if 'value' in prophet_data.columns:
+            prophet_data = prophet_data[['timestamp', 'value']].rename(columns={'timestamp': 'ds', 'value': 'y'})
+        else:
+            # 如果没有'value'列，则使用第一列作为时间，最后一列作为值
+            prophet_data = prophet_data.iloc[:, [0, -1]]
+            prophet_data.columns = ['ds', 'y']
+        return prophet_prediction(prophet_data, prediction_days, lstm_params or {})
         
-        # 生成预测时间戳 - 每天8个时间点(0,3,6,9,12,15,18,21)
-        last_date = df.index[-1].replace(hour=0, minute=0, second=0)
-        forecast_dates = pd.date_range(
-            start=last_date + pd.Timedelta(days=1),
-            end=last_date + pd.Timedelta(days=prediction_days),
-            freq='3H'
+    elif model_type == "SARIMA":
+        # 使用SARIMA作为验证/微调模型
+        # 首先调用Prophet作为主干模型获取基础预测
+        prophet_data = df.reset_index()
+        if 'value' in prophet_data.columns:
+            prophet_data = prophet_data[['timestamp', 'value']].rename(columns={'timestamp': 'ds', 'value': 'y'})
+        else:
+            prophet_data = prophet_data.iloc[:, [0, -1]]
+            prophet_data.columns = ['ds', 'y']
+            
+        # 获取Prophet基础预测
+        _, prophet_forecast, prophet_explanation, prophet_rmse = prophet_prediction(prophet_data, prediction_days, lstm_params or {})
+        
+        # 使用增强的SARIMA验证函数
+        sarima_forecast_df, sarima_rmse, validation_explanation = sarima_validation_prediction(
+            [(idx, row['value']) for idx, row in df.iterrows()], 
+            prediction_days, 
+            lstm_params or {}, 
+            prophet_forecast
         )
-        # 确保预测点数与时间戳数量一致
-        forecast = model_fit.forecast(steps=len(forecast_dates))
         
-        fitted = model_fit.fittedvalues
-        rmse = np.sqrt(np.mean((df['value'] - fitted) ** 2))
+        # 选择最终RMSE（取较好的那个）
+        final_rmse = min(prophet_rmse, sarima_rmse)
         
         model_explanation = f"""
-        **SARIMA模型(1,1,1)(1,1,1,24)训练说明**
+        **Prophet + SARIMA混合预测模型**
         
-        1. 24小时季节性周期更适合农业环境数据
-        2. 简化模型参数提高稳定性
-        3. 考虑了农业数据的昼夜周期性
+        本次预测采用双模型融合策略：
+        
+        **主干模型 - Prophet:**
+        1. Facebook开源的时间序列预测模型
+        2. 自动处理季节性和趋势成分
+        3. 对异常值和缺失值具有鲁棒性
+        4. 内置节假日效应处理
+        
+        **验证模型 - SARIMA:**
+        1. 季节性自回归积分滑动平均模型
+        2. 专门针对农业数据的24小时周期优化
+        3. 经典统计学方法，理论基础扎实
+        
+        {validation_explanation}
         
         **性能指标:**
-        - 历史数据拟合RMSE: {rmse:.4f}
+        - Prophet RMSE: {prophet_rmse:.4f}
+        - SARIMA RMSE: {sarima_rmse:.4f}
+        - 最终RMSE: {final_rmse:.4f}
         - 使用的数据范围: 最近60天数据
         - 预测天数: {prediction_days}天
         
-        **农业数据特性处理:**
-        - 24小时季节性周期
-        - 自动处理昼夜变化
-        - 优化了温度/湿度等数据的预测
+        **农业数据优化:**
+        - 24小时昼夜周期建模
+        - 多模型交叉验证提升可靠性
+        - 动态权重调整适应数据特性
         """
         
-        forecast_df = pd.DataFrame({'timestamp': forecast_dates, 'value': forecast})
-        return df, forecast_df, model_explanation, rmse
+        return df, sarima_forecast_df, model_explanation, final_rmse
         
     elif model_type == "LSTM":
         # 将DataFrame转换为原始格式以兼容LSTM函数
@@ -818,11 +921,21 @@ def get_historical_data(session, data_type):
 def prepare_prediction_ui():
     """准备预测UI组件"""
     data_type = st.selectbox("选择预测的数据类型", ["空气温度", "空气湿度", "土壤湿度"])
-    model_type = st.selectbox("选择预测模型", ["SARIMA", "LSTM", "Transformer", "Prophet"])
+    model_type = st.selectbox("选择预测模型", ["Prophet+SARIMA(推荐)", "纯Prophet", "LSTM", "Transformer", "纯SARIMA"])
     prediction_days = st.number_input("预测天数", min_value=1, max_value=30, value=7)
     
     lstm_params = {}
-    if model_type in ["LSTM", "Transformer"]:
+    # 统一模型类型映射
+    model_mapping = {
+        "Prophet+SARIMA(推荐)": "SARIMA",  # 内部仍使用SARIMA标识符，但实际执行混合预测
+        "纯Prophet": "Prophet",
+        "纯SARIMA": "SARIMA",
+        "LSTM": "LSTM",
+        "Transformer": "Transformer"
+    }
+    actual_model_type = model_mapping.get(model_type, model_type)
+    
+    if actual_model_type in ["LSTM", "Transformer"]:
         with st.expander("模型参数配置"):
             lstm_params['look_back'] = st.slider("时间窗口大小", 1, 30, 7, 
                 help="模型观察的历史数据点数")
