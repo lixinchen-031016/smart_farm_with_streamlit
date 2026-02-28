@@ -1228,8 +1228,6 @@ def prepare_prediction_ui():
         "Prophet+SARIMA(推荐)": "SARIMA",  # 内部仍使用SARIMA标识符，但实际执行混合预测
         "纯Prophet": "Prophet",
         "纯SARIMA": "SARIMA",
-        "LSTM": "LSTM",
-        "Transformer": "Transformer"
     }
     actual_model_type = model_mapping.get(model_type, model_type)
     
