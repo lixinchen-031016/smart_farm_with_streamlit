@@ -72,6 +72,77 @@ def reset_login_attempts(username):
     if username in login_attempts:
         del login_attempts[username]
 
+def evaluate_password_strength(password):
+    """
+    评估密码强度并返回详细信息
+    返回: (强度等级, 分数, 详细反馈)
+    强度等级: low(红色), medium(黄色), high(绿色)
+    """
+    if not password:
+        return "low", 0, []
+    
+    score = 0
+    feedback = []
+    
+    # 长度检查
+    if len(password) >= 12:
+        score += 25
+        feedback.append("✅ 密码长度充足 (≥12位)")
+    elif len(password) >= 8:
+        score += 15
+        feedback.append("⚠️ 密码长度一般 (8-11位)")
+    else:
+        feedback.append("❌ 密码长度不足 (<8位)")
+    
+    # 字符类型检查
+    has_lower = bool(re.search(r'[a-z]', password))
+    has_upper = bool(re.search(r'[A-Z]', password))
+    has_digit = bool(re.search(r'[0-9]', password))
+    has_special = bool(re.search(r'[!@#$%^&*(),.?":{}|<>\[\]\\/_+=~-]', password))
+    
+    char_types = sum([has_lower, has_upper, has_digit, has_special])
+    
+    if char_types >= 3:
+        score += 30
+        feedback.append("✅ 包含多种字符类型")
+    elif char_types == 2:
+        score += 15
+        feedback.append("⚠️ 字符类型较少")
+    else:
+        feedback.append("❌ 字符类型单一")
+    
+    # 复杂性加分
+    if has_lower and has_upper:
+        score += 15
+    if has_digit:
+        score += 10
+    if has_special:
+        score += 20
+    
+    # 常见模式扣分
+    if re.search(r'(.)\1{2,}', password):  # 连续重复字符
+        score -= 10
+        feedback.append("❌ 存在连续重复字符")
+    
+    if re.search(r'(012|123|234|345|456|567|678|789|890)', password):  # 连续数字
+        score -= 10
+        feedback.append("❌ 存在连续数字序列")
+    
+    if re.search(r'(abc|bcd|cde|def|efg|fgh|ghi|hij|ijk)', password.lower()):  # 连续字母
+        score -= 10
+        feedback.append("❌ 存在连续字母序列")
+    
+    # 确定强度等级
+    if score >= 70:
+        strength = "high"
+    elif score >= 40:
+        strength = "medium"
+    else:
+        strength = "low"
+    
+    return strength, max(0, min(100, score)), feedback
+
+
 def check_password_complexity(password):
     """
     检查密码复杂度:
@@ -522,6 +593,56 @@ def register(session, st):
         z-index: 2;
         padding: 0 15px;
     }
+    /* 密码强度指示条样式 */
+    .password-strength-container {
+        margin: 10px 0 20px 0;
+        padding: 15px;
+        border-radius: 10px;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+    }
+    .strength-meter {
+        height: 12px;
+        border-radius: 6px;
+        background: #e9ecef;
+        overflow: hidden;
+        margin-bottom: 12px;
+        position: relative;
+    }
+    .strength-fill {
+        height: 100%;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+        width: 0%;
+    }
+    .strength-low { background: #dc3545; width: 33%; }
+    .strength-medium { background: #ffc107; width: 66%; }
+    .strength-high { background: #28a745; width: 100%; }
+    .strength-label {
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 8px;
+        text-align: center;
+    }
+    .strength-low-text { color: #dc3545; }
+    .strength-medium-text { color: #ffc107; }
+    .strength-high-text { color: #28a745; }
+    .feedback-list {
+        font-size: 12px;
+        line-height: 1.4;
+        color: #666;
+    }
+    .feedback-item {
+        margin: 3px 0;
+        padding-left: 15px;
+        position: relative;
+    }
+    .feedback-item::before {
+        content: "•";
+        position: absolute;
+        left: 0;
+        color: #666;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -538,6 +659,27 @@ def register(session, st):
             # 注册表单
             username = st.text_input("👤 用户名", key="register_username")
             password = st.text_input("🔒 密码", type="password", key="register_password")
+            
+            # 实时显示密码强度
+            if password:
+                strength, score, feedback = evaluate_password_strength(password)
+                
+                # 显示强度指示条
+                strength_labels = {"low": "弱", "medium": "中等", "high": "强"}
+                strength_colors = {"low": "red", "medium": "yellow", "high": "green"}
+                
+                st.markdown(f'''
+                <div class="password-strength-container">
+                    <div class="strength-label strength-{strength}-text">密码强度: {strength_labels[strength]} ({score}/100)</div>
+                    <div class="strength-meter">
+                        <div class="strength-fill strength-{strength}"></div>
+                    </div>
+                    <div class="feedback-list">
+                        {''.join([f'<div class="feedback-item">{item}</div>' for item in feedback])}
+                    </div>
+                </div>
+                ''', unsafe_allow_html=True)
+            
             confirm_password = st.text_input("🔁 确认密码", type="password", key="confirm_password")
             
             # 添加身份选择
