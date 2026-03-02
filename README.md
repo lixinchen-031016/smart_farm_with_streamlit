@@ -133,7 +133,7 @@ SECRET_KEY=031016
 ### 步骤 5：启动服务
 在包含 [docker-compose.yml]文件的目录下执行以下命令：
 ```bash
-docker-compose up
+docker compose up
 ```
 
 ### 步骤 6：配置镜像源（如有网络问题）
