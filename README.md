@@ -110,7 +110,7 @@ sudo apt update && sudo apt install git
 ### 步骤 2：拉取项目代码
 使用Git命令将项目代码拉取下来：
 ```bash
-git clone -b login-register_data-visualization_without_random_data_inside --single-branch https://github.com/lixinchen-031016/smart_farm_with_streamlit.git
+git clone https://github.com/lixinchen-031016/smart_farm_with_streamlit.git
 ```
 
 
