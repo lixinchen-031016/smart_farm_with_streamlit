@@ -17,10 +17,10 @@ def restore_ui(username):
                 if not key:
                     raise ValueError("密钥文件为空或无效")
                 log_operation(username, "ERROR", "数据恢复失败", f"文件: {uploaded_key_file}")
-                
+
                 from utils.backup import restore_data
                 restore_data(uploaded_sql_file, key)
-                
+
                 log_operation(username, "INFO", "数据恢复", f"文件: {uploaded_sql_file.name}")
                 st.success("数据已恢复")
             except Exception as e:

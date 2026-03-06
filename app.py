@@ -56,8 +56,8 @@ from utils.ai_insights import AIInsightsAnalyzer
 # 预加载频繁使用的模块以提高性能
 preload_modules([
     'utils.data_preview',  # 数据预览是核心功能，频繁使用
-    'utils.analysis',      # 数据分析功能经常使用
-    'utils.visualization', # 可视化功能经常使用
+    'utils.analysis',  # 数据分析功能经常使用
+    'utils.visualization',  # 可视化功能经常使用
     'utils.dashboard',
     'utils.integrated_dashboard'  # 综合仪表板功能
 ])
@@ -87,13 +87,13 @@ def data_preview():
 
     # 获取数据库会话
     session = get_session()
-    
+
     # 调用render_header时传入session参数
     render_header(session)
-    
+
     # 渲染数据指标卡片，同时传入session和username参数
     render_data_metrics(session, st.session_state['username'])
-    
+
     # 关闭会话
     session.close()
 
@@ -191,7 +191,7 @@ def data_overview():
     # 确保数据展示和导出逻辑兼容两种数据读取方式
     if 'data' in st.session_state:
         data = st.session_state['data'].copy()
-        
+
         # 确保所有datetime列都转换为Arrow兼容的格式
         for col in data.select_dtypes(include=['datetime64']).columns:
             data[col] = data[col].astype('datetime64[ms]')
@@ -246,16 +246,16 @@ def data_cleaning():
         return
 
     st.title("数据清洗")
-    
+
     # 添加标签页
     tab1, tab2, tab3, tab4 = st.tabs(["基础清洗", "缺失值处理", "异常值检测", "数据导出"])
-    
+
     if 'data' not in st.session_state:
         st.warning("请先在数据概览页面上传数据")
         return
 
     data = st.session_state['data']
-    
+
     # 基础清洗标签页
     with tab1:
         st.subheader("删除重复行")
@@ -284,7 +284,7 @@ def data_cleaning():
 
         st.session_state['data'] = data
         st.success("数据清洗完成")
-    
+
     # 缺失值处理标签页
     with tab2:
         st.subheader("处理缺失值")
@@ -344,19 +344,20 @@ def data_cleaning():
 
             st.session_state['data'] = data
             st.success("缺失值处理完成")
-    
+
     # 异常值检测标签页
     with tab3:
         st.subheader("异常值检测与清除")
-        
+
         # 导入异常检测工具
-        from utils.anomaly_detection import detect_outliers_iqr, detect_outliers_zscore, detect_outliers_isolation_forest, remove_anomalies, get_anomaly_summary
-        
+        from utils.anomaly_detection import detect_outliers_iqr, detect_outliers_zscore, \
+            detect_outliers_isolation_forest, remove_anomalies, get_anomaly_summary
+
         # 选择检测方法
-        detection_method = st.radio("选择异常值检测方法", 
-                                   ["四分位距法 (IQR)", "Z-Score法", "孤立森林算法"],
-                                   horizontal=True)
-        
+        detection_method = st.radio("选择异常值检测方法",
+                                    ["四分位距法 (IQR)", "Z-Score法", "孤立森林算法"],
+                                    horizontal=True)
+
         # 为孤立森林算法提供参数调整选项
         isolation_forest_params = {}
         if detection_method == "孤立森林算法":
@@ -366,44 +367,46 @@ def data_cleaning():
                 # 使用session state保存contamination值
                 if 'isolation_forest_contamination' not in st.session_state:
                     st.session_state.isolation_forest_contamination = 0.1
-                
-                contamination = st.slider("异常值比例估计", 0.01, 0.5, st.session_state.isolation_forest_contamination, 0.01, 
-                                        help="预计数据中异常值的比例，较低的值会使算法更敏感",
-                                        key="isolation_forest_contamination_slider")
+
+                contamination = st.slider("异常值比例估计", 0.01, 0.5, st.session_state.isolation_forest_contamination,
+                                          0.01,
+                                          help="预计数据中异常值的比例，较低的值会使算法更敏感",
+                                          key="isolation_forest_contamination_slider")
                 st.session_state.isolation_forest_contamination = contamination
-                
+
             with col2:
                 # 使用session state保存n_estimators值
                 if 'isolation_forest_n_estimators' not in st.session_state:
                     st.session_state.isolation_forest_n_estimators = 100
-                
+
                 n_estimators = st.slider("树的数量", 50, 500, st.session_state.isolation_forest_n_estimators, 10,
-                                       help="孤立树的数量，更多的树可以提高准确性但会增加计算时间",
-                                       key="isolation_forest_n_estimators_slider")
+                                         help="孤立树的数量，更多的树可以提高准确性但会增加计算时间",
+                                         key="isolation_forest_n_estimators_slider")
                 st.session_state.isolation_forest_n_estimators = n_estimators
-            
+
             # 使用session state保存max_samples值
             if 'isolation_forest_max_samples' not in st.session_state:
                 st.session_state.isolation_forest_max_samples = 1.0
-                
+
             max_samples = st.slider("样本数量", 0.1, 1.0, st.session_state.isolation_forest_max_samples, 0.1,
-                                  help="每棵树使用的样本比例，较小的值可以提高速度但可能降低准确性",
-                                  key="isolation_forest_max_samples_slider")
+                                    help="每棵树使用的样本比例，较小的值可以提高速度但可能降低准确性",
+                                    key="isolation_forest_max_samples_slider")
             st.session_state.isolation_forest_max_samples = max_samples
-            
+
             isolation_forest_params = {
                 'contamination': contamination,
                 'n_estimators': n_estimators,
                 'max_samples': max_samples if max_samples < 1.0 else 'auto'
             }
-        
+
         # 选择要检测的列
         numeric_columns = data.select_dtypes(include=['float64', 'int64']).columns.tolist()
         if not numeric_columns:
             st.warning("数据中没有数值型列，无法进行异常值检测")
         else:
-            selected_columns = st.multiselect("选择要检测的列", numeric_columns, default=numeric_columns[:3] if len(numeric_columns) > 3 else numeric_columns)
-            
+            selected_columns = st.multiselect("选择要检测的列", numeric_columns, default=numeric_columns[:3] if len(
+                numeric_columns) > 3 else numeric_columns)
+
             if st.button("检测异常值"):
                 if not selected_columns:
                     st.warning("请至少选择一列进行检测")
@@ -422,27 +425,28 @@ def data_cleaning():
                     elif detection_method == "孤立森林算法":
                         method_key = "isolation_forest"
                         # 使用改进的孤立森林算法
-                        outlier_series = detect_outliers_isolation_forest(data, selected_columns, **isolation_forest_params)
+                        outlier_series = detect_outliers_isolation_forest(data, selected_columns,
+                                                                          **isolation_forest_params)
                         for col in selected_columns:
                             anomalies[col] = data[outlier_series].index.tolist()
-                    
+
                     # 显示异常值摘要
                     summary = get_anomaly_summary(anomalies)
                     st.write("异常值检测结果:")
                     summary_df = pd.DataFrame(summary).T
                     st.dataframe(summary_df)
-                    
+
                     # 保存异常值索引到session_state
                     st.session_state['anomalies'] = anomalies
                     st.session_state['anomaly_summary'] = summary
-                    
+
                     # 显示详细异常值
                     with st.expander("查看详细异常值"):
                         for col, indices in anomalies.items():
                             if indices:
                                 st.write(f"**{col}** 列的异常值:")
                                 st.dataframe(data.loc[indices, [col]])
-            
+
             # 提供清除异常值的选项
             if 'anomalies' in st.session_state:
                 if st.button("清除检测到的异常值"):
@@ -452,7 +456,7 @@ def data_cleaning():
                     # 清除异常值信息
                     del st.session_state['anomalies']
                     del st.session_state['anomaly_summary']
-    
+
     # 数据导出标签页
     with tab4:
         st.subheader("导出清洗后的数据")
@@ -497,12 +501,12 @@ def data_analysis():
 
     # 添加标签页以组织复杂功能
     tab1, tab2 = st.tabs(["📊 智能分析解读", "📈 详细数据图表"])
-    
+
     with tab1:
         st.subheader("通俗易懂的数据分析")
         log_operation(st.session_state['username'], "INFO", "数据分析-智能解读",
-                     f"数据集维度: {data.shape}")
-        
+                      f"数据集维度: {data.shape}")
+
         # 使用增强版分析工具提供通俗易懂的分析结果
         try:
             from utils.enhanced_analysis import enhanced_data_analysis
@@ -519,15 +523,16 @@ def data_analysis():
                 - **最小值/最大值**: 数据的取值范围
                 - **25%/75%分位数**: 四分位数，帮助了解数据分布情况
                 """)
-            
+
             desc_data = utils_analysis_module().describe_data(data)
             st.dataframe(desc_data)
-            
+
             # 添加智能推荐
             numeric_columns = data.select_dtypes(include=['float64', 'int64']).columns
             if len(numeric_columns) > 0:
-                st.info(f"💡 **智能推荐**: 检测到 {len(numeric_columns)} 个数值型变量，建议重点关注均值和标准差差异较大的指标")
-    
+                st.info(
+                    f"💡 **智能推荐**: 检测到 {len(numeric_columns)} 个数值型变量，建议重点关注均值和标准差差异较大的指标")
+
     with tab2:
         st.subheader("详细相关性分析")
         numeric_columns = data.select_dtypes(include=['float64', 'int64']).columns
@@ -545,38 +550,38 @@ def data_analysis():
                 - **0.3~0.7**: 中等正相关
                 - **0~0.3**: 弱正相关
                 """)
-            
+
             corr_matrix = utils_analysis_module().calculate_correlation(data)
-            
+
             # 性能优化：对大数据集进行采样
             sample_size = min(1000, len(data)) if len(data) > 1000 else len(data)
             if len(data) > sample_size:
                 st.info(f"🚀 **性能优化**: 数据集较大，已对 {sample_size} 行数据进行采样以提升渲染性能")
-            
-            fig = px.imshow(corr_matrix, 
-                            text_auto=True, 
-                            aspect="auto", 
-                            color_continuous_scale='RdBu_r', 
-                            zmin=-1, 
+
+            fig = px.imshow(corr_matrix,
+                            text_auto=True,
+                            aspect="auto",
+                            color_continuous_scale='RdBu_r',
+                            zmin=-1,
                             zmax=1,
                             labels=dict(color="相关系数"))
-            fig.update_traces(text=corr_matrix.round(2), 
-                             texttemplate="%{text}",
-                             hovertemplate="变量1: %{x}<br>变量2: %{y}<br>相关系数: %{text}<extra></extra>")
+            fig.update_traces(text=corr_matrix.round(2),
+                              texttemplate="%{text}",
+                              hovertemplate="变量1: %{x}<br>变量2: %{y}<br>相关系数: %{text}<extra></extra>")
             fig.update_layout(
                 title="变量相关性热力图",
                 font=dict(size=12)
             )
             st.plotly_chart(fig, use_container_width=True)
-            
+
             # 添加智能推荐
             high_corr_pairs = []
             for i in range(len(corr_matrix.columns)):
-                for j in range(i+1, len(corr_matrix.columns)):
+                for j in range(i + 1, len(corr_matrix.columns)):
                     corr_value = corr_matrix.iloc[i, j]
                     if abs(corr_value) > 0.7:
                         high_corr_pairs.append((corr_matrix.columns[i], corr_matrix.columns[j], corr_value))
-            
+
             if high_corr_pairs:
                 st.info("💡 **智能推荐**: 检测到以下强相关变量对，建议深入分析其因果关系:")
                 for col1, col2, corr in high_corr_pairs[:3]:  # 只显示前3个
@@ -601,7 +606,7 @@ def data_visualization():
 
     # 添加标签页以组织复杂功能
     tab1, tab2 = st.tabs(["📊 智能可视化", "📈 详细图表"])
-    
+
     with tab1:
         # 动态参数调节面板
         has_timestamp = 'timestamp' in data.columns
@@ -623,22 +628,22 @@ def data_visualization():
         st.subheader("数据质量检查")
         missing_values = filtered_data.isnull().sum().sum()
         duplicate_rows = filtered_data.duplicated().sum()
-        
+
         col1, col2 = st.columns(2)
         with col1:
             st.metric("缺失值", missing_values)
         with col2:
             st.metric("重复行", duplicate_rows)
-        
+
         if missing_values > 0:
             st.warning(f"⚠️ 检测到 {missing_values} 个缺失值，可能影响可视化效果")
         if duplicate_rows > 0:
             st.warning(f"⚠️ 检测到 {duplicate_rows} 个重复行，建议先进行数据清洗")
-        
+
         # 智能推荐图表类型
         numeric_columns = filtered_data.select_dtypes(include=['float64', 'int64']).columns
         categorical_columns = filtered_data.select_dtypes(include=['object']).columns
-        
+
         st.subheader("智能推荐")
         if len(numeric_columns) >= 2:
             st.info("💡 检测到多个数值型变量，推荐使用散点图探索变量间关系")
@@ -700,7 +705,7 @@ def data_visualization():
         fig_small = go.Figure(fig)
         fig_small.update_layout(width=700, height=500)
         st.plotly_chart(fig_small, use_container_width=True)
-        
+
         # 提供图表解读
         st.subheader("📊 图表解读")
         if chart_type == "散点图":
@@ -721,14 +726,15 @@ def data_visualization():
                         st.write(f"  - 两者存在一定的负相关关系")
                 else:
                     st.write(f"  - 两者相关性较弱，可能没有明显的线性关系")
-                
+
                 # 提供农业相关的解读
-                if ('temperature' in x_column.lower() or '温' in x_column) and ('humidity' in y_column.lower() or '湿' in y_column):
+                if ('temperature' in x_column.lower() or '温' in x_column) and (
+                        'humidity' in y_column.lower() or '湿' in y_column):
                     if corr > 0:
                         st.write(f"  - 温度与湿度呈正相关，说明高温时湿度也相对较高")
                     elif corr < 0:
                         st.write(f"  - 温度与湿度呈负相关，说明高温时湿度相对较低，符合蒸发原理")
-        
+
         elif chart_type == "线图":
             st.write(f"• 线图展示了 **{y_column}** 随 **{x_column}** 变化的趋势")
             if 'timestamp' in x_column.lower() or '时间' in x_column:
@@ -742,10 +748,10 @@ def data_visualization():
                         st.write(f"  - {y_column} 呈现下降趋势，从 {first_val:.2f} 下降到 {last_val:.2f}")
                     else:
                         st.write(f"  - {y_column} 基本保持稳定")
-        
+
         elif chart_type == "柱状图":
             st.write(f"• 柱状图比较了不同 **{x_column}** 类别下的 **{y_column}** 值")
-            
+
         elif chart_type == "箱线图":
             st.write(f"• 箱线图展示了 **{column}** 的数据分布情况")
             q75, q25 = filtered_data[column].quantile([0.75, 0.25])
@@ -753,28 +759,29 @@ def data_visualization():
             median_val = filtered_data[column].median()
             st.write(f"  - 中位数: {median_val:.2f}")
             st.write(f"  - 四分位距(IQR): {iqr:.2f} (Q1: {q25:.2f}, Q3: {q75:.2f})")
-            
+
             # 检查异常值
-            outliers = filtered_data[(filtered_data[column] < q25 - 1.5*iqr) | (filtered_data[column] > q75 + 1.5*iqr)]
+            outliers = filtered_data[
+                (filtered_data[column] < q25 - 1.5 * iqr) | (filtered_data[column] > q75 + 1.5 * iqr)]
             if len(outliers) > 0:
                 st.warning(f"  - 检测到 {len(outliers)} 个异常值")
             else:
                 st.write(f"  - 未检测到明显异常值")
-        
+
         elif chart_type == "直方图":
             st.write(f"• 直方图展示了 **{column}** 的分布情况")
             mean_val = filtered_data[column].mean()
             std_val = filtered_data[column].std()
             median_val = filtered_data[column].median()
             mode_val = filtered_data[column].mode().iloc[0] if not filtered_data[column].mode().empty else 'N/A'
-            
+
             st.write(f"  - 平均值: {mean_val:.2f}, 中位数: {median_val:.2f}, 众数: {mode_val:.2f}")
             st.write(f"  - 标准差: {std_val:.2f}, 方差: {filtered_data[column].var():.2f}")
-            
+
             # 判断分布形状
             skewness = filtered_data[column].skew()
             kurtosis = filtered_data[column].kurtosis()
-            
+
             if skewness > 1:
                 st.write(f"  - 分布右偏（正偏）：数据集中在较低值区域，右侧有长尾")
                 st.write(f"  - 数据分布不对称，平均值大于中位数，存在较高值的异常点")
@@ -783,13 +790,13 @@ def data_visualization():
                 st.write(f"  - 数据分布不对称，平均值小于中位数，存在较低值的异常点")
             else:
                 st.write(f"  - 分布接近对称")
-            
+
             # 峰度解释
             if kurtosis > 0:
                 st.write(f"  - 峰度为{kurtosis:.2f}，分布比正态分布更尖锐，数据更集中")
             elif kurtosis < 0:
                 st.write(f"  - 峰度为{kurtosis:.2f}，分布比正态分布更平坦，数据更分散")
-            
+
             # 农业相关解读
             if 'temperature' in column.lower() or '温' in column:
                 temp_range = filtered_data[column].max() - filtered_data[column].min()
@@ -797,70 +804,71 @@ def data_visualization():
                     st.write(f"  - 温度变化范围较大({temp_range:.2f}°C)，可能存在明显日温差")
                 else:
                     st.write(f"  - 温度变化范围较小({temp_range:.2f}°C)，环境相对稳定")
-            
+
         elif chart_type == "饼图":
             st.write(f"• 饼图展示了 **{column}** 各类别的占比情况")
             value_counts = filtered_data[column].value_counts()
             total_count = len(filtered_data)
-            
+
             for idx, (cat, count) in enumerate(value_counts.items()):
                 percentage = (count / total_count) * 100
-                st.write(f"  - {cat}: {count} 个 ({percentage:.1f}%, {count/total_count:.3f})")
-            
+                st.write(f"  - {cat}: {count} 个 ({percentage:.1f}%, {count / total_count:.3f})")
+
             # 饼图多样性指数
             proportions = value_counts / total_count
             diversity_index = -(proportions * np.log(proportions)).sum()
             max_diversity = np.log(len(value_counts))
             normalized_diversity = diversity_index / max_diversity if max_diversity != 0 else 0
-            
+
             if normalized_diversity > 0.7:
                 st.write(f"  - 类别分布较为均匀，多样性高")
             elif normalized_diversity > 0.3:
                 st.write(f"  - 类别分布中等，存在一定多样性")
             else:
                 st.write(f"  - 类别分布不均匀，某一类别占主导地位")
-        
+
         elif chart_type == "热力图":
             st.write("• 热力图展示了数据相关性矩阵")
             numeric_cols = filtered_data.select_dtypes(include=['float64', 'int64']).columns
             if len(numeric_cols) >= 2:
                 corr_matrix = filtered_data[numeric_cols].corr()
-                
+
                 # 计算整体相关性特征
                 abs_corr_values = corr_matrix.abs().values
                 upper_triangle_indices = np.triu_indices_from(abs_corr_values, k=1)
                 upper_triangle_values = abs_corr_values[upper_triangle_indices]
-                
+
                 if len(upper_triangle_values) > 0:
                     avg_corr = np.mean(upper_triangle_values)
                     max_corr = np.max(upper_triangle_values)
                     min_corr = np.min(upper_triangle_values)
-                    
+
                     st.write(f"  - 平均相关系数: {avg_corr:.3f}")
                     st.write(f"  - 最强相关性: {max_corr:.3f}")
                     st.write(f"  - 最弱相关性: {min_corr:.3f}")
-                
+
                 # 显示最高相关性对
                 corr_pairs = []
                 for i in range(len(corr_matrix.columns)):
-                    for j in range(i+1, len(corr_matrix.columns)):
+                    for j in range(i + 1, len(corr_matrix.columns)):
                         corr_val = corr_matrix.iloc[i, j]
                         corr_pairs.append((corr_matrix.columns[i], corr_matrix.columns[j], corr_val, abs(corr_val)))
-                
+
                 if corr_pairs:
                     max_corr_pair = max(corr_pairs, key=lambda x: x[3])
-                    st.write(f"  - 最强相关性: {max_corr_pair[0]} 与 {max_corr_pair[1]} (相关系数: {max_corr_pair[2]:.3f})")
-                    
+                    st.write(
+                        f"  - 最强相关性: {max_corr_pair[0]} 与 {max_corr_pair[1]} (相关系数: {max_corr_pair[2]:.3f})")
+
                     # 农业相关解读
                     if ('temperature' in max_corr_pair[0].lower() or '温' in max_corr_pair[0].lower()) and \
-                       ('humidity' in max_corr_pair[1].lower() or '湿' in max_corr_pair[1].lower()) or \
-                       ('humidity' in max_corr_pair[0].lower() or '湿' in max_corr_pair[0].lower()) and \
-                       ('temperature' in max_corr_pair[1].lower() or '温' in max_corr_pair[1].lower()):
+                            ('humidity' in max_corr_pair[1].lower() or '湿' in max_corr_pair[1].lower()) or \
+                            ('humidity' in max_corr_pair[0].lower() or '湿' in max_corr_pair[0].lower()) and \
+                            ('temperature' in max_corr_pair[1].lower() or '温' in max_corr_pair[1].lower()):
                         if max_corr_pair[2] > 0:
                             st.write(f"    • 温湿度呈正相关，说明温度升高时湿度也倾向上升")
                         else:
                             st.write(f"    • 温湿度呈负相关，符合典型的蒸发型环境特征")
-    
+
     with tab2:
         # 创建下载链接
         fig_large = go.Figure(fig)
@@ -878,7 +886,7 @@ def data_visualization():
             - **图例**: 点击图例项可显示/隐藏对应数据系列
             - **导出**: 点击右上角相机图标可下载图表
             """)
-        
+
         # 添加智能推荐
         if chart_type == "散点图" and x_column and y_column:
             corr = filtered_data[[x_column, y_column]].corr().iloc[0, 1]
@@ -906,13 +914,14 @@ def advanced_analysis():
 
     # 添加标签页以组织复杂功能
     tab1, tab2 = st.tabs(["📊 智能分组分析", "📈 详细图表"])
-    
+
     with tab1:
         st.subheader("数据分组和聚合")
         group_column = st.selectbox("选择分组列", data.columns)
 
         # 修改: 过滤掉与分组列相同的列
-        available_columns = [col for col in data.select_dtypes(include=['float64', 'int64']).columns if col != group_column]
+        available_columns = [col for col in data.select_dtypes(include=['float64', 'int64']).columns if
+                             col != group_column]
         if not available_columns:
             st.error("没有可用的数值列用于聚合，请检查数据。")
             return
@@ -927,7 +936,7 @@ def advanced_analysis():
 
             # 提供通俗易懂的分析结果
             st.write("**分组聚合结果解读：**")
-            
+
             # 根据聚合函数提供不同的解释
             if agg_function == "平均值":
                 st.write(f"• 计算了每组 **{group_column}** 的 **{agg_column}** 平均值")
@@ -945,36 +954,37 @@ def advanced_analysis():
             elif agg_function == "最小值":
                 st.write(f"• 找出了每组 **{group_column}** 的 **{agg_column}** 最小值")
                 st.write(f"• 最小值可以帮助识别潜在问题或最低表现")
-            
+
             # 显示结果表格
             st.write("**详细结果：**")
             st.dataframe(grouped_data)
-            
+
             # 提供洞察和建议
             if len(grouped_data) > 1:
                 max_group = grouped_data.loc[grouped_data[agg_column].idxmax()][group_column]
                 min_group = grouped_data.loc[grouped_data[agg_column].idxmin()][group_column]
                 st.info(f"💡 **智能洞察**: {agg_column} 最高的分组是 **{max_group}**，最低的是 **{min_group}**")
-                
+
                 # 提供基于数据的建议
                 if agg_function in ["平均值", "最大值"] and ('temperature' in agg_column.lower() or '温' in agg_column):
                     if grouped_data[agg_column].max() > 30:
                         st.warning(f"⚠️ 最高平均温度达到 {grouped_data[agg_column].max():.2f}°C，可能需要加强通风降温")
                     elif grouped_data[agg_column].min() < 15:
                         st.warning(f"⚠️ 最低平均温度仅为 {grouped_data[agg_column].min():.2f}°C，可能需要加强保温措施")
-                
+
                 elif agg_function in ["平均值", "最大值"] and ('humidity' in agg_column.lower() or '湿' in agg_column):
                     if grouped_data[agg_column].max() > 70:
                         st.warning(f"⚠️ 最高平均湿度达到 {grouped_data[agg_column].max():.2f}%，可能需要加强通风除湿")
                     elif grouped_data[agg_column].min() < 40:
                         st.warning(f"⚠️ 最低平均湿度仅为 {grouped_data[agg_column].min():.2f}%，可能需要增加加湿措施")
-    
+
     with tab2:
         st.subheader("可视化图表")
         group_column_viz = st.selectbox("选择分组列 (图表)", data.columns, key="viz_group")
 
         # 修改: 过滤掉与分组列相同的列
-        available_columns_viz = [col for col in data.select_dtypes(include=['float64', 'int64']).columns if col != group_column_viz]
+        available_columns_viz = [col for col in data.select_dtypes(include=['float64', 'int64']).columns if
+                                 col != group_column_viz]
         if not available_columns_viz:
             st.error("没有可用的数值列用于聚合，请检查数据。(图表版)")
             return
@@ -983,8 +993,9 @@ def advanced_analysis():
         agg_function_viz = st.selectbox("选择聚合函数 (图表)", ["平均值", "总和", "最大值", "最小值"], key="viz_func")
 
         if st.button("生成图表"):
-            grouped_data_viz = utils_analysis_module().group_and_aggregate(data, group_column_viz, agg_column_viz, agg_function_viz)
-            
+            grouped_data_viz = utils_analysis_module().group_and_aggregate(data, group_column_viz, agg_column_viz,
+                                                                           agg_function_viz)
+
             fig = px.bar(grouped_data_viz, x=group_column_viz, y=agg_column_viz,
                          title=f"{group_column_viz} 分组的 {agg_column_viz} {agg_function_viz}")
             st.plotly_chart(fig, use_container_width=True)
@@ -1026,6 +1037,7 @@ def log_analysis():
     显示日志分析页面
     """
     show_log_analysis()
+
 
 # 函数：数据备份
 def data_backup():
@@ -1077,7 +1089,7 @@ def data_prediction():
 
     # 使用预测模块的UI组件
     data_type, model_type, prediction_days, lstm_params = prepare_prediction_ui()
-    
+
     # 模型类型映射
     model_mapping = {
         "Prophet+SARIMA(推荐)": "SARIMA",
@@ -1098,23 +1110,26 @@ def data_prediction():
         if 'data' in st.session_state:
             # 从session_state获取清洗后的数据
             cleaned_data = st.session_state['data'].copy()
-            
+
             # 根据选择的数据类型提取相应列的数据
             if data_type == "空气温度":
                 if 'temperature' in cleaned_data.columns:
-                    data = [(row['timestamp'], row['temperature']) for _, row in cleaned_data.iterrows() if 'temperature' in row and not pd.isna(row['temperature'])]
+                    data = [(row['timestamp'], row['temperature']) for _, row in cleaned_data.iterrows() if
+                            'temperature' in row and not pd.isna(row['temperature'])]
                 else:
                     st.error("清洗后的数据中未找到温度列")
                     return
             elif data_type == "空气湿度":
                 if 'humidity' in cleaned_data.columns:
-                    data = [(row['timestamp'], row['humidity']) for _, row in cleaned_data.iterrows() if 'humidity' in row and not pd.isna(row['humidity'])]
+                    data = [(row['timestamp'], row['humidity']) for _, row in cleaned_data.iterrows() if
+                            'humidity' in row and not pd.isna(row['humidity'])]
                 else:
                     st.error("清洗后的数据中未找到湿度列")
                     return
             elif data_type == "土壤湿度":
                 if 'soil_moisture' in cleaned_data.columns:
-                    data = [(row['timestamp'], row['soil_moisture']) for _, row in cleaned_data.iterrows() if 'soil_moisture' in row and not pd.isna(row['soil_moisture'])]
+                    data = [(row['timestamp'], row['soil_moisture']) for _, row in cleaned_data.iterrows() if
+                            'soil_moisture' in row and not pd.isna(row['soil_moisture'])]
                 else:
                     st.error("清洗后的数据中未找到土壤湿度列")
                     return
@@ -1149,16 +1164,16 @@ def ai_insights_analysis():
 
     st.title("🤖 AI洞察分析")
     st.caption("利用AI大模型对数据分析和预测结果进行智能解读和建议")
-    
+
     # 初始化AI分析器
     if 'ai_analyzer' not in st.session_state:
         st.session_state.ai_analyzer = AIInsightsAnalyzer("qwen3:4b")
-    
+
     analyzer = st.session_state.ai_analyzer
-    
+
     # 检查模型可用性
     is_available, available_models = analyzer.chat.check_model_available()
-    
+
     if not is_available:
         st.warning(f"⚠️ AI模型 {analyzer.model_name} 未安装或不可用")
         col1, col2 = st.columns([3, 1])
@@ -1169,37 +1184,34 @@ def ai_insights_analysis():
                 analyzer.chat.model_name = model_input
                 analyzer.model_name = model_input
                 st.rerun()
-        
+
         if st.button("📥 拉取AI模型", type="primary"):
             success = analyzer.chat.pull_model_if_needed()
             if success:
                 st.rerun()
     else:
         st.success(f"✅ AI模型 {analyzer.model_name} 可用")
-        
+
         # 选择分析类型
         analysis_type = st.radio(
             "选择分析类型:",
             ["数据洞察分析"]
         )
-        
+
         if analysis_type == "数据洞察分析":
             st.markdown("### 数据洞察分析")
-            
+
             if 'data' not in st.session_state:
                 st.warning("请先在数据概览页面上传数据")
                 return
-            
+
             data = st.session_state['data']
-            data_description = st.text_area("数据背景描述（可选）", placeholder="请输入关于数据来源、用途或其他相关信息的描述...", height=100)
-            
+            data_description = st.text_area("数据背景描述（可选）",
+                                            placeholder="请输入关于数据来源、用途或其他相关信息的描述...", height=100)
+
             if st.button("执行AI数据洞察分析", type="primary"):
                 with st.spinner("AI正在分析数据并生成洞察..."):
                     ai_insights, data_summary = analyzer.integrate_analysis_with_ai(data, data_description)
-
-# 函数：机器学习
-
-
 
 
 # 函数：主函数
@@ -1209,7 +1221,7 @@ def main():
     """
     # 初始化应用，预加载关键模块
     initialize_app()
-    
+
     # 新增：自动登录逻辑
     if 'jwt_token' in st.query_params:
         try:
@@ -1272,12 +1284,12 @@ def main():
                     <p style="margin: 0; font-size: 0.9em;">角色: {'管理员' if st.session_state['role'] == 'admin' else '普通用户'}</p>
                 </div>
                 """, unsafe_allow_html=True)
-                
+
                 # 添加退出登录按钮到侧边栏用户信息处
                 if st.button("🚪 退出登录"):
                     st.session_state['logout_clicked'] = True
                     st.rerun()
-                
+
                 # 为管理员添加模块配置管理快捷链接
                 if st.session_state.get('role') == 'admin':
                     if st.button("🔧 模块配置管理"):
@@ -1311,22 +1323,22 @@ def main():
 
             # 使用模块管理系统获取启用的模块
             enabled_modules = get_enabled_modules_for_sidebar(st.session_state.get('role') == 'admin')
-            
+
             # 添加综合监控仪表板选项
             integrated_dashboard_option = ("综合监控仪表板", "activity")
             # 将综合监控仪表板插入到实时数据预览和数据概览之间
             insert_index = next((i for i, module in enumerate(enabled_modules) if module[0] == "数据概览"), 1)
             enabled_modules.insert(insert_index, integrated_dashboard_option)
-            
+
             # 添加AI洞察分析选项
             ai_insights_option = ("AI洞察分析", "brain")
             # 将AI洞察分析插入到数据分析和可视化之间
             analysis_insert_index = next((i for i, module in enumerate(enabled_modules) if module[0] == "数据分析"), 3)
             enabled_modules.insert(analysis_insert_index + 1, ai_insights_option)
-            
+
             menu_options = [module[0] for module in enabled_modules]
             menu_icons = [module[1] for module in enabled_modules]
-            
+
             # 确保当前选中的页面在菜单选项中
             if selected not in menu_options:
                 selected = menu_options[0] if menu_options else "数据概览"
@@ -1364,7 +1376,8 @@ def main():
             "自动化决策": lambda: show_decision_engine(session, st.session_state['username']),
             "调试信息": lambda: show_debug_info(st.session_state['username']),  # 添加调试信息路由
             "使用说明": show_instructions,
-            "模块配置管理": lambda: show_module_config_ui(st.session_state['username'], st.session_state.get('role') == 'admin')
+            "模块配置管理": lambda: show_module_config_ui(st.session_state['username'],
+                                                          st.session_state.get('role') == 'admin')
         }
 
         # 执行路由跳转

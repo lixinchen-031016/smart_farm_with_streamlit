@@ -51,7 +51,7 @@ def backup_data(session, start_time, end_time):
     zip_buffer.seek(0)
 
     # 记录操作日志
-    log_operation(st.session_state['username'], "INFO","数据备份", f"时间范围: {start_time} - {end_time}")
+    log_operation(st.session_state['username'], "INFO", "数据备份", f"时间范围: {start_time} - {end_time}")
 
     return zip_buffer.getvalue()
 
@@ -61,7 +61,7 @@ def backup_ui(session, start_time, end_time, username):
     处理数据备份的用户界面逻辑
     """
     zip_buffer = backup_data(session, start_time, end_time)
-    
+
     # 提供下载链接
     st.download_button(
         label="下载备份文件",
@@ -102,9 +102,9 @@ def restore_data(uploaded_file, key):
                     connection.execute(sqlalchemy.text(statement))
 
         # 记录操作日志
-        log_operation(st.session_state['username'], "INFO","数据恢复", f"文件名: {uploaded_file.name}")
+        log_operation(st.session_state['username'], "INFO", "数据恢复", f"文件名: {uploaded_file.name}")
 
         return True
     except Exception as e:
-        log_operation(st.session_state['username'], "ERROR","数据恢复失败", f"错误信息: {str(e)}")
+        log_operation(st.session_state['username'], "ERROR", "数据恢复失败", f"错误信息: {str(e)}")
         raise e

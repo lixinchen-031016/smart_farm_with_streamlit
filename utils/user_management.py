@@ -27,14 +27,14 @@ def user_management(session, username, role):
             st.error(msg)
             log_operation(username, "ERROR", "添加用户", f"密码复杂度不足: {msg}")
             return
-            
+
         existing_user = session.query(User).filter_by(username=new_username).first()
         if existing_user:
             st.error("用户名已存在")
         else:
             hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
             new_user = User(username=new_username, password=hashed_password.decode('utf-8'),
-                           last_login_time=datetime.now(), role=new_role)
+                            last_login_time=datetime.now(), role=new_role)
             session.add(new_user)
             session.commit()
             log_operation(username, 'INFO', "添加用户", f"添加用户 {new_username}")
@@ -43,7 +43,7 @@ def user_management(session, username, role):
     # 管理员申请审批
     st.header("管理员申请审批")
     pending_admins = session.query(User).filter_by(admin_request=True).all()
-    
+
     if pending_admins:
         st.subheader("待审批的管理员申请")
         for user in pending_admins:
@@ -51,7 +51,8 @@ def user_management(session, username, role):
             with col1:
                 st.write(f"用户名: {user.username}")
             with col2:
-                st.write(f"申请时间: {user.admin_request_time.strftime('%Y-%m-%d %H:%M:%S') if user.admin_request_time else 'N/A'}")
+                st.write(
+                    f"申请时间: {user.admin_request_time.strftime('%Y-%m-%d %H:%M:%S') if user.admin_request_time else 'N/A'}")
             with col3:
                 if st.button("批准", key=f"approve_{user.id}"):
                     user.role = 'admin'
@@ -87,7 +88,7 @@ def user_management(session, username, role):
         if user:
             new_username = st.text_input("新用户名", value=user.username, key="edit_username")
             new_role = st.selectbox("角色", ["user", "admin"], index=["user", "admin"].index(user.role),
-                                   key="edit_role_selectbox")
+                                    key="edit_role_selectbox")
             if st.button("保存更改"):
                 user.username = new_username
                 user.role = new_role
@@ -119,9 +120,9 @@ def user_management(session, username, role):
             st.error(msg)
             log_operation(username, "ERROR", "修改密码", f"密码复杂度不足: {msg}")
             return
-            
+
         log_operation(username, "WARNING", "用户管理-修改密码",
-                     f"修改用户ID: {password_user_id} 的密码")
+                      f"修改用户ID: {password_user_id} 的密码")
         user = session.query(User).filter_by(id=password_user_id).first()
         if user:
             if new_password != confirm_password:
@@ -131,7 +132,7 @@ def user_management(session, username, role):
                 user.password = hashed_password.decode('utf-8')
                 session.commit()
                 log_operation(username, 'WARING', "修改用户密码",
-                             f"修改用户 {user.username} 的密码")
+                              f"修改用户 {user.username} 的密码")
                 st.success("密码修改成功")
         else:
             st.error("用户不存在")

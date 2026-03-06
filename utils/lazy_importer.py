@@ -13,12 +13,12 @@ class LazyImporter:
     用于延迟导入模块，直到实际需要使用时才导入
     支持预加载和优先级加载功能
     """
-    
+
     def __init__(self):
         self._modules = {}
         self._functions = {}
         self._preloaded_modules = set()
-    
+
     def lazy_import(self, module_name: str, function_name: Optional[str] = None) -> Callable:
         """
         创建延迟导入函数
@@ -31,12 +31,12 @@ class LazyImporter:
             延迟导入的函数
         """
         key = f"{module_name}.{function_name}" if function_name else module_name
-        
+
         if key not in self._functions:
             self._functions[key] = self._create_lazy_function(module_name, function_name)
-        
+
         return self._functions[key]
-    
+
     def _create_lazy_function(self, module_name: str, function_name: Optional[str] = None) -> Callable:
         """
         创建延迟函数
@@ -48,13 +48,14 @@ class LazyImporter:
         Returns:
             延迟函数
         """
+
         def wrapper(*args, **kwargs):
             # 检查模块是否已经导入
             if module_name not in self._modules:
                 self._modules[module_name] = importlib.import_module(module_name)
-            
+
             module = self._modules[module_name]
-            
+
             # 如果指定了函数名，则调用该函数
             if function_name:
                 func = getattr(module, function_name)
@@ -62,13 +63,13 @@ class LazyImporter:
             else:
                 # 否则返回整个模块
                 return module
-        
+
         # 设置函数名称以便调试
         wrapper.__name__ = function_name or module_name
         wrapper.__qualname__ = f"LazyImporter.{wrapper.__name__}"
-        
+
         return wrapper
-    
+
     def preload_modules(self, module_names: List[str]):
         """
         预加载指定的模块列表
@@ -84,7 +85,7 @@ class LazyImporter:
                 except ImportError:
                     # 如果导入失败，记录但不中断程序
                     print(f"Warning: Failed to preload module {module_name}")
-    
+
     def is_module_loaded(self, module_name: str) -> bool:
         """
         检查模块是否已加载

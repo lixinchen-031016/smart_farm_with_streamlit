@@ -16,22 +16,24 @@ INDEXES = [
     Index('idx_light_intensity_timestamp', LightIntensity.timestamp)
 ]
 
+
 def create_indexes():
     """创建必要的索引"""
     from sqlalchemy import inspect
     inspector = inspect(engine)
-    
+
     for idx in INDEXES:
         # 检查索引是否已存在
         existing_indexes = inspector.get_indexes(idx.table.name)
         index_exists = any(existing_idx['name'] == idx.name for existing_idx in existing_indexes)
-        
+
         if not index_exists:
             try:
                 idx.create(bind=engine)
             except Exception as e:
                 print(f"创建索引 {idx.name} 失败: {str(e)}")
                 log_operation("system", "ERROR", "索引创建", f"创建索引 {idx.name} 失败: {str(e)}")
+
 
 def fetch_data_in_bulk(session, start_time=None, end_time=None):
     """
@@ -49,13 +51,13 @@ def fetch_data_in_bulk(session, start_time=None, end_time=None):
         SoilMoisture.value.label('soil_moisture'),
         SoilNutrient.value.label('soil_nutrient'),
         LightIntensity.value.label('light_intensity')
-    ).select_from(AirTemperatureHumidity).\
-    outerjoin(SoilMoisture, 
-              AirTemperatureHumidity.timestamp == SoilMoisture.timestamp).\
-    outerjoin(SoilNutrient, 
-              AirTemperatureHumidity.timestamp == SoilNutrient.timestamp).\
-    outerjoin(LightIntensity, 
-              AirTemperatureHumidity.timestamp == LightIntensity.timestamp)
+    ).select_from(AirTemperatureHumidity). \
+        outerjoin(SoilMoisture,
+                  AirTemperatureHumidity.timestamp == SoilMoisture.timestamp). \
+        outerjoin(SoilNutrient,
+                  AirTemperatureHumidity.timestamp == SoilNutrient.timestamp). \
+        outerjoin(LightIntensity,
+                  AirTemperatureHumidity.timestamp == LightIntensity.timestamp)
 
     if start_time and end_time:
         query = query.filter(
@@ -64,7 +66,7 @@ def fetch_data_in_bulk(session, start_time=None, end_time=None):
 
     # 使用yield_per批量获取数据，减少内存使用
     data = query.yield_per(1000).order_by(AirTemperatureHumidity.timestamp).all()
-    
+
     df = pd.DataFrame(data, columns=[
         'timestamp',
         'temperature',
@@ -75,6 +77,7 @@ def fetch_data_in_bulk(session, start_time=None, end_time=None):
     ])
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     return df
+
 
 # 在模块导入时创建索引
 create_indexes()

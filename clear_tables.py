@@ -7,7 +7,7 @@ from models import AirTemperatureHumidity, SoilMoisture, SoilNutrient, LightInte
 from utils.logger import log_operation
 
 # 替换为你的数据库连接字符串
-DATABASE_URI =  os.getenv('DATABASE_URL')
+DATABASE_URI = os.getenv('DATABASE_URL')
 
 engine = create_engine(DATABASE_URI)
 Session = sessionmaker(bind=engine)
@@ -19,7 +19,7 @@ try:
     session.query(SoilMoisture).delete()
     session.query(SoilNutrient).delete()
     session.query(LightIntensity).delete()
-    
+
     # 提交事务
     session.commit()
     log_operation("system", "INFO", "数据清理", "成功清空非用户和日志表的数据")

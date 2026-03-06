@@ -7,24 +7,24 @@ metadata:
     app: smart-farm-web   # 标签，用于标识应用
 spec:
   replicas: 1        # 副本数量为1
-  selector:          # 选择器，用于选择要管理的Pod
+  selector: # 选择器，用于选择要管理的Pod
     matchLabels:
       app: smart-farm-web   # 匹配具有此标签的Pod
-  template:          # Pod模板定义
+  template: # Pod模板定义
     metadata:
       labels:
         app: smart-farm-web   # Pod标签
     spec:
-      containers:    # 容器定义
-      - name: smart-farm-web    # 容器名称
-        image: smart-farm:latest  # 使用的镜像
-        ports:
-        - containerPort: 8502     # 容器暴露的端口
-        env:                    # 环境变量设置
-        - name: DATABASE_URL      # 数据库连接URL
-          value: mysql+pymysql://root:0000@smart-farm-db:3306/intelligent_farm
-        - name: SECRET_KEY        # 应用密钥
-          value: "031016"
+      containers: # 容器定义
+        - name: smart-farm-web    # 容器名称
+          image: smart-farm:latest  # 使用的镜像
+          ports:
+            - containerPort: 8502     # 容器暴露的端口
+          env: # 环境变量设置
+            - name: DATABASE_URL      # 数据库连接URL
+              value: mysql+pymysql://root:0000@smart-farm-db:3306/intelligent_farm
+            - name: SECRET_KEY        # 应用密钥
+              value: "031016"
 ---
 # 定义Web应用的服务(Service)
 apiVersion: v1       # 使用的Kubernetes API版本
@@ -49,37 +49,37 @@ metadata:
     app: smart-farm-db        # 标签
 spec:
   replicas: 1                 # 副本数量
-  selector:                   # 选择器
+  selector: # 选择器
     matchLabels:
       app: smart-farm-db
-  template:                   # Pod模板
+  template: # Pod模板
     metadata:
       labels:
         app: smart-farm-db
     spec:
       containers:
-      - name: smart-farm-db         # 容器名称
-        image: mysql:8.0            # MySQL 8.0镜像
-        ports:
-        - containerPort: 3306       # MySQL默认端口
-        env:                        # 环境变量
-        - name: MYSQL_ROOT_PASSWORD # MySQL root用户密码
-          value: "0000"
-        - name: MYSQL_DATABASE      # 默认创建的数据库名
-          value: "intelligent_farm"
-        volumeMounts:               # 挂载卷
-        - name: mysql-data          # 数据卷挂载点
-          mountPath: /var/lib/mysql
-        - name: mysql-initdb        # 初始化脚本卷挂载点
-          mountPath: /docker-entrypoint-initdb.d
-          readOnly: true            # 只读模式
-      volumes:                    # 卷定义
-      - name: mysql-data          # 数据卷
-        persistentVolumeClaim:
-          claimName: mysql-pvc    # 使用的PersistentVolumeClaim
-      - name: mysql-initdb        # 初始化脚本卷
-        configMap:
-          name: mysql-initdb-config  # 使用的ConfigMap
+        - name: smart-farm-db         # 容器名称
+          image: mysql:8.0            # MySQL 8.0镜像
+          ports:
+            - containerPort: 3306       # MySQL默认端口
+          env: # 环境变量
+            - name: MYSQL_ROOT_PASSWORD # MySQL root用户密码
+              value: "0000"
+            - name: MYSQL_DATABASE      # 默认创建的数据库名
+              value: "intelligent_farm"
+          volumeMounts: # 挂载卷
+            - name: mysql-data          # 数据卷挂载点
+              mountPath: /var/lib/mysql
+            - name: mysql-initdb        # 初始化脚本卷挂载点
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true            # 只读模式
+      volumes: # 卷定义
+        - name: mysql-data          # 数据卷
+          persistentVolumeClaim:
+            claimName: mysql-pvc    # 使用的PersistentVolumeClaim
+        - name: mysql-initdb        # 初始化脚本卷
+          configMap:
+            name: mysql-initdb-config  # 使用的ConfigMap
 ---
 # 定义数据库服务
 apiVersion: v1

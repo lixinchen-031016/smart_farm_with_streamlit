@@ -22,6 +22,7 @@ from utils.logger import log_operation  # 添加: 引入日志记录函数
 # 添加登录尝试记录字典
 login_attempts = {}
 
+
 # 添加检查登录尝试的函数
 def check_login_attempts(username, max_attempts=10, lockout_time=30):
     """
@@ -32,23 +33,24 @@ def check_login_attempts(username, max_attempts=10, lockout_time=30):
     :return: (是否允许登录, 剩余锁定时间)
     """
     current_time = datetime.now()
-    
+
     if username not in login_attempts:
         login_attempts[username] = {'attempts': 0, 'last_attempt': current_time}
         return True, 0
-    
+
     user_attempts = login_attempts[username]
-    
+
     # 如果已经超过了锁定时间，重置尝试次数
     if (current_time - user_attempts['last_attempt']).seconds > lockout_time:
         user_attempts['attempts'] = 0
-    
+
     # 如果尝试次数已达到上限，返回剩余锁定时间
     if user_attempts['attempts'] >= max_attempts:
         remaining_lockout = lockout_time - (current_time - user_attempts['last_attempt']).seconds
         return False, max(0, remaining_lockout)
-    
+
     return True, 0
+
 
 # 添加记录登录失败的函数
 def record_failed_login(username):
@@ -63,6 +65,7 @@ def record_failed_login(username):
         login_attempts[username]['attempts'] += 1
         login_attempts[username]['last_attempt'] = current_time
 
+
 # 添加重置登录尝试记录的函数
 def reset_login_attempts(username):
     """
@@ -72,6 +75,7 @@ def reset_login_attempts(username):
     if username in login_attempts:
         del login_attempts[username]
 
+
 def evaluate_password_strength(password):
     """
     评估密码强度并返回详细信息
@@ -80,10 +84,10 @@ def evaluate_password_strength(password):
     """
     if not password:
         return "low", 0, []
-    
+
     score = 0
     feedback = []
-    
+
     # 长度检查
     if len(password) >= 12:
         score += 25
@@ -93,15 +97,15 @@ def evaluate_password_strength(password):
         feedback.append("⚠️ 密码长度一般 (8-11位)")
     else:
         feedback.append("❌ 密码长度不足 (<8位)")
-    
+
     # 字符类型检查
     has_lower = bool(re.search(r'[a-z]', password))
     has_upper = bool(re.search(r'[A-Z]', password))
     has_digit = bool(re.search(r'[0-9]', password))
     has_special = bool(re.search(r'[!@#$%^&*(),.?":{}|<>\[\]\\/_+=~-]', password))
-    
+
     char_types = sum([has_lower, has_upper, has_digit, has_special])
-    
+
     if char_types >= 3:
         score += 30
         feedback.append("✅ 包含多种字符类型")
@@ -110,7 +114,7 @@ def evaluate_password_strength(password):
         feedback.append("⚠️ 字符类型较少")
     else:
         feedback.append("❌ 字符类型单一")
-    
+
     # 复杂性加分
     if has_lower and has_upper:
         score += 15
@@ -118,20 +122,20 @@ def evaluate_password_strength(password):
         score += 10
     if has_special:
         score += 20
-    
+
     # 常见模式扣分
     if re.search(r'(.)\1{2,}', password):  # 连续重复字符
         score -= 10
         feedback.append("❌ 存在连续重复字符")
-    
+
     if re.search(r'(012|123|234|345|456|567|678|789|890)', password):  # 连续数字
         score -= 10
         feedback.append("❌ 存在连续数字序列")
-    
+
     if re.search(r'(abc|bcd|cde|def|efg|fgh|ghi|hij|ijk)', password.lower()):  # 连续字母
         score -= 10
         feedback.append("❌ 存在连续字母序列")
-    
+
     # 确定强度等级
     if score >= 70:
         strength = "high"
@@ -139,7 +143,7 @@ def evaluate_password_strength(password):
         strength = "medium"
     else:
         strength = "low"
-    
+
     return strength, max(0, min(100, score)), feedback
 
 
@@ -164,6 +168,7 @@ def check_password_complexity(password):
         return False, "密码必须包含至少一个特殊字符（如!@#$%^&*等）"
     return True, ""
 
+
 # 添加生成验证码的函数
 def generate_captcha():
     """
@@ -171,12 +176,12 @@ def generate_captcha():
     """
     # 生成随机验证码
     captcha_text = ''.join(random.choices(string.digits, k=4))
-    
+
     # 创建更大尺寸的图片以提高清晰度
     width, height = 200, 80
     image = Image.new('RGB', (width, height), color=(255, 255, 255))
     draw = ImageDraw.Draw(image)
-    
+
     # 使用更大更清晰的字体
     try:
         # 尝试使用系统字体
@@ -184,7 +189,7 @@ def generate_captcha():
     except:
         # 如果没有系统字体，使用默认字体但增大尺寸
         font = ImageFont.load_default()
-    
+
     # 绘制文字，增大字体和调整位置
     for i, char in enumerate(captcha_text):
         # 随机颜色
@@ -193,27 +198,29 @@ def generate_captcha():
         x = 25 + i * 45 + random.randint(-5, 5)
         y = random.randint(10, 20)
         draw.text((x, y), char, fill=color, font=font)
-    
+
     # 增加干扰线数量，提高安全性
     for _ in range(random.randint(8, 12)):
         x1, y1 = random.randint(0, width), random.randint(0, height)
         x2, y2 = random.randint(0, width), random.randint(0, height)
-        draw.line([(x1, y1), (x2, y2)], fill=(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)), width=1)
-    
+        draw.line([(x1, y1), (x2, y2)], fill=(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)),
+                  width=1)
+
     # 增加干扰点数量，提高安全性
     for _ in range(random.randint(80, 120)):
         x, y = random.randint(0, width), random.randint(0, height)
         draw.point((x, y), fill=(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
-    
+
     # 添加轻微模糊效果
     image = image.filter(ImageFilter.GaussianBlur(radius=random.uniform(0.2, 0.8)))
-    
+
     # 将图片转换为base64编码
     buffer = BytesIO()
     image.save(buffer, format='PNG')
     img_str = base64.b64encode(buffer.getvalue()).decode()
-    
+
     return captcha_text, img_str
+
 
 def login(session, st):
     # 统一登录和注册页面的样式设计
@@ -348,7 +355,7 @@ def login(session, st):
     """, unsafe_allow_html=True)
 
     with st.container():
-        col1, col2, col3 = st.columns([1,3,1])
+        col1, col2, col3 = st.columns([1, 3, 1])
         with col2:
             st.markdown("""
             <h2 class="auth-header">
@@ -356,25 +363,27 @@ def login(session, st):
             </h2>
             <h3 class="auth-header">用户登录</h3>
             """, unsafe_allow_html=True)
-            
+
             # 登录表单
             username = st.text_input("👤 用户名", key="login_username")
             password = st.text_input("🔒 密码", type="password", key="login_password")
-            
+
             # 添加验证码功能
             if 'login_captcha' not in st.session_state or 'login_captcha_image' not in st.session_state:
                 captcha_text, captcha_image = generate_captcha()
                 st.session_state['login_captcha'] = captcha_text
                 st.session_state['login_captcha_image'] = captcha_image
-            
+
             # 显示验证码
             st.markdown('<p class="captcha-header">🔐 安全验证</p>', unsafe_allow_html=True)
             st.markdown('<div class="captcha-content">', unsafe_allow_html=True)
-            
+
             # 创建两列布局，将验证码图片和刷新按钮放在同一行
             col_captcha_img, col_refresh_btn = st.columns([4, 1])
             with col_captcha_img:
-                st.markdown(f'<img class="captcha-image" src="data:image/png;base64,{st.session_state["login_captcha_image"]}" width="200" height="80">', unsafe_allow_html=True)
+                st.markdown(
+                    f'<img class="captcha-image" src="data:image/png;base64,{st.session_state["login_captcha_image"]}" width="200" height="80">',
+                    unsafe_allow_html=True)
             with col_refresh_btn:
                 # 刷新验证码按钮
                 if st.button("↻", key="refresh_login_captcha", help="点击刷新验证码", type="secondary"):
@@ -382,23 +391,24 @@ def login(session, st):
                     st.session_state['login_captcha'] = captcha_text
                     st.session_state['login_captcha_image'] = captcha_image
                     st.rerun()
-            
+
             st.markdown('</div>', unsafe_allow_html=True)
             captcha_input = st.text_input("🔢 请输入验证码", key="login_captcha_input", max_chars=4)
             st.markdown('</div>', unsafe_allow_html=True)
-            
+
             if st.button("🚪 登录", type="primary"):
                 # 检查登录尝试次数
                 can_login, remaining_time = check_login_attempts(username)
                 if not can_login:
                     st.error(f"登录尝试次数过多，请 {remaining_time} 秒后再试")
-                    log_operation(username, "ERROR", "登录失败", f"因多次尝试失败被锁定，剩余锁定时间: {remaining_time}秒")
+                    log_operation(username, "ERROR", "登录失败",
+                                  f"因多次尝试失败被锁定，剩余锁定时间: {remaining_time}秒")
                     # 刷新验证码
                     captcha_text, captcha_image = generate_captcha()
                     st.session_state['login_captcha'] = captcha_text
                     st.session_state['login_captcha_image'] = captcha_image
                     return
-                
+
                 # 验证验证码
                 if captcha_input != st.session_state['login_captcha']:
                     st.error("验证码错误")
@@ -418,7 +428,7 @@ def login(session, st):
                         }
                         token = jwt.encode(payload, os.getenv("SECRET_KEY"), algorithm="HS256")
                         st.query_params.jwt_token = token  # 新API设置参数
-                        
+
                         st.session_state['logged_in'] = True
                         st.session_state['username'] = username
                         st.session_state['role'] = user.role
@@ -444,16 +454,16 @@ def login(session, st):
                         st.session_state['login_captcha_image'] = captcha_image
 
             st.markdown("</div>", unsafe_allow_html=True)
-            
+
             # 底部注册引导
             st.markdown("""
             <div class="form-divider">
                 <span>还没有账号？</span>
             </div>
             """, unsafe_allow_html=True)
-            
+
             # 修改为Streamlit原生按钮实现跳转
-            col_center1, col_center2, col_center3 = st.columns([1,2,1])
+            col_center1, col_center2, col_center3 = st.columns([1, 2, 1])
             with col_center2:
                 if st.button("立即注册", key="go_to_register", help="点击前往注册页面", use_container_width=True):
                     # 刷新验证码
@@ -463,6 +473,7 @@ def login(session, st):
                         del st.session_state['login_captcha_image']
                     st.query_params.page = "register"
                     st.rerun()
+
 
 def register(session, st):
     # 统一注册页面样式设计（与登录页面保持一致）
@@ -647,7 +658,7 @@ def register(session, st):
     """, unsafe_allow_html=True)
 
     with st.container():
-        col1, col2, col3 = st.columns([1,3,1])
+        col1, col2, col3 = st.columns([1, 3, 1])
         with col2:
             st.markdown("""
             <h2 class="auth-header">
@@ -655,19 +666,19 @@ def register(session, st):
             </h2>
             <h3 class="auth-header">新用户注册</h3>
             """, unsafe_allow_html=True)
-            
+
             # 注册表单
             username = st.text_input("👤 用户名", key="register_username")
             password = st.text_input("🔒 密码", type="password", key="register_password")
-            
+
             # 实时显示密码强度
             if password:
                 strength, score, feedback = evaluate_password_strength(password)
-                
+
                 # 显示强度指示条
                 strength_labels = {"low": "弱", "medium": "中等", "high": "强"}
                 strength_colors = {"low": "red", "medium": "yellow", "high": "green"}
-                
+
                 st.markdown(f'''
                 <div class="password-strength-container">
                     <div class="strength-label strength-{strength}-text">密码强度: {strength_labels[strength]} ({score}/100)</div>
@@ -679,26 +690,28 @@ def register(session, st):
                     </div>
                 </div>
                 ''', unsafe_allow_html=True)
-            
+
             confirm_password = st.text_input("🔁 确认密码", type="password", key="confirm_password")
-            
+
             # 添加身份选择
             user_type = st.radio("身份类型", ["👨🌾 普通用户", "👨💼 管理员"], horizontal=True)
-            
+
             # 添加验证码功能
             if 'register_captcha' not in st.session_state or 'register_captcha_image' not in st.session_state:
                 captcha_text, captcha_image = generate_captcha()
                 st.session_state['register_captcha'] = captcha_text
                 st.session_state['register_captcha_image'] = captcha_image
-            
+
             # 显示验证码
             st.markdown('<p class="captcha-header">🔐 安全验证</p>', unsafe_allow_html=True)
             st.markdown('<div class="captcha-content">', unsafe_allow_html=True)
-            
+
             # 创建两列布局，将验证码图片和刷新按钮放在同一行
             col_captcha_img, col_refresh_btn = st.columns([4, 1])
             with col_captcha_img:
-                st.markdown(f'<img class="captcha-image" src="data:image/png;base64,{st.session_state["register_captcha_image"]}" width="200" height="80">', unsafe_allow_html=True)
+                st.markdown(
+                    f'<img class="captcha-image" src="data:image/png;base64,{st.session_state["register_captcha_image"]}" width="200" height="80">',
+                    unsafe_allow_html=True)
             with col_refresh_btn:
                 # 刷新验证码按钮
                 if st.button("↻", key="refresh_register_captcha", help="点击刷新验证码", type="secondary"):
@@ -706,11 +719,11 @@ def register(session, st):
                     st.session_state['register_captcha'] = captcha_text
                     st.session_state['register_captcha_image'] = captcha_image
                     st.rerun()
-            
+
             st.markdown('</div>', unsafe_allow_html=True)
             captcha_input = st.text_input("🔢 请输入验证码", key="register_captcha_input", max_chars=4)
             st.markdown('</div>', unsafe_allow_html=True)
-            
+
             if st.button("📝 立即注册", type="primary"):
                 # 验证验证码
                 if captcha_input != st.session_state['register_captcha']:
@@ -729,7 +742,7 @@ def register(session, st):
                         st.error(msg)
                         log_operation(username, "ERROR", "用户注册", f"密码复杂度不足: {msg}")
                         return
-                    
+
                     existing_user = session.query(User).filter_by(username=username).first()
                     if existing_user:
                         st.error("用户名已存在")
@@ -738,12 +751,12 @@ def register(session, st):
                         # 根据用户选择设置角色
                         # 修改逻辑：如果用户选择管理员，则标记为待审批状态
                         if user_type == "👨💼 管理员":
-                            new_user = User(username=username, 
-                                          password=hashed_password.decode('utf-8'),
-                                          last_login_time=datetime.now(), 
-                                          role='user',  # 默认为普通用户
-                                          admin_request=True,  # 标记为管理员申请
-                                          admin_request_time=datetime.now())
+                            new_user = User(username=username,
+                                            password=hashed_password.decode('utf-8'),
+                                            last_login_time=datetime.now(),
+                                            role='user',  # 默认为普通用户
+                                            admin_request=True,  # 标记为管理员申请
+                                            admin_request_time=datetime.now())
                             session.add(new_user)
                             session.commit()
                             log_operation(username, "INFO", "用户注册", f"用户 {username} 申请注册为管理员，等待审批")
@@ -754,10 +767,10 @@ def register(session, st):
                                 del st.session_state['register_captcha_image']
                             st.success("注册申请已提交，请等待管理员审批。审批通过前将以普通用户身份登录。")
                         else:
-                            new_user = User(username=username, 
-                                          password=hashed_password.decode('utf-8'),
-                                          last_login_time=datetime.now(), 
-                                          role='user')
+                            new_user = User(username=username,
+                                            password=hashed_password.decode('utf-8'),
+                                            last_login_time=datetime.now(),
+                                            role='user')
                             session.add(new_user)
                             session.commit()
                             log_operation(username, "INFO", "用户注册", f"用户 {username} 注册成功，角色: user")
@@ -771,16 +784,16 @@ def register(session, st):
                         st.rerun()  # 新增: 注册成功后强制跳转回登录页
 
             st.markdown("</div>", unsafe_allow_html=True)
-            
+
             # 底部登录引导
             st.markdown("""
             <div class="form-divider">
                 <span>已有账号？</span>
             </div>
             """, unsafe_allow_html=True)
-            
+
             # 修改为Streamlit原生按钮实现跳转
-            col_center1, col_center2, col_center3 = st.columns([1,2,1])
+            col_center1, col_center2, col_center3 = st.columns([1, 2, 1])
             with col_center2:
                 if st.button("立即登录", key="go_to_login", help="点击前往登录页面", use_container_width=True):
                     # 刷新验证码

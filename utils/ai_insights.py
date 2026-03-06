@@ -14,7 +14,7 @@ class AIInsightsAnalyzer:
         """
         self.chat = OllamaChat(model_name)
         self.model_name = model_name
-        
+
     def analyze_data_insights_stream(self, data, data_description=None, on_chunk_callback=None):
         """
         分析数据洞察并使用AI进行智能解读（流式输出）
@@ -23,7 +23,7 @@ class AIInsightsAnalyzer:
             # 获取基本统计信息
             desc_stats = describe_data(data)
             correlation_matrix = calculate_correlation(data)
-            
+
             # 准备数据摘要
             data_summary = {
                 "shape": data.shape,
@@ -33,21 +33,20 @@ class AIInsightsAnalyzer:
                 "desc_stats": desc_stats.to_dict() if desc_stats is not None else {},
                 "correlation_matrix": correlation_matrix.to_dict() if correlation_matrix is not None else {}
             }
-            
+
             # 生成AI分析提示
             prompt = self._generate_data_analysis_prompt(data_summary, data_description)
-            
+
             # 获取AI分析结果（流式）
             ai_response = self.chat.send_message_stream(prompt, on_chunk_callback)
-            
+
             return ai_response, data_summary
-            
+
         except Exception as e:
             st.error(f"AI数据分析过程中发生错误: {str(e)}")
             if on_chunk_callback:
                 on_chunk_callback(f"AI分析失败: {str(e)}")
             return f"AI分析失败: {str(e)}", {}
-
 
     def _generate_data_analysis_prompt(self, data_summary, data_description=None):
         """
@@ -80,10 +79,10 @@ class AIInsightsAnalyzer:
 
         请使用专业但易懂的语言，重点突出对农业生产和管理有意义的洞察。
         """
-        
+
         if data_description:
             base_prompt += f"\n\n额外背景信息: {data_description}"
-        
+
         return base_prompt
 
     def integrate_analysis_with_ai(self, data, data_description=None):
@@ -91,27 +90,27 @@ class AIInsightsAnalyzer:
         整合数据分析与AI洞察（流式输出版本）
         """
         st.subheader("🤖 AI驱动的数据分析洞察")
-        
+
         # 执行传统数据分析
         st.markdown("#### 传统数据分析结果")
         desc_stats, corr_matrix = self._show_basic_analysis(data)
-        
+
         # AI智能分析
         st.markdown("#### AI智能解读与建议")
-        
+
         # 创建一个容器来显示流式输出
         response_container = st.container()
-        
+
         with response_container:
             response_text = st.empty()  # 创建一个空的文本元素来逐步显示响应
-            
+
         full_response = ""
-        
+
         def on_token_receive(token):
             nonlocal full_response
             full_response += token
             response_text.info(full_response)  # 实时更新显示
-        
+
         # 准备数据以供AI分析 - 只使用数值列
         numeric_data = data.select_dtypes(include=[np.number])
         if numeric_data.empty:
@@ -124,17 +123,18 @@ class AIInsightsAnalyzer:
                             numeric_data = pd.concat([numeric_data, numeric_series], axis=1)
                     except:
                         continue
-        
+
         with st.spinner("AI正在分析数据并生成洞察..."):
-            ai_insights, data_summary = self.analyze_data_insights_stream(numeric_data, data_description, on_token_receive)
-        
+            ai_insights, data_summary = self.analyze_data_insights_stream(numeric_data, data_description,
+                                                                          on_token_receive)
+
         # 显示AI分析结果
         st.markdown("#### AI分析结果")
         st.info(ai_insights)
-        
+
         # 提供基于AI的交互式建议
         self._provide_ai_recommendations(data_summary)
-        
+
         return ai_insights, data_summary
 
     def _show_basic_analysis(self, data):
@@ -152,7 +152,7 @@ class AIInsightsAnalyzer:
         st.write(f"- RMSE: {rmse:.4f}")
         st.markdown(f"**模型解释**：")
         st.info(model_explanation)
-        
+
         # 显示预测数据预览
         st.markdown(f"**预测数据预览**：")
         st.dataframe(forecast_data.head())
@@ -162,7 +162,7 @@ class AIInsightsAnalyzer:
         基于AI分析提供交互式建议
         """
         st.markdown("#### 💡 AI个性化建议")
-        
+
         recommendation_options = [
             "基于当前数据，如何优化农业生产？",
             "从这些数据中可以看出哪些环境变化趋势？",
@@ -170,12 +170,12 @@ class AIInsightsAnalyzer:
             "数据中有哪些指标需要重点关注？",
             "如何利用这些数据进行病虫害预警？"
         ]
-        
+
         selected_question = st.selectbox(
             "选择一个方面获取AI的专业建议:",
             recommendation_options
         )
-        
+
         if st.button("获取AI建议"):
             with st.spinner("AI正在生成个性化建议..."):
                 prompt = f"""
@@ -185,20 +185,20 @@ class AIInsightsAnalyzer:
                 
                 提供具体、可操作的建议，并解释这些建议背后的原理。
                 """
-                
+
                 # 为单独的AI建议也使用流式输出
                 response_container = st.container()
-                
+
                 with response_container:
                     response_text = st.empty()  # 创建一个空的文本元素来逐步显示响应
-                    
+
                 full_response = ""
-                
+
                 def on_token_receive(token):
                     nonlocal full_response
                     full_response += token
                     response_text.success(full_response)  # 实时更新显示
-                
+
                 ai_response = self.chat.send_message_stream(prompt, on_token_receive)
                 st.success(ai_response)
 
@@ -207,16 +207,16 @@ def main():
     """AI洞察分析主界面"""
     st.title("🤖 AI驱动的农业数据分析与预测")
     st.caption("结合传统数据分析与AI智能解读，提供深度洞察和专业建议")
-    
+
     # 初始化AI分析器
     if 'ai_analyzer' not in st.session_state:
         st.session_state.ai_analyzer = AIInsightsAnalyzer("qwen3:4b")
-    
+
     analyzer = st.session_state.ai_analyzer
-    
+
     # 检查模型可用性
     is_available, available_models = analyzer.chat.check_model_available()
-    
+
     if not is_available:
         st.warning(f"⚠️ AI模型 {analyzer.model_name} 未安装或不可用")
         col1, col2 = st.columns([3, 1])
@@ -227,24 +227,24 @@ def main():
                 analyzer.chat.model_name = model_input
                 analyzer.model_name = model_input
                 st.rerun()
-        
+
         if st.button("📥 拉取AI模型", type="primary"):
             success = analyzer.chat.pull_model_if_needed()
             if success:
                 st.rerun()
     else:
         st.success(f"✅ AI模型 {analyzer.model_name} 可用")
-        
+
         # 选择分析类型
         analysis_type = st.radio(
             "选择分析类型:",
             ["数据洞察分析"]
         )
-        
+
         if analysis_type == "数据洞察分析":
             st.markdown("### 数据洞察分析")
             st.info("上传或选择数据进行AI驱动的深入分析")
-            
+
             # 这里可以集成数据上传或选择功能
             # 为演示目的，我们使用模拟数据
             if st.button("执行AI数据洞察分析"):
@@ -256,7 +256,7 @@ def main():
                     'soil_moisture': np.random.normal(40, 8, 100)
                 })
                 analyzer.integrate_analysis_with_ai(sample_data, "农业环境监测数据")
-        
+
 
 if __name__ == "__main__":
     main()

@@ -22,7 +22,7 @@ services:
       - db_data:/var/lib/mysql
       - ./intelligent_farm.sql:/docker-entrypoint-initdb.d/intelligent_farm.sql  # 确保SQL文件路径正确
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       interval: 5s
       timeout: 10s
       retries: 5

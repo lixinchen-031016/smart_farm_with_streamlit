@@ -24,13 +24,13 @@ class ModuleConfig:
 
 class ModuleManager:
     """模块管理器"""
-    
+
     def __init__(self, config_file: str = "module_config.json"):
         self.config_file = config_file
         self.modules: Dict[str, ModuleConfig] = {}
         self._load_default_modules()
         self._load_config()
-    
+
     def _load_default_modules(self):
         """加载默认模块配置"""
         default_modules = [
@@ -216,17 +216,17 @@ class ModuleManager:
                 dependencies=[]
             )
         ]
-        
+
         for module in default_modules:
             self.modules[module.name] = module
-    
+
     def _load_config(self):
         """从配置文件加载模块配置"""
         if os.path.exists(self.config_file):
             try:
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     config_data = json.load(f)
-                
+
                 # 更新模块配置
                 for module_name, module_data in config_data.items():
                     if module_name in self.modules:
@@ -239,7 +239,7 @@ class ModuleManager:
                         self.modules[module_name] = ModuleConfig(**module_data)
             except Exception as e:
                 print(f"加载模块配置文件时出错: {e}")
-    
+
     def save_config(self):
         """保存模块配置到文件"""
         try:
@@ -247,35 +247,35 @@ class ModuleManager:
             config_data = {}
             for module_name, module_config in self.modules.items():
                 config_data[module_name] = asdict(module_config)
-            
+
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(config_data, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"保存模块配置文件时出错: {e}")
-    
+
     def get_module(self, name: str) -> Optional[ModuleConfig]:
         """获取指定模块配置"""
         return self.modules.get(name)
-    
+
     def get_modules(self, category: Optional[str] = None, enabled_only: bool = True) -> List[ModuleConfig]:
         """获取模块列表"""
         modules = list(self.modules.values())
-        
+
         # 按分类过滤
         if category:
             modules = [m for m in modules if m.category == category]
-        
+
         # 按启用状态过滤
         if enabled_only:
             modules = [m for m in modules if m.enabled]
-            
+
         return modules
-    
+
     def get_all_categories(self) -> List[str]:
         """获取所有模块分类"""
         categories = set(module.category for module in self.modules.values())
         return sorted(list(categories))
-    
+
     def enable_module(self, name: str) -> bool:
         """启用模块"""
         if name in self.modules:
@@ -283,7 +283,7 @@ class ModuleManager:
             self.save_config()
             return True
         return False
-    
+
     def disable_module(self, name: str) -> bool:
         """禁用模块"""
         # 检查是否有其他模块依赖此模块
@@ -291,13 +291,13 @@ class ModuleManager:
             if module.enabled and name in module.dependencies:
                 print(f"无法禁用模块 {name}，因为模块 {module.name} 依赖于它")
                 return False
-        
+
         if name in self.modules:
             self.modules[name].enabled = False
             self.save_config()
             return True
         return False
-    
+
     def update_module(self, name: str, **kwargs) -> bool:
         """更新模块配置"""
         if name in self.modules:
@@ -308,12 +308,12 @@ class ModuleManager:
             self.save_config()
             return True
         return False
-    
+
     def is_enabled(self, name: str) -> bool:
         """检查模块是否启用"""
         module = self.get_module(name)
         return module.enabled if module else False
-    
+
     def get_enabled_modules_for_user(self, is_admin: bool = False) -> List[ModuleConfig]:
         """获取用户可用的启用模块"""
         modules = []

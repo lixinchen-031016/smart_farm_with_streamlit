@@ -1,8 +1,10 @@
 import streamlit as st
+
 """
 智能农场管理系统使用说明书
 包含所有功能的完整操作指南
 """
+
 
 def get_full_instruction():
     """
@@ -114,7 +116,7 @@ def get_full_instruction():
             "A: 尝试调整模型参数或选择不同模型"
         ],
         "联系方式": "技术支持邮箱: 1677343841@qq.com\n"
-        "GitHub仓库: https://github.com/lixinchen-031016/smart_farm_with_streamlit"
+                    "GitHub仓库: https://github.com/lixinchen-031016/smart_farm_with_streamlit"
     }
 
 
@@ -123,10 +125,10 @@ def show_instructions():
     在Streamlit页面显示使用说明
     """
     manual = get_full_instruction()
-    
+
     st.title("📖 智能农场管理系统使用说明书")
     st.markdown("---")
-    
+
     with st.expander("基础功能指南"):
         for feature, info in manual["基础功能"].items():
             st.subheader(f"🔹 {feature}")
@@ -136,7 +138,7 @@ def show_instructions():
                 st.markdown(f"- {step}")
             st.markdown(f"**注意事项**: {info['注意事项']}")
             st.markdown("---")
-    
+
     with st.expander("高级功能指南"):
         for feature, info in manual["高级功能"].items():
             st.subheader(f"✨ {feature}")
@@ -146,11 +148,11 @@ def show_instructions():
                 st.markdown(f"- {step}")
             st.markdown(f"**注意事项**: {info['注意事项']}")
             st.markdown("---")
-    
+
     with st.expander("常见问题"):
         for i in range(0, len(manual["常见问题"]), 2):
             st.markdown(f"**{manual['常见问题'][i]}**")
-            st.markdown(manual['常见问题'][i+1])
+            st.markdown(manual['常见问题'][i + 1])
             st.markdown("---")
-    
+
     st.markdown(f"**{manual['联系方式']}**")
