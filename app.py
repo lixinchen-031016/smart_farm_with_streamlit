@@ -1193,23 +1193,18 @@ def ai_insights_analysis():
         st.success(f"✅ AI模型 {analyzer.model_name} 可用")
 
         # 选择分析类型
-        analysis_type = st.radio(
-            "选择分析类型:",
-            ["数据洞察分析"]
-        )
 
-        if analysis_type == "数据洞察分析":
-            st.markdown("### 数据洞察分析")
+        st.markdown("### 数据洞察分析")
 
-            if 'data' not in st.session_state:
-                st.warning("请先在数据概览页面上传数据")
-                return
+        if 'data' not in st.session_state:
+            st.warning("请先在数据概览页面上传数据")
+            return
 
-            data = st.session_state['data']
-            data_description = st.text_area("数据背景描述（可选）",
+        data = st.session_state['data']
+        data_description = st.text_area("数据背景描述（可选）",
                                             placeholder="请输入关于数据来源、用途或其他相关信息的描述...", height=100)
 
-            if st.button("执行AI数据洞察分析", type="primary"):
+        if st.button("执行AI数据洞察分析", type="primary"):
                 with st.spinner("AI正在分析数据并生成洞察..."):
                     ai_insights, data_summary = analyzer.integrate_analysis_with_ai(data, data_description)
 

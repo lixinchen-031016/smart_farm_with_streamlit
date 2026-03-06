@@ -202,61 +202,64 @@ class AIInsightsAnalyzer:
                 ai_response = self.chat.send_message_stream(prompt, on_token_receive)
                 st.success(ai_response)
 
+    def show_ai_insights_page(self):
+        """
+        显示 AI 洞察分析页面（完整 UI 页面）
+        """
+        if not st.session_state.get('logged_in'):
+            st.query_params.page = "login"
+            return
 
-def main():
-    """AI洞察分析主界面"""
-    st.title("🤖 AI驱动的农业数据分析与预测")
-    st.caption("结合传统数据分析与AI智能解读，提供深度洞察和专业建议")
+        st.title("🤖 AI 洞察分析")
+        st.caption("利用 AI 大模型对数据分析和预测结果进行智能解读和建议")
 
-    # 初始化AI分析器
-    if 'ai_analyzer' not in st.session_state:
-        st.session_state.ai_analyzer = AIInsightsAnalyzer("qwen3:4b")
+        # 初始化 AI 分析器
+        if 'ai_analyzer' not in st.session_state:
+            st.session_state.ai_analyzer = AIInsightsAnalyzer(self.model_name)
 
-    analyzer = st.session_state.ai_analyzer
+        analyzer = st.session_state.ai_analyzer
 
-    # 检查模型可用性
-    is_available, available_models = analyzer.chat.check_model_available()
+        # 检查模型可用性
+        is_available, available_models = analyzer.chat.check_model_available()
 
-    if not is_available:
-        st.warning(f"⚠️ AI模型 {analyzer.model_name} 未安装或不可用")
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            model_input = st.text_input("输入要使用的AI模型名称:", value=analyzer.model_name)
-        with col2:
-            if st.button("🔄 切换模型"):
-                analyzer.chat.model_name = model_input
-                analyzer.model_name = model_input
-                st.rerun()
+        if not is_available:
+            st.warning(f"⚠️ AI 模型 {analyzer.model_name} 未安装或不可用")
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                model_input = st.text_input("输入要使用的 AI 模型名称:", value=analyzer.model_name)
+            with col2:
+                if st.button("🔄 切换模型"):
+                    analyzer.chat.model_name = model_input
+                    analyzer.model_name = model_input
+                    st.rerun()
 
-        if st.button("📥 拉取AI模型", type="primary"):
-            success = analyzer.chat.pull_model_if_needed()
-            if success:
-                st.rerun()
-    else:
-        st.success(f"✅ AI模型 {analyzer.model_name} 可用")
+            if st.button("📥 拉取 AI 模型", type="primary"):
+                success = analyzer.chat.pull_model_if_needed()
+                if success:
+                    st.rerun()
+        else:
+            st.success(f"✅ AI 模型 {analyzer.model_name} 可用")
 
-        # 选择分析类型
-        analysis_type = st.radio(
-            "选择分析类型:",
-            ["数据洞察分析"]
-        )
-
-        if analysis_type == "数据洞察分析":
+            # 选择分析类型
             st.markdown("### 数据洞察分析")
-            st.info("上传或选择数据进行AI驱动的深入分析")
 
-            # 这里可以集成数据上传或选择功能
-            # 为演示目的，我们使用模拟数据
-            if st.button("执行AI数据洞察分析"):
-                # 示例：使用模拟数据进行分析（实际应用中应使用真实数据）
-                sample_data = pd.DataFrame({
-                    'timestamp': pd.date_range(start='2023-01-01', periods=100, freq='D'),
-                    'temperature': np.random.normal(25, 5, 100),
-                    'humidity': np.random.normal(60, 10, 100),
-                    'soil_moisture': np.random.normal(40, 8, 100)
-                })
-                analyzer.integrate_analysis_with_ai(sample_data, "农业环境监测数据")
+            if 'data' not in st.session_state:
+                st.warning("请先在数据概览页面上传数据")
+                return
+
+            data = st.session_state['data']
+            data_description = st.text_area("数据背景描述（可选）",
+                                            placeholder="请输入关于数据来源、用途或其他相关信息的描述...", height=100)
+
+            if st.button("执行 AI 数据洞察分析", type="primary"):
+                with st.spinner("AI 正在分析数据并生成洞察..."):
+                    ai_insights, data_summary = analyzer.integrate_analysis_with_ai(data, data_description)
 
 
-if __name__ == "__main__":
-    main()
+def show_ai_insights():
+    """
+    模块入口函数：显示 AI 洞察分析页面
+    """
+    # 创建分析器实例并显示页面
+    analyzer = AIInsightsAnalyzer("qwen3:4b")
+    analyzer.show_ai_insights_page()
