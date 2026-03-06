@@ -337,54 +337,6 @@ def prepare_prediction_ui():
                                                                help="控制趋势灵活性的参数")
             lstm_params['seasonality_prior_scale'] = st.slider("季节性强度", 0.1, 20.0, 10.0, step=0.1,
                                                                help="控制季节性效应强度的参数")
-    elif model_type == "Hybrid":
-        with st.expander("混合模型参数配置"):
-            # Prophet参数
-            lstm_params['changepoint_prior_scale'] = st.slider("Prophet变化点灵敏度", 0.001, 0.5, 0.05, step=0.01,
-                                                               help="控制趋势灵活性的参数")
-            lstm_params['seasonality_prior_scale'] = st.slider("Prophet季节性强度", 0.1, 20.0, 10.0, step=0.1,
-                                                               help="控制季节性效应强度的参数")
-
-            # 神经网络通用参数
-            lstm_params['look_back'] = st.slider("时间窗口大小", 1, 30, 7,
-                                                 help="模型观察的历史数据点数")
-            lstm_params['epochs'] = st.slider("训练轮次", 10, 200, 10)
-            lstm_params['batch_size'] = st.slider("批次大小", 8, 64, 32)
-
-            # LSTM参数
-            lstm_params['units'] = st.slider("LSTM单元数", 16, 128, 16)
-
-            # Transformer参数
-            default_d_model = 64
-            lstm_params['d_model'] = st.slider("Transformer嵌入维度", 32, 256, default_d_model,
-                                               step=4, help="必须能被注意力头数整除")
-            lstm_params['nhead'] = st.slider("注意力头数", 2, 8, 4,
-                                             help=f"当前嵌入维度: {lstm_params.get('d_model', default_d_model)}")
-            if 'd_model' in lstm_params and 'nhead' in lstm_params:
-                if lstm_params['d_model'] % lstm_params['nhead'] != 0:
-                    st.warning(f"嵌入维度({lstm_params['d_model']})必须能被注意力头数({lstm_params['nhead']})整除")
-                    lstm_params['nhead'] = _find_divisor(lstm_params['d_model'], lstm_params['nhead'])
-                    st.info(f"已自动调整注意力头数为: {lstm_params['nhead']}")
-
-            lstm_params['num_layers'] = st.slider("Transformer编码器层数", 1, 6, 2)
-
-            # 混合权重
-            st.subheader("模型权重配置")
-            st.write("三个模型的权重总和应为1.0")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                lstm_params['prophet_weight'] = st.number_input("Prophet权重", 0.0, 1.0, 0.4, step=0.1)
-            with col2:
-                lstm_params['lstm_weight'] = st.number_input("LSTM权重", 0.0, 1.0, 0.3, step=0.1)
-            with col3:
-                lstm_params['transformer_weight'] = st.number_input("Transformer权重", 0.0, 1.0, 0.3, step=0.1)
-
-            total_weight = (lstm_params.get('prophet_weight', 0.4) +
-                            lstm_params.get('lstm_weight', 0.3) +
-                            lstm_params.get('transformer_weight', 0.3))
-            if abs(total_weight - 1.0) > 1e-6:
-                st.warning(f"当前权重总和为{total_weight:.2f}，建议调整为1.0")
-
     return data_type, model_type, prediction_days, lstm_params
 
 
