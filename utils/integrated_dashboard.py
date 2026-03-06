@@ -3,21 +3,21 @@ Integrated dashboard module combining real-time data preview and dashboard funct
 Provides a unified view with real-time monitoring and analytical capabilities.
 """
 
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
 from datetime import datetime, timedelta
-import psutil
 
-from utils.logger import log_operation
+import plotly.graph_objects as go
+import psutil
+import streamlit as st
+
 from models import AirTemperatureHumidity, SoilMoisture, SoilNutrient, LightIntensity
-from utils.database import get_session
 from utils.data_preview import (
-    fetch_last_day_data, 
-    create_line_chart, 
+    fetch_last_day_data,
+    create_line_chart,
     render_metric_card,
     fetch_latest_data
 )
+from utils.database import get_session
+from utils.logger import log_operation
 
 
 def get_user_role():

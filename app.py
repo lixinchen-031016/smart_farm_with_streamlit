@@ -1,7 +1,7 @@
 import base64
 import io
-import os
 import json
+import os
 from datetime import datetime
 from io import BytesIO
 
@@ -12,35 +12,24 @@ import plotly
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
-import sqlalchemy
 import streamlit as st
-from sqlalchemy.orm import sessionmaker
 from streamlit_extras.metric_cards import style_metric_cards
 from streamlit_option_menu import option_menu
 
 import models
 import utils.system_monitoring
-# 应用PyTorch补丁以解决兼容性问题
-from utils.torch_patch import apply_torch_patches
-apply_torch_patches()
-
 from auth import session
-# 添加日志查看器模块导入
-from utils.logger import log_operation
-from utils.sync_manager import sync_databases_ui
-from utils.module_manager import get_module_manager
-from utils.module_config_ui import show_module_config_ui, get_enabled_modules_for_sidebar, is_module_enabled
-
-# 添加: 加载环境变量
-from dotenv import load_dotenv
-
 # 添加: 引入新的数据库模块
 from utils.database import get_session
 from utils.lazy_importer import lazy_import, preload_modules
+# 添加日志查看器模块导入
+from utils.logger import log_operation
+from utils.module_config_ui import show_module_config_ui, get_enabled_modules_for_sidebar
+from utils.sync_manager import sync_databases_ui
+
+# 添加: 加载环境变量
 
 # 添加仪表盘导入
-from utils.dashboard import show_dashboard
-from utils.integrated_dashboard import show_integrated_dashboard
 
 # 延迟导入模块
 

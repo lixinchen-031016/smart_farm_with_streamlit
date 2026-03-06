@@ -1,7 +1,7 @@
 import streamlit as st
+
 from utils.ollama_chat import main as ollama_chat_main
-import os
-import sys
+
 
 def main():
     # 设置页面配置

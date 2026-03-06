@@ -4,8 +4,9 @@
 """
 
 import streamlit as st
-from utils.module_manager import get_module_manager, ModuleConfig
+
 from utils.logger import log_operation
+from utils.module_manager import get_module_manager
 
 
 def show_module_config_ui(username: str, is_admin: bool = False):

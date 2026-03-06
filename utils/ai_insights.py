@@ -1,10 +1,9 @@
-import streamlit as st
-import pandas as pd
 import numpy as np
-from datetime import datetime
+import pandas as pd
+import streamlit as st
+
+from .analysis import describe_data, calculate_correlation
 from .ollama_chat import OllamaChat
-from .analysis import describe_data, calculate_correlation, group_and_aggregate
-from .predictions import perform_prediction
 
 
 class AIInsightsAnalyzer:

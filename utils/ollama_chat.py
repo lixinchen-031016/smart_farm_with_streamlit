@@ -1,7 +1,8 @@
-import streamlit as st
-import ollama
-from datetime import datetime
 import json
+from datetime import datetime
+
+import ollama
+import streamlit as st
 
 
 class OllamaChat:

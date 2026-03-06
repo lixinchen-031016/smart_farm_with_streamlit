@@ -4,6 +4,7 @@
 """
 
 from datetime import datetime, timedelta
+
 from sqlalchemy import text
 
 from models import AirTemperatureHumidity, SoilMoisture, LightIntensity, SoilNutrient

@@ -1,9 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import numpy as np
 import streamlit as st
 
-from models import AirTemperatureHumidity, SoilMoisture, LightIntensity
 from utils.logger import log_operation
 from utils.sensor_data import get_latest_sensor_data, get_historical_sensor_data
 

@@ -1,19 +1,12 @@
-"""
-Dashboard module for the Smart Farm application.
-Provides customized dashboards for different user roles with key metrics and quick actions.
-"""
-
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime, timedelta
-import psutil
-import numpy as np
 
-from utils.logger import log_operation
+import plotly.graph_objects as go
+import psutil
+import streamlit as st
+
 from models import AirTemperatureHumidity, SoilMoisture, SoilNutrient, LightIntensity
 from utils.database import get_session
+from utils.logger import log_operation
 
 
 def get_user_role():

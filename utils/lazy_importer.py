@@ -4,8 +4,7 @@
 """
 
 import importlib
-import sys
-from typing import Any, Callable, Optional, List
+from typing import Callable, Optional, List
 
 
 class LazyImporter:
