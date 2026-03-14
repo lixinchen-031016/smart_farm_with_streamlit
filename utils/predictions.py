@@ -117,6 +117,14 @@ def prophet_prediction(data, prediction_days, params):
     # 数据预处理
     df = pd.DataFrame(data, columns=['ds', 'y'])
     df['ds'] = pd.to_datetime(df['ds'])
+    
+    # 检查数据有效性
+    if df.empty or len(df) < 10:
+        raise ValueError("数据量不足，无法进行预测")
+    
+    # 检查 y 列是否有有效值
+    if df['y'].isna().all() or df['y'].var() == 0:
+        raise ValueError("数据方差为 0 或全部为空，无法进行预测")
 
     # 添加农业数据特定的季节性参数
     model = Prophet(
@@ -126,11 +134,11 @@ def prophet_prediction(data, prediction_days, params):
         changepoint_prior_scale=params.get('changepoint_prior_scale', 0.05),
         seasonality_prior_scale=params.get('seasonality_prior_scale', 10.0),
         holidays_prior_scale=params.get('holidays_prior_scale', 10.0),
-        seasonality_mode='multiplicative'
+        seasonality_mode='additive'  # 改为加法模式，更适合湿度等有限范围的数据
     )
 
     # 添加自定义季节性 - 适合农业数据的季节性
-    model.add_seasonality(name='hourly', period=1 / 24, fourier_order=5)  # 每小时周期
+    model.add_seasonality(name='hourly', period=1 / 24, fourier_order=3)  # 每小时周期，降低复杂度
 
     # 训练模型
     model.fit(df)
@@ -152,26 +160,32 @@ def prophet_prediction(data, prediction_days, params):
     # 准备返回数据
     forecast_df = forecast[['ds', 'yhat']].rename(columns={'ds': 'timestamp', 'yhat': 'value'})
     forecast_df = forecast_df[forecast_df['timestamp'] > df['ds'].max()]  # 只返回预测部分
+    
+    # 对湿度数据进行合理性检查 (如果是湿度数据)
+    if 'humidity' in str(data) or (df['y'].max() <= 100 and df['y'].min() >= 0):
+        # 限制预测值在合理范围内 (0-100%)
+        forecast_df['value'] = forecast_df['value'].clip(0, 100)
 
     explanation = f"""
     **Prophet模型训练说明**
     
     本次预测使用了Facebook Prophet模型，特别针对农业数据优化:
     
-    **模型特性:**
+    **模型特性**:
     1. 内置日周期和周周期检测
     2. 自动处理节假日效应
     3. 对异常值和缺失值鲁棒
-    4. 乘法季节性模式适合农业数据
+    4. 加法季节性模式适合湿度等有限范围数据
     
     **农业数据优化:**
     1. 添加了精细的每小时季节性
     2. 调整了变化点灵敏度
     3. 优化了季节性强度参数
     
-    **性能指标:**
-    - 历史数据拟合RMSE: {rmse:.4f}
-    - 预测天数: {prediction_days}天
+    **性能指标**:
+    - 历史数据拟合 RMSE: {rmse:.4f}
+    - 预测天数：{prediction_days}天
+    - 数据范围：[{df['y'].min():.1f}, {df['y'].max():.1f}]
     """
 
     return df.set_index('ds'), forecast_df, explanation, rmse
