@@ -246,53 +246,162 @@ def data_overview():
 def data_cleaning():
     """
     显示数据清洗页面，提供删除重复行、处理缺失值和删除列的功能
+    使用新的数据清洗模块，支持规则模板和效果评估
     """
     if not st.session_state.get('logged_in'):
         st.query_params.page = "login"
         return
 
-    st.title("数据清洗")
+    st.title("🧹 数据清洗")
+    
+    # 导入新的数据清洗模块
+    from utils.data_cleaning import (
+        DataCleaner, 
+        DataCleaningRule,
+        create_agricultural_standard_template,
+        create_machine_learning_template
+    )
 
     # 添加标签页
-    tab1, tab2, tab3, tab4 = st.tabs(["基础清洗", "缺失值处理", "异常值检测", "数据导出"])
-
-    if 'data' not in st.session_state:
-        st.warning("请先在数据概览页面上传数据")
-        return
-
-    data = st.session_state['data']
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["⚙️ 规则模板", "🔧 基础清洗", "💧 缺失值处理", "📊 异常值检测", "📤 数据导出"])
+    
+    # 初始化数据清洗器
+    if 'cleaner' not in st.session_state:
+        st.session_state['cleaner'] = DataCleaner()
+    
+    cleaner = st.session_state['cleaner']
+    
+    # 规则模板标签页
+    with tab1:
+        st.subheader("🎯 清洗规则模板")
+        st.markdown("使用预设的清洗规则模板，快速应用标准化的清洗流程")
+        
+        if 'data' not in st.session_state:
+            st.warning("请先在数据概览页面上传数据")
+            return
+        
+        data = st.session_state['data']
+        
+        template_choice = st.selectbox(
+            "选择清洗模板",
+            ["农业数据标准清洗流程", "机器学习数据清洗模板", "自定义规则"],
+            help="选择预设的清洗规则模板"
+        )
+        
+        if st.button("应用模板并查看效果"):
+            progress_bar = st.progress(0)
+            
+            # 创建规则
+            if template_choice == "农业数据标准清洗流程":
+                rule = create_agricultural_standard_template()
+            elif template_choice == "机器学习数据清洗模板":
+                rule = create_machine_learning_template(data)
+            else:
+                rule = DataCleaningRule("自定义规则")
+                rule.set_duplicate_removal(True)
+            
+            progress_bar.progress(30)
+            
+            # 应用规则
+            cleaned_data, report = cleaner.apply_rule(data, rule)
+            
+            progress_bar.progress(100)
+            
+            # 显示清洗报告
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("原始数据行数", report['original_shape'][0])
+                st.metric("清洗后数据行数", report['final_shape'][0])
+                st.metric("删除行数", report['original_shape'][0] - report['final_shape'][0])
+            
+            with col2:
+                st.metric("清洗前完整率", f"{report['quality_before']['completeness']:.2f}%")
+                st.metric("清洗后完整率", f"{report['quality_after']['completeness']:.2f}%")
+                st.metric("质量提升", f"{report['improvement']['completeness_improvement']:+.2f}%")
+            
+            # 保存清洗后的数据
+            st.session_state['data'] = cleaned_data
+            data = cleaned_data
+            
+            # 显示详细报告
+            with st.expander("查看详细清洗报告", expanded=True):
+                st.code(cleaner.generate_report(report))
+            
+            # 保存当前规则到 session state
+            st.session_state['current_rule'] = rule
 
     # 基础清洗标签页
-    with tab1:
+    with tab2:
         st.subheader("删除重复行")
-        if st.button("删除重复行"):
+        if st.button("删除重复行", key="drop_duplicates_btn"):
             progress_bar = st.progress(0)
             original_rows = data.shape[0]
-            progress_bar.progress(33)  # 第一步完成
+            progress_bar.progress(33)
             data = data.drop_duplicates()
             log_operation(st.session_state['username'], "INFO", "数据清洗-删除重复行",
                           f"删除{original_rows - data.shape[0]}行 剩余{data.shape[0]}行")
             st.success(f"删除了 {original_rows - data.shape[0]} 行重复数据")
-            progress_bar.progress(100)  # 操作完成
-
-        st.subheader("删除不需要的数据列")
-        columns_to_drop = st.multiselect("选择要删除的列", data.columns.tolist())
-        if st.button("删除选中的列"):
-            log_operation(st.session_state['username'], "INFO", "数据清洗-删除列",
-                          f"删除列: {', '.join(columns_to_drop)}")
+            progress_bar.progress(100)
+            st.session_state['data'] = data
+        
+        st.subheader("批量删除列")
+        st.markdown("选择要删除的列类型，支持批量操作")
+                
+        # 列类型分类
+        numeric_cols = data.select_dtypes(include=[np.number]).columns.tolist()
+        categorical_cols = data.select_dtypes(include=['object']).columns.tolist()
+        datetime_cols = data.select_dtypes(include=['datetime64']).columns.tolist()
+                
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            drop_numeric = st.checkbox(f"删除数值列 ({len(numeric_cols)}个)", value=False)
+        with col2:
+            drop_categorical = st.checkbox(f"删除分类型列 ({len(categorical_cols)}个)", value=False)
+        with col3:
+            drop_datetime = st.checkbox(f"删除时间列 ({len(datetime_cols)}个)", value=False)
+                
+        if st.button("删除选中的列类型", key="drop_columns_batch"):
+            columns_to_drop = []
+            if drop_numeric:
+                columns_to_drop.extend(numeric_cols)
+            if drop_categorical:
+                columns_to_drop.extend(categorical_cols)
+            if drop_datetime:
+                columns_to_drop.extend(datetime_cols)
+                    
+            # 确保不删除 timestamp 列（如果存在）
+            if 'timestamp' in columns_to_drop:
+                columns_to_drop.remove('timestamp')
+                    
             if columns_to_drop:
                 progress_bar = st.progress(0)
+                original_cols = len(data.columns)
                 data = data.drop(columns=columns_to_drop)
-                progress_bar.progress(100)  # 操作完成
-                st.success(f"已删除列: {', '.join(columns_to_drop)}")
+                progress_bar.progress(100)
+                log_operation(st.session_state['username'], "INFO", "数据清洗 - 批量删除列",
+                              f"删除{len(columns_to_drop)}列 剩余{len(data.columns)}列")
+                st.success(f"已删除 {len(columns_to_drop)} 列，剩余 {len(data.columns)} 列")
             else:
                 st.warning("未选择任何列进行删除")
-
-        st.session_state['data'] = data
-        st.success("数据清洗完成")
+                
+        st.subheader("手动选择删除列")
+        columns_to_drop_manual = st.multiselect("选择要删除的列", data.columns.tolist())
+        if st.button("删除选中的列", key="drop_columns_manual"):
+            log_operation(st.session_state['username'], "INFO", "数据清洗 - 删除列",
+                          f"删除列：{', '.join(columns_to_drop_manual)}")
+            if columns_to_drop_manual:
+                progress_bar = st.progress(0)
+                data = data.drop(columns=columns_to_drop_manual)
+                progress_bar.progress(100)
+                st.success(f"已删除列：{', '.join(columns_to_drop_manual)}")
+                st.session_state['data'] = data
+            else:
+                st.warning("未选择任何列进行删除")
+        
+        st.success("基础清洗完成")
 
     # 缺失值处理标签页
-    with tab2:
+    with tab3:
         st.subheader("处理缺失值")
         missing_columns = data.columns[data.isnull().any()].tolist()
         if not missing_columns:
@@ -352,7 +461,7 @@ def data_cleaning():
             st.success("缺失值处理完成")
 
     # 异常值检测标签页
-    with tab3:
+    with tab4:
         st.subheader("异常值检测与清除")
 
         # 导入异常检测工具
@@ -464,7 +573,7 @@ def data_cleaning():
                     del st.session_state['anomaly_summary']
 
     # 数据导出标签页
-    with tab4:
+    with tab5:
         st.subheader("导出清洗后的数据")
         export_format = st.selectbox("选择导出格式", ["CSV", "Excel", "JSON"])
         if st.button("导出数据"):
