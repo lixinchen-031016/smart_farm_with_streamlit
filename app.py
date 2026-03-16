@@ -282,53 +282,151 @@ def data_cleaning():
         
         data = st.session_state['data']
         
-        template_choice = st.selectbox(
-            "选择清洗模板",
-            ["农业数据标准清洗流程", "机器学习数据清洗模板", "自定义规则"],
-            help="选择预设的清洗规则模板"
-        )
+        # 添加规则管理子标签页
+        rule_tab1, rule_tab2 = st.tabs(["📋 应用模板", "💾 规则管理"])
         
-        if st.button("应用模板并查看效果"):
-            progress_bar = st.progress(0)
+        with rule_tab1:
+            template_choice = st.selectbox(
+                "选择清洗模板",
+                ["农业数据标准清洗流程", "机器学习数据清洗模板", "自定义规则"],
+                help="选择预设的清洗规则模板"
+            )
             
-            # 创建规则
-            if template_choice == "农业数据标准清洗流程":
-                rule = create_agricultural_standard_template()
-            elif template_choice == "机器学习数据清洗模板":
-                rule = create_machine_learning_template(data)
+            if st.button("应用模板并查看效果", key="apply_template"):
+                progress_bar = st.progress(0)
+                
+                # 创建规则
+                if template_choice == "农业数据标准清洗流程":
+                    rule = create_agricultural_standard_template()
+                elif template_choice == "机器学习数据清洗模板":
+                    rule = create_machine_learning_template(data)
+                else:
+                    rule = DataCleaningRule("自定义规则")
+                    rule.set_duplicate_removal(True)
+                
+                progress_bar.progress(30)
+                
+                # 应用规则
+                cleaned_data, report = cleaner.apply_rule(data, rule)
+                
+                progress_bar.progress(100)
+                
+                # 显示清洗报告
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("原始数据行数", report['original_shape'][0])
+                    st.metric("清洗后数据行数", report['final_shape'][0])
+                    st.metric("删除行数", report['original_shape'][0] - report['final_shape'][0])
+                
+                with col2:
+                    st.metric("清洗前完整率", f"{report['quality_before']['completeness']:.2f}%")
+                    st.metric("清洗后完整率", f"{report['quality_after']['completeness']:.2f}%")
+                    st.metric("质量提升", f"{report['improvement']['completeness_improvement']:+.2f}%")
+                
+                # 保存清洗后的数据
+                st.session_state['data'] = cleaned_data
+                data = cleaned_data
+                
+                # 显示详细报告
+                with st.expander("查看详细清洗报告", expanded=True):
+                    st.code(cleaner.generate_report(report))
+                
+                # 保存当前规则到 session state
+                st.session_state['current_rule'] = rule
+        
+        with rule_tab2:
+            st.subheader("💾 规则管理")
+            st.markdown("导出已配置的规则或加载已保存的规则")
+            
+            # 导出规则
+            st.subheader("导出规则")
+            if 'current_rule' in st.session_state:
+                rule = st.session_state['current_rule']
+                st.info(f"当前规则：**{rule.name}**")
+                
+                # 显示规则详情
+                with st.expander("查看规则详情"):
+                    st.json(rule.to_dict())
+                
+                # 导出按钮
+                rule_name = st.text_input("规则文件名", value=rule.name.replace(" ", "_"))
+                
+                if st.button("导出规则到文件"):
+                    try:
+                        filepath = f"{rule_name}.json"
+                        rule.save(filepath)
+                        
+                        # 读取文件内容用于下载
+                        with open(filepath, 'r', encoding='utf-8') as f:
+                            file_content = f.read()
+                        
+                        st.success(f"✅ 规则已保存到：{filepath}")
+                        
+                        # 提供下载链接
+                        st.download_button(
+                            label="📥 下载规则文件",
+                            data=file_content,
+                            file_name=f"{rule_name}.json",
+                            mime="application/json"
+                        )
+                        
+                        log_operation(st.session_state['username'], "INFO", "数据清洗 - 导出规则",
+                                      f"规则名：{rule.name} 文件：{filepath}")
+                    except Exception as e:
+                        st.error(f"❌ 导出失败：{str(e)}")
             else:
-                rule = DataCleaningRule("自定义规则")
-                rule.set_duplicate_removal(True)
+                st.warning("请先应用一个模板以创建规则")
             
-            progress_bar.progress(30)
+            st.divider()
             
-            # 应用规则
-            cleaned_data, report = cleaner.apply_rule(data, rule)
+            # 加载规则
+            st.subheader("加载规则")
+            uploaded_rule = st.file_uploader("上传规则文件 (.json)", type=["json"])
             
-            progress_bar.progress(100)
-            
-            # 显示清洗报告
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("原始数据行数", report['original_shape'][0])
-                st.metric("清洗后数据行数", report['final_shape'][0])
-                st.metric("删除行数", report['original_shape'][0] - report['final_shape'][0])
-            
-            with col2:
-                st.metric("清洗前完整率", f"{report['quality_before']['completeness']:.2f}%")
-                st.metric("清洗后完整率", f"{report['quality_after']['completeness']:.2f}%")
-                st.metric("质量提升", f"{report['improvement']['completeness_improvement']:+.2f}%")
-            
-            # 保存清洗后的数据
-            st.session_state['data'] = cleaned_data
-            data = cleaned_data
-            
-            # 显示详细报告
-            with st.expander("查看详细清洗报告", expanded=True):
-                st.code(cleaner.generate_report(report))
-            
-            # 保存当前规则到 session state
-            st.session_state['current_rule'] = rule
+            if uploaded_rule is not None:
+                try:
+                    # 读取 JSON 内容
+                    rule_json = json.load(uploaded_rule)
+                    loaded_rule = DataCleaningRule.from_dict(rule_json)
+                    
+                    st.success(f"✅ 成功加载规则：**{loaded_rule.name}**")
+                    
+                    # 显示规则信息
+                    st.info(f"描述：{loaded_rule.description}")
+                    st.write(f"创建时间：{loaded_rule.created_at}")
+                    
+                    # 显示规则配置
+                    with st.expander("查看规则配置"):
+                        st.json(loaded_rule.rules)
+                    
+                    # 提供应用按钮
+                    if st.button("应用加载的规则"):
+                        progress_bar = st.progress(0)
+                        cleaned_data, report = cleaner.apply_rule(data, loaded_rule)
+                        progress_bar.progress(100)
+                        
+                        # 显示报告
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("原始数据行数", report['original_shape'][0])
+                            st.metric("清洗后数据行数", report['final_shape'][0])
+                        with col2:
+                            st.metric("清洗前完整率", f"{report['quality_before']['completeness']:.2f}%")
+                            st.metric("清洗后完整率", f"{report['quality_after']['completeness']:.2f}%")
+                        
+                        st.session_state['data'] = cleaned_data
+                        data = cleaned_data
+                        st.session_state['current_rule'] = loaded_rule
+                        
+                        with st.expander("查看清洗报告"):
+                            st.code(cleaner.generate_report(report))
+                    
+                    log_operation(st.session_state['username'], "INFO", "数据清洗 - 加载规则",
+                                  f"规则名：{loaded_rule.name} 文件：{uploaded_rule.name}")
+                    
+                except Exception as e:
+                    st.error(f"❌ 加载规则失败：{str(e)}")
+                    st.error("请确保上传的文件是有效的规则 JSON 文件")
 
     # 基础清洗标签页
     with tab2:
