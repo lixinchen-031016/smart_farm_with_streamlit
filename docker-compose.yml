@@ -2,30 +2,45 @@ version: '3.8'
 
 services:
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8502:8502"
     depends_on:
       db:
         condition: service_healthy
-    
     environment:
       - DATABASE_URL=mysql+pymysql://root:0000@db:3306/intelligent_farm
+    restart: unless-stopped
+    networks:
+      - smartfarm-network
+    volumes:
+      - ./module_config.json:/app/module_config.json:ro
+
   db:
     image: mysql:8.0
     ports:
       - "3306:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=0000
-      - MYSQL_DATABASE=intelligent_farm  # 添加此环境变量确保数据库创建
+      - MYSQL_DATABASE=intelligent_farm
     volumes:
       - db_data:/var/lib/mysql
-      - ./intelligent_farm.sql:/docker-entrypoint-initdb.d/intelligent_farm.sql  # 确保SQL文件路径正确
+      - ./intelligent_farm.sql:/docker-entrypoint-initdb.d/intelligent_farm.sql:ro
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s
       timeout: 10s
       retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - smartfarm-network
 
 volumes:
   db_data:
+
+networks:
+  smartfarm-network:
+    driver: bridge

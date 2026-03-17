@@ -22,31 +22,61 @@ class DatabaseSyncManager:
 
     def __init__(self, cloud_db_url, local_db_url):
         """
-        初始化同步管理器，使用连接池优化
+        初始化同步管理器，优化连接配置避免并发问题
         
         Args:
-            cloud_db_url (str): 云端数据库连接URL
-            local_db_url (str): 本地数据库连接URL
+            cloud_db_url (str): 云端数据库连接 URL
+            local_db_url (str): 本地数据库连接 URL
         """
         try:
-            # 配置连接池参数
-            # 优化连接池配置以提高性能
+            # 优化连接池配置以避免并发冲突
             pool_config = {
-                'pool_size': 20,
-                'max_overflow': 30,
-                'pool_recycle': 1800,  # 30分钟回收连接
+                'pool_size': 5,  # 减小连接池大小
+                'max_overflow': 10,  # 减少最大溢出连接数
+                'pool_recycle': 3600,  # 1 小时回收连接
                 'pool_pre_ping': True,  # 检查连接有效性
-                'pool_timeout': 30,  # 连接超时时间
-                'echo': False  # 生产环境关闭SQL日志
+                'pool_timeout': 60,  # 增加连接超时时间
+                'echo': False,
+                'connect_args': {'connect_timeout': 60}  # MySQL 连接超时
             }
-
+            
+            # 创建引擎时不立即建立连接
             self.cloud_engine = create_engine(cloud_db_url, **pool_config)
             self.local_engine = create_engine(local_db_url, **pool_config)
-            self.cloud_session = sessionmaker(bind=self.cloud_engine)()
-            self.local_session = sessionmaker(bind=self.local_engine)()
+            
+            # 不预先创建会话，改为按需创建
+            self.cloud_session = None
+            self.local_session = None
+            
         except SQLAlchemyError as e:
-            log_operation("system", "ERROR", "数据库连接", f"创建数据库引擎失败: {str(e)}")
-            raise Exception(f"数据库连接失败: {str(e)}")
+            log_operation("system", "ERROR", "数据库连接", f"创建数据库引擎失败：{str(e)}")
+            raise Exception(f"数据库连接失败：{str(e)}")
+    
+    def get_cloud_session(self):
+        """获取云端数据库会话（按需创建）"""
+        if self.cloud_session is None:
+            Session = sessionmaker(bind=self.cloud_engine)
+            self.cloud_session = Session()
+        return self.cloud_session
+    
+    def get_local_session(self):
+        """获取本地数据库会话（按需创建）"""
+        if self.local_session is None:
+            Session = sessionmaker(bind=self.local_engine)
+            self.local_session = Session()
+        return self.local_session
+    
+    def close_connections(self):
+        """关闭所有数据库连接"""
+        try:
+            if self.cloud_session:
+                self.cloud_session.close()
+                self.cloud_session = None
+            if self.local_session:
+                self.local_session.close()
+                self.local_session = None
+        except Exception as e:
+            log_operation("system", "ERROR", "连接关闭", f"关闭数据库连接时出错：{str(e)}")
 
     def sync_table_data(self, table_class, table_name, timestamp_column='timestamp'):
         """
@@ -74,8 +104,8 @@ class DatabaseSyncManager:
 
         try:
             # 获取云端和本地数据的最新时间戳
-            cloud_max_time = self._get_max_timestamp(self.cloud_session, table_name, timestamp_column)
-            local_max_time = self._get_max_timestamp(self.local_session, table_name, timestamp_column)
+            cloud_max_time = self._get_max_timestamp(self.get_cloud_session(), table_name, timestamp_column)
+            local_max_time = self._get_max_timestamp(self.get_local_session(), table_name, timestamp_column)
 
             # 记录时间戳信息
             log_operation(st.session_state.get('username', 'system'), "INFO",
@@ -85,8 +115,8 @@ class DatabaseSyncManager:
             # 从云端同步到本地 (云端有更新的数据)
             if cloud_max_time and (not local_max_time or cloud_max_time > local_max_time):
                 cloud_data = self._fetch_data_after_timestamp(
-                    self.cloud_session, table_class, timestamp_column, local_max_time)
-                inserted_count = self._insert_data(self.local_session, table_class, cloud_data)
+                    self.get_cloud_session(), table_class, timestamp_column, local_max_time)
+                inserted_count = self._insert_data(self.get_local_session(), table_class, cloud_data)
                 sync_stats['cloud_to_local'] = inserted_count
                 log_operation(st.session_state.get('username', 'system'), "INFO",
                               "数据同步", f"从云端同步 {inserted_count} 条数据到本地 ({table_name})")
@@ -94,8 +124,8 @@ class DatabaseSyncManager:
             # 从本地同步到云端 (本地有更新的数据)
             if local_max_time and (not cloud_max_time or local_max_time > cloud_max_time):
                 local_data = self._fetch_data_after_timestamp(
-                    self.local_session, table_class, timestamp_column, cloud_max_time)
-                inserted_count = self._insert_data(self.cloud_session, table_class, local_data)
+                    self.get_local_session(), table_class, timestamp_column, cloud_max_time)
+                inserted_count = self._insert_data(self.get_cloud_session(), table_class, local_data)
                 sync_stats['local_to_cloud'] = inserted_count
                 log_operation(st.session_state.get('username', 'system'), "INFO",
                               "数据同步", f"从本地同步 {inserted_count} 条数据到云端 ({table_name})")
@@ -282,30 +312,19 @@ class DatabaseSyncManager:
 
         return sync_results
 
-    def close_connections(self):
-        """
-        关闭数据库连接
-        """
-        try:
-            self.cloud_session.close()
-            self.local_session.close()
-        except Exception as e:
-            log_operation("system", "ERROR", "连接关闭", f"关闭数据库连接时出错: {str(e)}")
-
-
 def validate_database_inputs(host, port, name, user, password):
     """
     验证数据库连接参数
     """
     errors = []
 
-    # 验证IP地址格式
+    # 验证 IP 地址格式
     if not re.match(r'^(\d{1,3}\.){3}\d{1,3}$|^localhost$|^[\w.-]+$', host):
         errors.append("无效的主机地址格式")
 
     # 验证端口范围
     if not (1 <= port <= 65535):
-        errors.append("端口号必须在1-65535之间")
+        errors.append("端口号必须在 1-65535 之间")
 
     # 验证数据库名称
     if not re.match(r'^[a-zA-Z0-9_]+$', name):
@@ -315,9 +334,9 @@ def validate_database_inputs(host, port, name, user, password):
     if not re.match(r'^[a-zA-Z0-9_]+$', user):
         errors.append("用户名只能包含字母、数字和下划线")
 
-    # 验证密码强度
-    if len(password) < 8:
-        errors.append("密码长度至少为8位")
+    # 密码验证：只要求不为空，不要求位数
+    if not password:
+        errors.append("密码不能为空")
 
     return errors
 
@@ -374,8 +393,10 @@ def sync_databases_ui():
             with st.spinner("正在测试连接..."):
                 sync_manager = DatabaseSyncManager(cloud_db_url, local_db_url)
                 # 简单执行查询测试连接
-                sync_manager.cloud_session.execute(text("SELECT 1"))
-                sync_manager.local_session.execute(text("SELECT 1"))
+                cloud_session = sync_manager.get_cloud_session()
+                local_session = sync_manager.get_local_session()
+                cloud_session.execute(text("SELECT 1"))
+                local_session.execute(text("SELECT 1"))
                 sync_manager.close_connections()
 
             st.success("✅ 数据库连接测试成功！")
@@ -383,13 +404,13 @@ def sync_databases_ui():
             # 提供更详细的错误信息
             error_msg = str(e)
             if "Access denied" in error_msg:
-                st.error(f"❌ 数据库连接测试失败: 用户名或密码错误\n\n详细信息: {error_msg}")
+                st.error(f"❌ 数据库连接测试失败：用户名或密码错误\n\n详细信息：{error_msg}")
             elif "Can't connect" in error_msg:
-                st.error(f"❌ 数据库连接测试失败: 无法连接到数据库服务器，请检查IP地址和端口\n\n详细信息: {error_msg}")
+                st.error(f"❌ 数据库连接测试失败：无法连接到数据库服务器，请检查 IP 地址和端口\n\n详细信息：{error_msg}")
             elif "Unknown database" in error_msg:
-                st.error(f"❌ 数据库连接测试失败: 数据库不存在\n\n详细信息: {error_msg}")
+                st.error(f"❌ 数据库连接测试失败：数据库不存在\n\n详细信息：{error_msg}")
             else:
-                st.error(f"❌ 数据库连接测试失败: {error_msg}")
+                st.error(f"❌ 数据库连接测试失败：{error_msg}")
 
     # 添加数据库连接安全验证
     if st.button("验证数据库权限"):
@@ -408,24 +429,26 @@ def sync_databases_ui():
                     'intelligent_farm_light_intensity'
                 ]
 
+                cloud_session = sync_manager.get_cloud_session()
+
                 for table in tables_to_check:
                     try:
-                        # 尝试执行SELECT和INSERT权限检查
-                        sync_manager.cloud_session.execute(text(f"SELECT COUNT(*) FROM {table} LIMIT 1"))
-                        # 修改INSERT语句，提供必要的字段和默认值
+                        # 尝试执行 SELECT 和 INSERT 权限检查
+                        cloud_session.execute(text(f"SELECT COUNT(*) FROM {table} LIMIT 1"))
+                        # 修改 INSERT 语句，提供必要的字段和默认值
                         if 'airtemperaturehumidity' in table:
-                            sync_manager.cloud_session.execute(text(
-                                f"INSERT INTO {table} (temperature, humidity, timestamp) VALUES (0.0, 0.0, NOW())"))
+                            cloud_session.execute(
+                                text(f"INSERT INTO {table} (temperature, humidity, timestamp) VALUES (0.0, 0.0, NOW())"))
                         elif 'soilmoisture' in table:
-                            sync_manager.cloud_session.execute(
+                            cloud_session.execute(
                                 text(f"INSERT INTO {table} (value, timestamp) VALUES (0.0, NOW())"))
                         elif 'soilnutrient' in table:
-                            sync_manager.cloud_session.execute(
+                            cloud_session.execute(
                                 text(f"INSERT INTO {table} (value, timestamp) VALUES (0.0, NOW())"))
                         elif 'light_intensity' in table:
-                            sync_manager.cloud_session.execute(
+                            cloud_session.execute(
                                 text(f"INSERT INTO {table} (value, timestamp) VALUES (0.0, NOW())"))
-                        sync_manager.cloud_session.rollback()  # 回滚避免实际插入
+                        cloud_session.rollback()  # 回滚避免实际插入
                         permissions.append(f"✅ {table}: 读写权限正常")
                     except Exception as e:
                         if "command denied" in str(e).lower() or "access denied" in str(e).lower():
