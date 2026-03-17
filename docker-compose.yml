@@ -12,6 +12,8 @@ services:
         condition: service_healthy
     environment:
       - DATABASE_URL=mysql+pymysql://root:0000@db:3306/intelligent_farm
+      - SECRET_KEY=031016
+      - DEBUG_MODE=true
     restart: unless-stopped
     networks:
       - smartfarm-network
