@@ -75,8 +75,9 @@ def sarima_validation_prediction(data, prediction_days, params, prophet_forecast
             final_sarima_weight = manual_sarima_weight
         else:
             # 基于性能自动调整权重
-            prophet_weight = 1 / (1 + sarima_rmse)  # Prophet RMSE越小权重越大
-            sarima_weight = 1 / (1 + sarima_rmse)  # SARIMA RMSE越小权重越大
+    # 需要同时计算两个模型的 RMSE
+            prophet_weight = 1 / (1 + prophet_rmse)  # ✅ Prophet RMSE 越小权重越大
+            sarima_weight = 1 / (1 + sarima_rmse)    # ✅ SARIMA RMSE 越小权重越大
             total_weight = prophet_weight + sarima_weight
             final_prophet_weight = prophet_weight / total_weight
             final_sarima_weight = sarima_weight / total_weight

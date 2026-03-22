@@ -1,7 +1,6 @@
 import plotly.express as px
 import streamlit as st
 
-from app import utils_analysis_module
 from utils.logger import log_operation
 
 

@@ -10,6 +10,8 @@ from sqlalchemy import text
 from models import AirTemperatureHumidity, SoilMoisture, LightIntensity, SoilNutrient
 
 
+import streamlit as st
+
 def get_latest_sensor_data(session):
     """
     获取所有传感器的最新数据
@@ -20,8 +22,19 @@ def get_latest_sensor_data(session):
     Returns:
         dict: 包含所有传感器最新数据的字典
     """
-    # 使用原生SQL查询一次性获取所有最新数据，提高查询效率
-    query = text("""
+    @st.cache_data(ttl=300)  # 缓存5分钟
+    def _get_latest_sensor_data_cached(_session):
+        """
+        内部缓存函数，用于获取所有传感器的最新数据
+        
+        Args:
+            session: 数据库会话对象
+            
+        Returns:
+            dict: 包含所有传感器最新数据的字典
+        """
+        # 使用原生SQL查询一次性获取所有最新数据，提高查询效率
+        query = text("""
                  SELECT (SELECT temperature
                          FROM intelligent_farm_airtemperaturehumidity
                          ORDER BY timestamp DESC LIMIT 1) as temperature, (
@@ -42,24 +55,26 @@ def get_latest_sensor_data(session):
                  ORDER BY timestamp DESC LIMIT 1) as light_intensity
                  """)
 
-    result = session.execute(query).fetchone()
+        result = session.execute(query).fetchone()
 
-    if result:
-        return {
-            'temperature': result.temperature if result.temperature is not None else 0,
-            'humidity': result.humidity if result.humidity is not None else 0,
-            'soil_moisture': result.soil_moisture if result.soil_moisture is not None else 0,
-            'soil_nutrient': result.soil_nutrient if result.soil_nutrient is not None else 0,
-            'light_intensity': result.light_intensity if result.light_intensity is not None else 0
-        }
-    else:
-        return {
-            'temperature': 0,
-            'humidity': 0,
-            'soil_moisture': 0,
-            'soil_nutrient': 0,
-            'light_intensity': 0
-        }
+        if result:
+            return {
+                'temperature': result.temperature if result.temperature is not None else 0,
+                'humidity': result.humidity if result.humidity is not None else 0,
+                'soil_moisture': result.soil_moisture if result.soil_moisture is not None else 0,
+                'soil_nutrient': result.soil_nutrient if result.soil_nutrient is not None else 0,
+                'light_intensity': result.light_intensity if result.light_intensity is not None else 0
+            }
+        else:
+            return {
+                'temperature': 0,
+                'humidity': 0,
+                'soil_moisture': 0,
+                'soil_nutrient': 0,
+                'light_intensity': 0
+            }
+
+    return _get_latest_sensor_data_cached(session)
 
 
 def get_historical_sensor_data(session, hours=24):
@@ -73,34 +88,48 @@ def get_historical_sensor_data(session, hours=24):
     Returns:
         dict: 包含各传感器历史数据的字典
     """
-    since = datetime.now() - timedelta(hours=hours)
+    @st.cache_data(ttl=600)  # 缓存10分钟
+    def _get_historical_sensor_data_cached(session, hours):
+        """
+        内部缓存函数，用于获取历史传感器数据
+        
+        Args:
+            session: 数据库会话对象
+            hours: 获取多少小时的历史数据
+            
+        Returns:
+            dict: 包含各传感器历史数据的字典
+        """
+        since = datetime.now() - timedelta(hours=hours)
 
-    # 获取历史空气温湿度数据
-    air_data = session.query(AirTemperatureHumidity).filter(
-        AirTemperatureHumidity.timestamp >= since
-    ).order_by(AirTemperatureHumidity.timestamp).all()
+        # 获取历史空气温湿度数据
+        air_data = session.query(AirTemperatureHumidity).filter(
+            AirTemperatureHumidity.timestamp >= since
+        ).order_by(AirTemperatureHumidity.timestamp).all()
 
-    # 获取历史土壤湿度数据
-    soil_moisture_data = session.query(SoilMoisture).filter(
-        SoilMoisture.timestamp >= since
-    ).order_by(SoilMoisture.timestamp).all()
+        # 获取历史土壤湿度数据
+        soil_moisture_data = session.query(SoilMoisture).filter(
+            SoilMoisture.timestamp >= since
+        ).order_by(SoilMoisture.timestamp).all()
 
-    # 获取历史土壤养分数据
-    soil_nutrient_data = session.query(SoilNutrient).filter(
-        SoilNutrient.timestamp >= since
-    ).order_by(SoilNutrient.timestamp).all()
+        # 获取历史土壤养分数据
+        soil_nutrient_data = session.query(SoilNutrient).filter(
+            SoilNutrient.timestamp >= since
+        ).order_by(SoilNutrient.timestamp).all()
 
-    # 获取历史光照强度数据
-    light_data = session.query(LightIntensity).filter(
-        LightIntensity.timestamp >= since
-    ).order_by(LightIntensity.timestamp).all()
+        # 获取历史光照强度数据
+        light_data = session.query(LightIntensity).filter(
+            LightIntensity.timestamp >= since
+        ).order_by(LightIntensity.timestamp).all()
 
-    return {
-        'air': [(d.timestamp, d.temperature, d.humidity) for d in air_data],
-        'soil_moisture': [(d.timestamp, d.value) for d in soil_moisture_data],
-        'soil_nutrient': [(d.timestamp, d.value) for d in soil_nutrient_data],
-        'light': [(d.timestamp, d.value) for d in light_data]
-    }
+        return {
+            'air': [(d.timestamp, d.temperature, d.humidity) for d in air_data],
+            'soil_moisture': [(d.timestamp, d.value) for d in soil_moisture_data],
+            'soil_nutrient': [(d.timestamp, d.value) for d in soil_nutrient_data],
+            'light': [(d.timestamp, d.value) for d in light_data]
+        }
+
+    return _get_historical_sensor_data_cached(session, hours)
 
 
 def get_last_day_data(session, model_class):
