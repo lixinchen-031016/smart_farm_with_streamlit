@@ -103,7 +103,7 @@ def user_management(session, username, role):
             if user:
                 session.delete(user)
                 session.commit()
-                log_operation(username, 'WARING', "删除用户", f"删除用户 {user.username}")
+                log_operation(username, 'WARNING', "删除用户", f"删除用户 {user.username}")
                 st.success("用户已删除")
             else:
                 st.error("用户不存在")
@@ -131,7 +131,7 @@ def user_management(session, username, role):
                 hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
                 user.password = hashed_password.decode('utf-8')
                 session.commit()
-                log_operation(username, 'WARING', "修改用户密码",
+                log_operation(username, 'WARNING', "修改用户密码",
                               f"修改用户 {user.username} 的密码")
                 st.success("密码修改成功")
         else:
