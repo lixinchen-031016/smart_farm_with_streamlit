@@ -4,10 +4,12 @@
 """
 
 import json
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
+from typing import Dict, Tuple, Any
+
+import numpy as np
+import pandas as pd
+
 from utils.anomaly_detection import (
     detect_outliers_iqr,
     detect_outliers_zscore,

@@ -5,22 +5,20 @@ Provides a unified view with real-time monitoring and analytical capabilities.
 
 from datetime import datetime, timedelta
 
-import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import psutil
 import streamlit as st
 
 from models import AirTemperatureHumidity, SoilMoisture, SoilNutrient, LightIntensity
+from utils.anomaly_detection import detect_anomalies
 from utils.data_preview import (
     fetch_last_day_data,
-    create_line_chart,
     render_metric_card,
     fetch_latest_data
 )
 from utils.database import get_session
 from utils.logger import log_operation
-from utils.anomaly_detection import detect_anomalies
 from utils.predictions import perform_prediction
 
 

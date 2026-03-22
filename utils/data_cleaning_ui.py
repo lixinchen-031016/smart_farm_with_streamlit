@@ -1,12 +1,12 @@
 import base64
 import io
+import json
 
 import numpy as np
+import pandas as pd
 import streamlit as st
-import pandas as  pd
-import json
+
 from utils.logger import log_operation
-from utils.data_cleaning import DataCleaner
 
 
 def data_cleaning():

@@ -1,7 +1,6 @@
-from datetime import datetime, timedelta
 import re
-import time
 from collections import Counter, defaultdict
+from datetime import datetime, timedelta
 
 import pandas as pd
 import plotly.express as px

@@ -1,9 +1,10 @@
+from typing import List, Dict, Tuple
+
+import numpy as np
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.colors import n_colors
-import pandas as pd
-import numpy as np
-from typing import List, Optional, Dict, Tuple
 
 
 def create_scatter_plot(data, x_column, y_column, color_column=None, size_column=None, 

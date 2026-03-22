@@ -11,16 +11,14 @@ import jwt
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from sqlalchemy.orm import sessionmaker
 
-from utils.database import engine  # 导入数据库连接
-from utils.ui_styles import render_login_styles, render_register_styles  # 导入公共 CSS 样式
 from utils.captcha_utils import (  # 导入验证码工具
     generate_captcha,
-    initialize_captcha_session,
     refresh_captcha,
     verify_captcha,
-    create_captcha_widget,
-    validate_captcha_input
+    create_captcha_widget
 )
+from utils.database import engine  # 导入数据库连接
+from utils.ui_styles import render_login_styles, render_register_styles  # 导入公共 CSS 样式
 
 Session = sessionmaker(bind=engine)
 session = Session()

@@ -1,11 +1,12 @@
 import json
+
 import numpy as np
-import streamlit as st
+import pandas as pd
 import plotly
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
-import pandas as pd
+import streamlit as st
 
 from utils.enhanced_visualization import create_smart_chart_recommendation, create_dual_axis_chart, \
     create_multi_subplot_chart
