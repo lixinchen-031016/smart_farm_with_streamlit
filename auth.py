@@ -12,6 +12,15 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from sqlalchemy.orm import sessionmaker
 
 from utils.database import engine  # 导入数据库连接
+from utils.ui_styles import render_login_styles, render_register_styles  # 导入公共 CSS 样式
+from utils.captcha_utils import (  # 导入验证码工具
+    generate_captcha,
+    initialize_captcha_session,
+    refresh_captcha,
+    verify_captcha,
+    create_captcha_widget,
+    validate_captcha_input
+)
 
 Session = sessionmaker(bind=engine)
 session = Session()
@@ -223,136 +232,8 @@ def generate_captcha():
 
 
 def login(session, st):
-    # 统一登录和注册页面的样式设计
-    st.markdown("""
-    <style>
-    .auth-container {
-        max-width: 500px;
-        margin: 2rem auto;
-        padding: 2.5rem;
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 20px;
-        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.18);
-    }
-    .stTextInput>div>div>input {
-        border-radius: 8px !important;
-        padding: 12px !important;
-        border: 1px solid #ddd !important;
-    }
-    .stButton>button {
-        width: 100%;
-        border-radius: 8px !important;
-        padding: 12px !important;
-        background: linear-gradient(135deg, #4CAF50 30%, #8BC34A 70%) !important;
-        transition: all 0.3s ease !important;
-        border: none !important;
-        color: white !important;
-        font-weight: bold !important;
-    }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 6px rgba(76, 175, 80, 0.4) !important;
-    }
-    .captcha-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 15px;
-        margin: 20px 0;
-        padding: 15px;
-        background: #f9f9f9;
-        border-radius: 10px;
-        border: 1px dashed #4CAF50;
-    }
-    .captcha-header {
-        font-weight: 500;
-        color: #333;
-        margin: 0;
-    }
-    .captcha-content {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-    }
-    .captcha-image {
-        border: 2px solid #4CAF50;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        transition: transform 0.3s ease;
-    }
-    .captcha-image:hover {
-        transform: scale(1.05);
-    }
-    .refresh-captcha {
-        cursor: pointer;
-        background: linear-gradient(135deg, #2196F3, #21CBF3);
-        border: none;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 18px;
-        box-shadow: 0 2px 5px rgba(33, 150, 243, 0.4);
-        transition: all 0.3s ease;
-    }
-    .refresh-captcha:hover {
-        transform: rotate(90deg);
-        box-shadow: 0 4px 8px rgba(33, 150, 243, 0.6);
-    }
-    .auth-header {
-        text-align: center; 
-        color: #2E7D32; 
-        margin-bottom: 2rem;
-    }
-    .auth-footer {
-        text-align: center; 
-        margin-top: 2rem; 
-        color: #666;
-    }
-    .auth-link-button {
-        background: none !important;
-        border: none !important;
-        color: #4CAF50 !important;
-        cursor: pointer !important;
-        text-decoration: underline !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        font-size: inherit !important;
-    }
-    .auth-link-button:hover {
-        color: #388E3C !important;
-        transform: none !important;
-        box-shadow: none !important;
-    }
-    .form-divider {
-        text-align: center;
-        margin: 20px 0;
-        position: relative;
-        color: #777;
-    }
-    .form-divider::before {
-        content: "";
-        position: absolute;
-        top: 50%;
-        left: 0;
-        right: 0;
-        height: 1px;
-        background: #ddd;
-        z-index: 1;
-    }
-    .form-divider span {
-        background: white;
-        position: relative;
-        z-index: 2;
-        padding: 0 15px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    # 使用公共 CSS 样式模块 (TD-001 优化)
+    render_login_styles()
 
     with st.container():
         col1, col2, col3 = st.columns([1, 3, 1])
@@ -368,33 +249,10 @@ def login(session, st):
             username = st.text_input("👤 用户名", key="login_username")
             password = st.text_input("🔒 密码", type="password", key="login_password")
 
-            # 添加验证码功能
-            if 'login_captcha' not in st.session_state or 'login_captcha_image' not in st.session_state:
-                captcha_text, captcha_image = generate_captcha()
-                st.session_state['login_captcha'] = captcha_text
-                st.session_state['login_captcha_image'] = captcha_image
-
-            # 显示验证码
+            # 使用验证码工具模块 (TD-002 优化)
             st.markdown('<p class="captcha-header">🔐 安全验证</p>', unsafe_allow_html=True)
-            st.markdown('<div class="captcha-content">', unsafe_allow_html=True)
-
-            # 创建两列布局，将验证码图片和刷新按钮放在同一行
-            col_captcha_img, col_refresh_btn = st.columns([4, 1])
-            with col_captcha_img:
-                st.markdown(
-                    f'<img class="captcha-image" src="data:image/png;base64,{st.session_state["login_captcha_image"]}" width="200" height="80">',
-                    unsafe_allow_html=True)
-            with col_refresh_btn:
-                # 刷新验证码按钮
-                if st.button("↻", key="refresh_login_captcha", help="点击刷新验证码", type="secondary"):
-                    captcha_text, captcha_image = generate_captcha()
-                    st.session_state['login_captcha'] = captcha_text
-                    st.session_state['login_captcha_image'] = captcha_image
-                    st.rerun()
-
-            st.markdown('</div>', unsafe_allow_html=True)
+            create_captcha_widget('login_captcha', show_refresh_button=True)
             captcha_input = st.text_input("🔢 请输入验证码", key="login_captcha_input", max_chars=4)
-            st.markdown('</div>', unsafe_allow_html=True)
 
             if st.button("🚪 登录", type="primary"):
                 # 检查登录尝试次数
@@ -476,186 +334,8 @@ def login(session, st):
 
 
 def register(session, st):
-    # 统一注册页面样式设计（与登录页面保持一致）
-    st.markdown("""
-    <style>
-    .auth-container {
-        max-width: 500px;
-        margin: 2rem auto;
-        padding: 2.5rem;
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 20px;
-        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.18);
-    }
-    .stTextInput>div>div>input {
-        border-radius: 8px !important;
-        padding: 12px !important;
-        border: 1px solid #ddd !important;
-    }
-    .stButton>button {
-        width: 100%;
-        border-radius: 8px !important;
-        padding: 12px !important;
-        background: linear-gradient(135deg, #4CAF50 30%, #8BC34A 70%) !important;
-        transition: all 0.3s ease !important;
-        border: none !important;
-        color: white !important;
-        font-weight: bold !important;
-    }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 6px rgba(76, 175, 80, 0.4) !important;
-    }
-    .captcha-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 15px;
-        margin: 20px 0;
-        padding: 15px;
-        background: #f9f9f9;
-        border-radius: 10px;
-        border: 1px dashed #4CAF50;
-    }
-    .captcha-header {
-        font-weight: 500;
-        color: #333;
-        margin: 0;
-    }
-    .captcha-content {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-    }
-    .captcha-image {
-        border: 2px solid #4CAF50;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        transition: transform 0.3s ease;
-    }
-    .captcha-image:hover {
-        transform: scale(1.05);
-    }
-    .refresh-captcha {
-        cursor: pointer;
-        background: linear-gradient(135deg, #2196F3, #21CBF3);
-        border: none;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 18px;
-        box-shadow: 0 2px 5px rgba(33, 150, 243, 0.4);
-        transition: all 0.3s ease;
-    }
-    .refresh-captcha:hover {
-        transform: rotate(90deg);
-        box-shadow: 0 4px 8px rgba(33, 150, 243, 0.6);
-    }
-    .auth-header {
-        text-align: center; 
-        color: #2E7D32; 
-        margin-bottom: 2rem;
-    }
-    .auth-footer {
-        text-align: center; 
-        margin-top: 2rem; 
-        color: #666;
-    }
-    .auth-link-button {
-        background: none !important;
-        border: none !important;
-        color: #4CAF50 !important;
-        cursor: pointer !important;
-        text-decoration: underline !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        font-size: inherit !important;
-    }
-    .auth-link-button:hover {
-        color: #388E3C !important;
-        transform: none !important;
-        box-shadow: none !important;
-    }
-    .form-divider {
-        text-align: center;
-        margin: 20px 0;
-        position: relative;
-        color: #777;
-    }
-    .form-divider::before {
-        content: "";
-        position: absolute;
-        top: 50%;
-        left: 0;
-        right: 0;
-        height: 1px;
-        background: #ddd;
-        z-index: 1;
-    }
-    .form-divider span {
-        background: white;
-        position: relative;
-        z-index: 2;
-        padding: 0 15px;
-    }
-    /* 密码强度指示条样式 */
-    .password-strength-container {
-        margin: 10px 0 20px 0;
-        padding: 15px;
-        border-radius: 10px;
-        background: #f8f9fa;
-        border: 1px solid #e9ecef;
-    }
-    .strength-meter {
-        height: 12px;
-        border-radius: 6px;
-        background: #e9ecef;
-        overflow: hidden;
-        margin-bottom: 12px;
-        position: relative;
-    }
-    .strength-fill {
-        height: 100%;
-        border-radius: 6px;
-        transition: all 0.3s ease;
-        width: 0%;
-    }
-    .strength-low { background: #dc3545; width: 33%; }
-    .strength-medium { background: #ffc107; width: 66%; }
-    .strength-high { background: #28a745; width: 100%; }
-    .strength-label {
-        font-size: 14px;
-        font-weight: 500;
-        margin-bottom: 8px;
-        text-align: center;
-    }
-    .strength-low-text { color: #dc3545; }
-    .strength-medium-text { color: #ffc107; }
-    .strength-high-text { color: #28a745; }
-    .feedback-list {
-        font-size: 12px;
-        line-height: 1.4;
-        color: #666;
-    }
-    .feedback-item {
-        margin: 3px 0;
-        padding-left: 15px;
-        position: relative;
-    }
-    .feedback-item::before {
-        content: "•";
-        position: absolute;
-        left: 0;
-        color: #666;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    # 使用公共 CSS 样式模块 (TD-001 优化)
+    render_register_styles()
 
     with st.container():
         col1, col2, col3 = st.columns([1, 3, 1])
@@ -696,43 +376,17 @@ def register(session, st):
             # 添加身份选择
             user_type = st.radio("身份类型", ["👨🌾 普通用户", "👨💼 管理员"], horizontal=True)
 
-            # 添加验证码功能
-            if 'register_captcha' not in st.session_state or 'register_captcha_image' not in st.session_state:
-                captcha_text, captcha_image = generate_captcha()
-                st.session_state['register_captcha'] = captcha_text
-                st.session_state['register_captcha_image'] = captcha_image
-
-            # 显示验证码
+            # 使用验证码工具模块 (TD-002 优化)
             st.markdown('<p class="captcha-header">🔐 安全验证</p>', unsafe_allow_html=True)
-            st.markdown('<div class="captcha-content">', unsafe_allow_html=True)
-
-            # 创建两列布局，将验证码图片和刷新按钮放在同一行
-            col_captcha_img, col_refresh_btn = st.columns([4, 1])
-            with col_captcha_img:
-                st.markdown(
-                    f'<img class="captcha-image" src="data:image/png;base64,{st.session_state["register_captcha_image"]}" width="200" height="80">',
-                    unsafe_allow_html=True)
-            with col_refresh_btn:
-                # 刷新验证码按钮
-                if st.button("↻", key="refresh_register_captcha", help="点击刷新验证码", type="secondary"):
-                    captcha_text, captcha_image = generate_captcha()
-                    st.session_state['register_captcha'] = captcha_text
-                    st.session_state['register_captcha_image'] = captcha_image
-                    st.rerun()
-
-            st.markdown('</div>', unsafe_allow_html=True)
+            create_captcha_widget('register_captcha', show_refresh_button=True)
             captcha_input = st.text_input("🔢 请输入验证码", key="register_captcha_input", max_chars=4)
-            st.markdown('</div>', unsafe_allow_html=True)
 
             if st.button("📝 立即注册", type="primary"):
-                # 验证验证码
-                if captcha_input != st.session_state['register_captcha']:
+                # 验证验证码 (TD-002 优化)
+                if not verify_captcha(captcha_input, 'register_captcha'):
                     st.error("验证码错误")
                     log_operation(username, "ERROR", "注册失败", "验证码错误")
-                    # 刷新验证码
-                    captcha_text, captcha_image = generate_captcha()
-                    st.session_state['register_captcha'] = captcha_text
-                    st.session_state['register_captcha_image'] = captcha_image
+                    refresh_captcha('register_captcha')  # 自动刷新验证码
                 elif password != confirm_password:
                     st.error("密码不一致")
                 else:

@@ -51,9 +51,12 @@ def sarima_validation_prediction(data, prediction_days, params, prophet_forecast
         # 计算拟合效果
         fitted = model_fit.fittedvalues
         sarima_rmse = np.sqrt(np.mean((df['value'] - fitted) ** 2))
-
-        # 获取Prophet预测值
+        
+        # 获取 Prophet 预测值并计算其 RMSE
         prophet_values = prophet_forecast['value'].values
+        # 计算 Prophet 的历史数据拟合 RMSE（需要获取 Prophet 的历史拟合值）
+        prophet_history_fit = prophet_forecast[:len(df)]['value'].values if len(prophet_forecast) >= len(df) else prophet_forecast['value'].values
+        prophet_rmse = np.sqrt(np.mean((df['value'].values[:len(prophet_history_fit)] - prophet_history_fit) ** 2))
         sarima_values = sarima_forecast.values
 
         # 长度验证 - 确保两个数组长度一致
@@ -72,8 +75,9 @@ def sarima_validation_prediction(data, prediction_days, params, prophet_forecast
             final_sarima_weight = manual_sarima_weight
         else:
             # 基于性能自动调整权重
-            prophet_weight = 1 / (1 + sarima_rmse)  # SARIMA RMSE越小权重越大
-            sarima_weight = 1 / (1 + sarima_rmse)  # 这里应该使用Prophet的RMSE
+            # 基于性能自动调整权重
+            prophet_weight = 1 / (1 + prophet_rmse)  # Prophet RMSE越小权重越大
+            sarima_weight = 1 / (1 + sarima_rmse)  # SARIMA RMSE越小权重越大
             total_weight = prophet_weight + sarima_weight
             final_prophet_weight = prophet_weight / total_weight
             final_sarima_weight = sarima_weight / total_weight
