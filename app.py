@@ -7,6 +7,20 @@ import jwt
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+
+# 配置页面，隐藏默认顶栏
+st.set_page_config(
+    page_title="智能农场管理系统",
+    page_icon="🌱",
+    layout="wide",
+    initial_sidebar_state="auto",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': None
+    }
+)
+
 from streamlit_extras.metric_cards import style_metric_cards
 from streamlit_option_menu import option_menu
 
@@ -521,12 +535,26 @@ def main():
         st.session_state.clear()
         st.rerun()
 
+    # 初始化路由状态
+    if 'menu_selection' not in st.session_state:
+        st.session_state.menu_selection = "综合监控仪表板"
+
     # 修改: 使用新API获取页面参数
     page = st.query_params.get("page", "login")
 
     # 优化登录态处理逻辑
     if page in ["login", "register"] and st.session_state['logged_in']:
-        st.query_params.page = "integrated_dashboard"
+        # 保持用户之前的页面状态
+        if 'previous_page' in st.session_state:
+            st.query_params.page = st.session_state['previous_page']
+        else:
+            st.query_params.page = "integrated_dashboard"
+        st.rerun()
+
+    # 未登录用户访问受限页面时重定向到登录页
+    if not st.session_state['logged_in'] and page not in ["login", "register"]:
+        st.session_state['previous_page'] = page  # 保存用户想要访问的页面
+        st.query_params.page = "login"
         st.rerun()
 
     # 新增：统一路由处理逻辑
@@ -539,6 +567,9 @@ def main():
             safe_execute(show_module_config_ui, st.session_state['username'], True)
         else:
             st.error("仅管理员可以访问模块配置管理")
+            # 重定向到综合仪表板
+            st.query_params.page = "integrated_dashboard"
+            st.rerun()
     elif page == "dashboard":
         from utils.dashboard import show_dashboard
         safe_execute(show_dashboard)
@@ -571,8 +602,7 @@ def main():
                 if st.session_state.get('role') == 'admin':
                     if st.button("🔧 模块配置管理"):
                         # 保存当前页面作为返回页面
-                        if 'page' in st.query_params:
-                            st.session_state['previous_page'] = st.query_params['page']
+                        st.session_state['previous_page'] = page
                         st.query_params.page = "module_config"
                         st.rerun()
 
@@ -593,10 +623,14 @@ def main():
                 "log_viewer": "日志查看",
                 "use_instruction": "使用说明",
                 "automated_decision": "自动化决策",
-                "debug_info": "调试信息",  # 添加调试信息页面映射
-                "module_config": "模块配置管理"  # 添加模块配置管理页面映射
+                "debug_info": "调试信息",
+                "module_config": "模块配置管理",
+                "integrated_dashboard": "综合监控仪表板",
+                "ai_insights_analysis": "AI洞察分析"
             }
-            selected = page_to_menu_mapping.get(page, "控制面板")
+            
+            # 根据当前page获取对应的菜单项
+            selected = page_to_menu_mapping.get(page, "综合监控仪表板")
 
             # 使用模块管理系统获取启用的模块
             enabled_modules = get_enabled_modules_for_sidebar(st.session_state.get('role') == 'admin')
@@ -613,13 +647,29 @@ def main():
             analysis_insert_index = next((i for i, module in enumerate(enabled_modules) if module[0] == "数据分析"), 3)
             enabled_modules.insert(analysis_insert_index + 1, ai_insights_option)
 
-            menu_options = [module[0] for module in enabled_modules]
-            menu_icons = [module[1] for module in enabled_modules]
+            # 根据用户角色过滤菜单项
+            menu_options = []
+            menu_icons = []
+            for module in enabled_modules:
+                # 管理员可以看到所有菜单项
+                if st.session_state.get('role') == 'admin':
+                    menu_options.append(module[0])
+                    menu_icons.append(module[1])
+                # 普通用户只能看到部分菜单项
+                else:
+                    # 过滤掉管理员专属功能
+                    restricted_modules = ["用户管理", "系统监控", "数据备份", "数据恢复", "模块配置管理"]
+                    if module[0] not in restricted_modules:
+                        menu_options.append(module[0])
+                        menu_icons.append(module[1])
 
             # 确保当前选中的页面在菜单选项中
             if selected not in menu_options:
-                selected = menu_options[0] if menu_options else "数据概览"
+                selected = menu_options[0] if menu_options else "综合监控仪表板"
 
+            # 显示选项菜单
+            # 这里不使用session state来设置默认值，而是直接使用从page映射来的selected
+            # 这样可以确保菜单与当前URL保持同步
             selected = option_menu(
                 menu_title="📚 功能菜单",
                 options=menu_options,
@@ -632,44 +682,91 @@ def main():
                     "nav-link-selected": {"background-color": "#4CAF50", "font-weight": "normal"},
                 }
             )
+            
+            # 菜单到页面的映射
+            menu_to_page_mapping = {
+                "综合监控仪表板": "integrated_dashboard",
+                "数据概览": "data_overview",
+                "数据清洗": "data_cleaning",
+                "数据分析": "data_analysis",
+                "可视化": "data_visualization",
+                "高级分析": "advanced_analysis",
+                "本地数据预测": "data_prediction",
+                "AI洞察分析": "ai_insights_analysis",
+                "用户管理": "user_management",
+                "系统监控": "system_monitoring",
+                "日志查看": "log_viewer",
+                "数据备份": "data_backup",
+                "数据恢复": "data_restore",
+                "数据库同步": "sync_databases",
+                "自动化决策": "automated_decision",
+                "调试信息": "debug_info",
+                "使用说明": "use_instruction",
+                "模块配置管理": "module_config"
+            }
+            
+            # 当菜单选择发生变化时更新URL
+            # 直接比较选中的菜单项和当前URL中的页面参数
+            # 这样可以确保菜单点击时能够正确更新URL
+            if selected in menu_to_page_mapping:
+                new_page = menu_to_page_mapping[selected]
+                # 只有当页面发生变化时才更新URL并重新运行
+                if new_page != page:
+                    # 更新URL参数
+                    st.query_params.page = new_page
+                    # 强制重新运行以确保路由生效
+                    st.rerun()
+
         from utils.integrated_dashboard import show_integrated_dashboard
         # 统一路由映射
         route_mapping = {
-            "综合监控仪表板": show_integrated_dashboard,
-            "数据概览": data_overview,
-            "数据清洗": data_cleaning,
-            "数据分析": data_analysis,
-            "可视化": data_visualization,
-            "高级分析": advanced_analysis,
-            "本地数据预测": data_prediction,
-            "AI洞察分析": ai_insights_analysis,
-
-            "用户管理": lambda: safe_execute(user_management, session, st.session_state['username'], st.session_state['role']),
-            "系统监控": system_monitoring,
-            "日志查看": show_log_viewer,
-            "数据备份": data_backup,
-            "数据恢复": data_restore,
-            "数据库同步": sync_databases_ui,
-            "自动化决策": lambda: safe_execute(show_decision_engine, session, st.session_state['username']),
-            "调试信息": lambda: safe_execute(show_debug_info, st.session_state['username']),  # 添加调试信息路由
-            "使用说明": show_instructions,
-            "模块配置管理": lambda: safe_execute(show_module_config_ui, st.session_state['username'],
+            "integrated_dashboard": show_integrated_dashboard,
+            "data_overview": data_overview,
+            "data_cleaning": data_cleaning,
+            "data_analysis": data_analysis,
+            "data_visualization": data_visualization,
+            "advanced_analysis": advanced_analysis,
+            "data_prediction": data_prediction,
+            "ai_insights_analysis": ai_insights_analysis,
+            "user_management": lambda: safe_execute(user_management, session, st.session_state['username'], st.session_state['role']),
+            "system_monitoring": system_monitoring,
+            "log_viewer": show_log_viewer,
+            "data_backup": data_backup,
+            "data_restore": data_restore,
+            "sync_databases": sync_databases_ui,
+            "automated_decision": lambda: safe_execute(show_decision_engine, session, st.session_state['username']),
+            "debug_info": lambda: safe_execute(show_debug_info, st.session_state['username']),
+            "use_instruction": show_instructions,
+            "module_config": lambda: safe_execute(show_module_config_ui, st.session_state['username'],
                                                           st.session_state.get('role') == 'admin')
         }
 
         # 执行路由跳转
-        if selected in route_mapping:
-            route_mapping[selected]()
+        if page in route_mapping:
+            route_mapping[page]()
         else:
             # 默认显示综合监控仪表板
-            from utils.integrated_dashboard import show_integrated_dashboard
-            safe_execute(show_integrated_dashboard)
+            st.query_params.page = "integrated_dashboard"
+            st.rerun()
 
 
 def initialize_app():
     """
     初始化应用，预加载关键模块
     """
+    # 获取当前页面参数
+    page = st.query_params.get("page", "login")
+    
+    # 检查是否已经登录或在注册页面，如果是则不进行重定向
+    if st.session_state.get('logged_in') or page == "register":
+        pass  # 已登录或在注册页面，不进行重定向
+    else:
+        # 自动重定向功能：确保未登录用户访问都重定向到登录页面
+        # 检查是否已经在登录页面
+        if 'page' not in st.query_params or st.query_params['page'] != 'login':
+            # 重定向到登录页面
+            st.query_params.page = "login"
+            st.rerun()
     # 这里可以添加任何需要在应用启动时执行的初始化代码
     pass
 

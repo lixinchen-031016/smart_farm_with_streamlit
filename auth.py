@@ -289,6 +289,8 @@ def login(session, st):
                         st.session_state['username'] = username
                         st.session_state['role'] = user.role
                         st.session_state['just_logged_in'] = True  # 标记刚登录
+                        # 初始化菜单选择状态
+                        st.session_state.menu_selection = "综合监控仪表板"
                         user.last_login_time = datetime.now()
                         session.commit()
                         reset_login_attempts(username)  # 重置登录尝试记录
