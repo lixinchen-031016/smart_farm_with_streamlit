@@ -6,10 +6,10 @@ import streamlit as st
 
 
 class OllamaChat:
-    def __init__(self, model_name="qwen3:4b"):
+    def __init__(self, model_name="qwen3.5:4b"):
         """
         初始化Ollama聊天类
-        :param model_name: 要使用的模型名称，默认为qwen3:4b
+        :param model_name: 要使用的模型名称，默认为qwen3.5:4b
         """
         self.model_name = model_name
         self.chat_history = []
@@ -117,8 +117,13 @@ class OllamaChat:
             st.error(error_msg)
             return error_msg
 
-    def send_message_stream(self, message, on_chunk_callback=None):
-        """发送消息并以流式方式获取响应"""
+    def send_message_stream(self, message, on_chunk_callback=None, on_think_callback=None):
+        """
+        发送消息并以流式方式获取响应
+        :param message: 用户消息
+        :param on_chunk_callback: 最终回答的回调函数
+        :param on_think_callback: 思考过程的回调函数（如果有）
+        """
         try:
             # 添加用户消息到历史记录
             self.chat_history.append({
@@ -126,12 +131,16 @@ class OllamaChat:
                 'content': message,
                 'timestamp': datetime.now().isoformat()
             })
-
+    
             # 准备请求数据
             messages = [{'role': msg['role'], 'content': msg['content']} for msg in self.chat_history]
-
-            # 调用Ollama流式API
+    
+            # 调用 Ollama 流式 API
             full_response = ""
+            thinking_content = ""
+            is_thinking = False
+            has_started_output = False
+                
             for chunk in ollama.chat(
                     model=self.model_name,
                     messages=messages,
@@ -143,23 +152,49 @@ class OllamaChat:
             ):
                 if 'message' in chunk and 'content' in chunk['message']:
                     chunk_content = chunk['message']['content']
-                    full_response += chunk_content
-
-                    # 如果提供了回调函数，则调用它
-                    if on_chunk_callback:
-                        on_chunk_callback(chunk_content)
-
-            # 添加AI回复到历史记录
+                        
+                    # 检测思考过程（qwen3.5 等模型使用<think>标签）
+                    if '<think>' in chunk_content and not is_thinking:
+                        is_thinking = True
+                        # 提取<think>标签后的思考内容
+                        think_start = chunk_content.split('<think>', 1)[1]
+                        if think_start.strip():
+                            thinking_content += think_start
+                            if on_think_callback:
+                                on_think_callback(think_start)
+                    elif '</think>' in chunk_content and is_thinking:
+                        # 思考结束
+                        think_end = chunk_content.split('</think>', 1)[0]
+                        if think_end.strip():
+                            thinking_content += think_end
+                            if on_think_callback:
+                                on_think_callback(think_end)
+                        is_thinking = False
+                        has_started_output = True
+                    elif is_thinking:
+                        # 正在思考中
+                        thinking_content += chunk_content
+                        if on_think_callback:
+                            on_think_callback(chunk_content)
+                    else:
+                        # 正常输出
+                        has_started_output = True
+                        full_response += chunk_content
+                        # 如果提供了回调函数，则调用它
+                        if on_chunk_callback:
+                            on_chunk_callback(chunk_content)
+    
+            # 添加 AI 回复到历史记录
             self.chat_history.append({
                 'role': 'assistant',
                 'content': full_response,
                 'timestamp': datetime.now().isoformat()
             })
-
+    
             return full_response
-
+    
         except Exception as e:
-            error_msg = f"发生错误: {str(e)}"
+            error_msg = f"发生错误：{str(e)}"
             st.error(error_msg)
             return error_msg
 
@@ -175,11 +210,11 @@ class OllamaChat:
 def main():
     """主界面函数"""
     st.title("🤖 本地大模型聊天系统 (基于Ollama)")
-    st.caption("使用 qwen3:4b 模型进行对话")
+    st.caption("使用 qwen3.5:4b 模型进行对话")
 
     # 初始化聊天实例
     if 'ollama_chat' not in st.session_state:
-        st.session_state.ollama_chat = OllamaChat("qwen3:4b")
+        st.session_state.ollama_chat = OllamaChat("qwen3.5:4b")
 
     chat = st.session_state.ollama_chat
 

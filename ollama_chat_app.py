@@ -61,7 +61,7 @@ def main():
         st.markdown("""
         <div class="sidebar-info">
         <h4>ℹ️ 关于本系统</h4>
-        <p>这是一个基于本地大语言模型的聊天系统，使用 Ollama 和 qwen3:4b 模型。</p>
+        <p>这是一个基于本地大语言模型的聊天系统，使用 Ollama 和 qwen3.5:4b 模型。</p>
         <ul>
         <li>✅ 本地运行，隐私安全</li>
         <li>🤖 支持多种大语言模型</li>
@@ -77,7 +77,7 @@ def main():
         # 模型选择
         model_choice = st.selectbox(
             "选择模型:",
-            ["qwen3:4b", "llama3:8b", "mistral:7b", "gemma:7b"],
+            ["qwen3.5:4b", "llama3:8b", "mistral:7b", "gemma:7b"],
             index=0
         )
 
@@ -100,7 +100,7 @@ def main():
     st.markdown('<div class="main-header">🤖 本地大模型聊天系统</div>', unsafe_allow_html=True)
 
     # 显示当前模型信息
-    st.info(f"**当前模型:** {st.session_state.get('selected_model', 'qwen3:4b')} | "
+    st.info(f"**当前模型:** {st.session_state.get('selected_model', 'qwen3.5:4b')} | "
             f"**温度:** {st.session_state.get('temperature', 0.7)}")
 
     # 运行Ollama聊天主界面

@@ -1,140 +1,279 @@
 import numpy as np
 import pandas as pd
 import streamlit as st
+import os
+from datetime import datetime
 
 from .analysis import describe_data, calculate_correlation
 from .ollama_chat import OllamaChat
 
 
 class AIInsightsAnalyzer:
-    def __init__(self, model_name="qwen3:4b"):
+    def __init__(self, model_name="qwen3.5:4b"):
         """
         初始化AI洞察分析器
-        :param model_name: 要使用的模型名称，默认为qwen3:4b
+        :param model_name: 要使用的模型名称，默认为qwen3.5:4b
         """
         self.chat = OllamaChat(model_name)
         self.model_name = model_name
 
-    def analyze_data_insights_stream(self, data, data_description=None, on_chunk_callback=None):
+    def save_ai_insights_to_md(self, ai_insights, data_summary, data_description=None):
         """
-        分析数据洞察并使用AI进行智能解读（流式输出）
+        将 AI 洞察分析结果保存为 markdown 文件
+        :param ai_insights: AI 生成的分析结果
+        :param data_summary: 数据摘要信息
+        :param data_description: 数据背景描述
+        :return: 保存的文件路径
+        """
+        # 创建保存目录（如果不存在）
+        save_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ai_insights_exports')
+        os.makedirs(save_dir, exist_ok=True)
+        
+        # 生成文件名（使用时间戳）
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"AI_Insights_{timestamp}.md"
+        filepath = os.path.join(save_dir, filename)
+        
+        # 构建 markdown 内容
+        md_content = f"""# 🤖 AI 农业数据分析洞察报告
+
+**生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+---
+
+## 📋 数据基本信息
+
+- **数据形状**: {data_summary.get('shape', 'N/A')}
+- **列名**: {', '.join(data_summary.get('columns', []))}
+- **数值型列**: {', '.join(data_summary.get('numeric_columns', []))}
+- **日期型列**: {', '.join(data_summary.get('date_columns', []))}
+
+"""
+        
+        if data_description:
+            md_content += f"""## 📝 数据背景描述
+
+{data_description}
+
+---
+
+"""
+        
+        md_content += f"""## 🧠 AI 智能分析结果
+
+{ai_insights}
+
+---
+
+## 💡 说明
+
+本报告由 AI 大模型（{self.model_name}）自动生成，基于提供的数据进行智能分析和解读。
+建议结合实际情况和专业农艺知识进行参考使用.
+"""
+        
+        # 写入文件
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(md_content)
+        
+        return filepath
+
+    def analyze_data_insights_stream(self, data, data_description=None, on_chunk_callback=None, on_think_callback=None):
+        """
+        分析数据洞察并使用 AI 进行智能解读（流式输出）
+        直接将原始数据传递给 AI，由 AI 自行分析
         """
         try:
-            # 获取基本统计信息
-            desc_stats = describe_data(data)
-            correlation_matrix = calculate_correlation(data)
-
-            # 准备数据摘要
+            # 准备数据摘要 - 包含所有列信息，特别是时间列
+            date_columns = list(data.select_dtypes(include=['datetime64']).columns)
+            
+            # 查找可能的日期字符串列（对象类型但包含日期格式）
+            for col in data.select_dtypes(include=['object']).columns:
+                try:
+                    # 尝试转换为 datetime，如果成功则是日期列
+                    pd.to_datetime(data[col].dropna().head(10))
+                    if col not in date_columns:
+                        date_columns.append(col)
+                except:
+                    continue
+            
+            # 构建完整的数据摘要信息
             data_summary = {
                 "shape": data.shape,
                 "columns": list(data.columns),
                 "numeric_columns": list(data.select_dtypes(include=[np.number]).columns),
-                "date_columns": list(data.select_dtypes(include=['datetime64']).columns),
-                "desc_stats": desc_stats.to_dict() if desc_stats is not None else {},
-                "correlation_matrix": correlation_matrix.to_dict() if correlation_matrix is not None else {}
+                "date_columns": date_columns,
+                "all_columns_types": {col: str(dtype) for col, dtype in data.dtypes.items()},
+                "data_preview": data.head(10).to_dict(),  # 前 10 行数据预览
+                "data_tail": data.tail(5).to_dict()  # 最后 5 行数据预览
             }
+            
+            # 只对数值列计算统计信息
+            numeric_data = data.select_dtypes(include=[np.number])
+            if not numeric_data.empty:
+                desc_stats = describe_data(numeric_data)
+                correlation_matrix = calculate_correlation(numeric_data)
+                data_summary["desc_stats"] = desc_stats.to_dict() if desc_stats is not None else {}
+                data_summary["correlation_matrix"] = correlation_matrix.to_dict() if correlation_matrix is not None else {}
 
-            # 生成AI分析提示
-            prompt = self._generate_data_analysis_prompt(data_summary, data_description)
+            # 生成 AI 分析提示 - 直接传递完整数据
+            prompt = self._generate_data_analysis_prompt(data, data_summary, data_description)
 
-            # 获取AI分析结果（流式）
-            ai_response = self.chat.send_message_stream(prompt, on_chunk_callback)
-
+            # 获取 AI 分析结果（流式）
+            ai_response = self.chat.send_message_stream(prompt, on_chunk_callback, on_think_callback)
+            
+            # 自动保存 AI 分析结果为 markdown 文件
+            try:
+                saved_filepath = self.save_ai_insights_to_md(ai_response, data_summary, data_description)
+                if on_chunk_callback is None:  # 只在非流式模式下显示成功消息
+                    st.success(f"✅ AI 分析结果已自动保存至：{saved_filepath}")
+            except Exception as save_error:
+                st.warning(f"⚠️ 保存 AI 分析结果失败：{str(save_error)}")
+            
             return ai_response, data_summary
 
         except Exception as e:
-            st.error(f"AI数据分析过程中发生错误: {str(e)}")
+            st.error(f"AI 数据分析过程中发生错误：{str(e)}")
             if on_chunk_callback:
-                on_chunk_callback(f"AI分析失败: {str(e)}")
-            return f"AI分析失败: {str(e)}", {}
+                on_chunk_callback(f"AI 分析失败：{str(e)}")
+            return f"AI 分析失败：{str(e)}", {}
 
-    def _generate_data_analysis_prompt(self, data_summary, data_description=None):
+    def _generate_data_analysis_prompt(self, raw_data, data_summary, data_description=None):
         """
-        生成数据分析的AI提示
+        生成数据分析的 AI 提示 - 直接传递原始数据
         """
+        # 准备数据预览文本 - 只显示前 5 行数据，并正确处理时间戳
+        preview_rows = []
+        for col in raw_data.columns:
+            col_data = raw_data[col].head()
+            
+            # 如果是日期/时间类型，格式化为可读字符串
+            if pd.api.types.is_datetime64_any_dtype(col_data):
+                # 格式化为 YYYY-MM-DD HH:MM:SS
+                formatted_vals = [val.strftime('%Y-%m-%d %H:%M:%S') if pd.notna(val) else 'NaT' 
+                                 for val in col_data]
+                preview_rows.append(f"列 '{col}' (时间类型): {', '.join(formatted_vals[:5])}...")
+            elif col_data.dtype == 'object':
+                # 对象类型，尝试检查是否为日期字符串
+                try:
+                    # 尝试转换为日期，如果成功则按日期格式化
+                    date_vals = pd.to_datetime(col_data.dropna().head())
+                    formatted_vals = [val.strftime('%Y-%m-%d %H:%M:%S') for val in date_vals]
+                    preview_rows.append(f"列 '{col}' (日期字符串): {', '.join(formatted_vals[:5])}...")
+                except:
+                    # 不是日期，按原样显示
+                    preview_rows.append(f"列 '{col}': {', '.join(map(str, list(col_data)[:5]))}...")
+            else:
+                # 数值或其他类型
+                preview_rows.append(f"列 '{col}': {', '.join(map(str, list(col_data)[:5]))}...")
+        
+        data_preview_text = "\n".join(preview_rows)
+        
         base_prompt = f"""
-        你是一位专业的农业数据分析专家，拥有丰富的农业数据解读和分析经验。
-        请分析以下农业数据集，并提供详细的洞察和建议：
+你是一位专业的农业数据分析专家，拥有丰富的农业数据解读和分析经验。
+请分析以下农业数据集，并提供详细的洞察和建议：
 
-        数据集基本信息：
-        - 数据形状: {data_summary['shape']}
-        - 列名: {data_summary['columns']}
-        - 数值型列: {data_summary['numeric_columns']}
-        - 日期型列: {data_summary['date_columns']}
+【数据集基本信息】
+- 数据形状：{data_summary['shape'][0]} 行 × {data_summary['shape'][1]} 列
+- 所有列名：{', '.join(data_summary['columns'])}
+- 数值型列：{', '.join(data_summary['numeric_columns'])}
+- 日期/时间列：{', '.join(data_summary['date_columns'])}
+- 数据类型详情：{data_summary['all_columns_types']}
 
-        描述性统计信息:
-        {data_summary['desc_stats']}
+【数据预览（前 5 行）】
+{data_preview_text}
 
-        相关性矩阵:
-        {data_summary['correlation_matrix']}
+【描述性统计信息（仅数值列）】
+{data_summary['desc_stats']}
 
-        请按以下结构提供分析:
-        1. **数据概览**: 总结数据的基本特征
-        2. **关键指标解读**: 分析重要的数值指标及其含义
-        3. **趋势分析**: 识别数据中的重要趋势和模式
-        4. **关联关系**: 解释指标之间的相关性及其农业意义
-        5. **异常检测**: 指出任何异常值或值得关注的模式
-        6. **农业建议**: 基于数据分析提出具体的操作建议
-        7. **后续行动**: 推荐下一步的数据分析或操作步骤
+【相关性矩阵（仅数值列）】
+{data_summary['correlation_matrix']}
 
-        请使用专业但易懂的语言，重点突出对农业生产和管理有意义的洞察。
-        """
+请按以下结构提供分析:
+1. **数据概览**: 总结数据的基本特征（时间跨度、变量类型、数据质量等）
+2. **关键指标解读**: 分析重要的数值指标及其含义（均值、范围、分布等）
+3. **趋势分析**: 识别数据中的重要趋势和模式（时间序列趋势、周期性变化等）
+4. **关联关系**: 解释指标之间的相关性及其农业意义（正相关、负相关、因果关系等）
+5. **异常检测**: 指出任何异常值或值得关注的模式（离群点、突变点、异常模式等）
+6. **农业建议**: 基于数据分析提出具体的操作建议（灌溉、施肥、温控等）
+7. **后续行动**: 推荐下一步的数据分析或操作步骤（深入分析方向、监测重点等）
+
+请使用专业但易懂的语言，重点突出对农业生产和管理有意义的洞察。
+"""
 
         if data_description:
-            base_prompt += f"\n\n额外背景信息: {data_description}"
-
+            base_prompt += f"\n\n【额外背景信息】\n{data_description}"
+        
         return base_prompt
 
     def integrate_analysis_with_ai(self, data, data_description=None):
         """
-        整合数据分析与AI洞察（流式输出版本）
+        整合数据分析与 AI 洞察（流式输出版本）
         """
-        st.subheader("🤖 AI驱动的数据分析洞察")
-
-        # 执行传统数据分析
-        st.markdown("#### 传统数据分析结果")
-        desc_stats, corr_matrix = self._show_basic_analysis(data)
-
-        # AI智能分析
-        st.markdown("#### AI智能解读与建议")
-
-        # 创建一个容器来显示流式输出
+        st.subheader("🤖 AI 驱动的数据分析洞察")
+    
+        # AI 智能分析 - 直接使用完整原始数据
+        st.markdown("#### AI 智能解读与建议")
+        st.caption("将完整的原始数据传递给 AI 模型进行深度分析")
+    
+        # 创建两个容器：一个用于思考过程，一个用于最终回答
+        think_container = st.container()
         response_container = st.container()
-
+    
+        with think_container:
+            think_placeholder = st.empty()  # 用于显示思考过程
+        
         with response_container:
-            response_text = st.empty()  # 创建一个空的文本元素来逐步显示响应
-
+            response_placeholder = st.empty()  # 占位符用于逐步显示响应
+    
         full_response = ""
-
+        thinking_content = ""
+    
         def on_token_receive(token):
             nonlocal full_response
             full_response += token
-            response_text.info(full_response)  # 实时更新显示
-
-        # 准备数据以供AI分析 - 只使用数值列
-        numeric_data = data.select_dtypes(include=[np.number])
-        if numeric_data.empty:
-            # 如果没有数值列，尝试转换可能的数值列
-            for col in data.columns:
-                if col != 'timestamp':  # 排除时间戳列
-                    try:
-                        numeric_series = pd.to_numeric(data[col], errors='coerce')
-                        if not numeric_series.isna().all():  # 如果不是全部为NaN
-                            numeric_data = pd.concat([numeric_data, numeric_series], axis=1)
-                    except:
-                        continue
-
-        with st.spinner("AI正在分析数据并生成洞察..."):
-            ai_insights, data_summary = self.analyze_data_insights_stream(numeric_data, data_description,
-                                                                          on_token_receive)
-
-        # 显示AI分析结果
-        st.markdown("#### AI分析结果")
-        st.info(ai_insights)
-
-        # 提供基于AI的交互式建议
-        self._provide_ai_recommendations(data_summary)
-
+            response_placeholder.markdown(full_response)  # 实时更新显示
+        
+        def on_think_receive(token):
+            nonlocal thinking_content
+            thinking_content += token
+            # 使用折叠框显示思考过程
+            think_placeholder.markdown(f"""
+            <div style="background-color: #f0f2f6; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                <details style="margin: 0;">
+                    <summary style="cursor: pointer; color: #666; font-weight: bold;">🤔 AI 正在思考中...</summary>
+                    <div style="margin-top: 10px; color: #888; font-size: 0.9em; line-height: 1.6;">
+                        {thinking_content}
+                    </div>
+                </details>
+            </div>
+            """)
+    
+        # 直接传递原始数据给 AI，不做任何预处理
+        with st.spinner("AI 正在分析完整数据并生成洞察..."):
+            ai_insights, data_summary = self.analyze_data_insights_stream(data, data_description,
+                                                                          on_token_receive,
+                                                                          on_think_receive)
+    
+        # 如果思考完成后还有内容，确保它保持可见
+        if thinking_content:
+            think_placeholder.markdown(f"""
+            <div style="background-color: #f0f2f6; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                <details style="margin: 0;">
+                    <summary style="cursor: pointer; color: #666; font-weight: bold;">✅ AI 思考过程</summary>
+                    <div style="margin-top: 10px; color: #888; font-size: 0.9em; line-height: 1.6;">
+                        {thinking_content}
+                    </div>
+                </details>
+            </div>
+            """)
+    
+        # 显示自动保存提示
+        export_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ai_insights_exports')
+        if os.path.exists(export_dir):
+            export_files = [f for f in os.listdir(export_dir) if f.endswith('.md')]
+            if export_files:
+                st.caption(f"📁 已有 {len(export_files)} 份历史导出记录（自动保存）")
+    
         return ai_insights, data_summary
 
     def _show_basic_analysis(self, data):
@@ -157,51 +296,7 @@ class AIInsightsAnalyzer:
         st.markdown(f"**预测数据预览**：")
         st.dataframe(forecast_data.head())
 
-    def _provide_ai_recommendations(self, data_summary):
-        """
-        基于AI分析提供交互式建议
-        """
-        st.markdown("#### 💡 AI个性化建议")
-
-        recommendation_options = [
-            "基于当前数据，如何优化农业生产？",
-            "从这些数据中可以看出哪些环境变化趋势？",
-            "如何根据这些数据调整灌溉/施肥策略？",
-            "数据中有哪些指标需要重点关注？",
-            "如何利用这些数据进行病虫害预警？"
-        ]
-
-        selected_question = st.selectbox(
-            "选择一个方面获取AI的专业建议:",
-            recommendation_options
-        )
-
-        if st.button("获取AI建议"):
-            with st.spinner("AI正在生成个性化建议..."):
-                prompt = f"""
-                基于以下数据集信息：{data_summary}
-                
-                请回答：{selected_question}
-                
-                提供具体、可操作的建议，并解释这些建议背后的原理。
-                """
-
-                # 为单独的AI建议也使用流式输出
-                response_container = st.container()
-
-                with response_container:
-                    response_text = st.empty()  # 创建一个空的文本元素来逐步显示响应
-
-                full_response = ""
-
-                def on_token_receive(token):
-                    nonlocal full_response
-                    full_response += token
-                    response_text.success(full_response)  # 实时更新显示
-
-                ai_response = self.chat.send_message_stream(prompt, on_token_receive)
-                st.success(ai_response)
-
+    
     def show_ai_insights_page(self):
         """
         显示 AI 洞察分析页面（完整 UI 页面）
@@ -261,5 +356,5 @@ def show_ai_insights():
     模块入口函数：显示 AI 洞察分析页面
     """
     # 创建分析器实例并显示页面
-    analyzer = AIInsightsAnalyzer("qwen3:4b")
+    analyzer = AIInsightsAnalyzer("qwen3.5:4b")
     analyzer.show_ai_insights_page()

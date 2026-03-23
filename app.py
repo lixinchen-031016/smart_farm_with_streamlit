@@ -423,7 +423,7 @@ def ai_insights_analysis():
 
     # 初始化AI分析器
     if 'ai_analyzer' not in st.session_state:
-        st.session_state.ai_analyzer = AIInsightsAnalyzer("qwen3:4b")
+        st.session_state.ai_analyzer = AIInsightsAnalyzer("qwen3.5:4b")
 
     analyzer = st.session_state.ai_analyzer
 
