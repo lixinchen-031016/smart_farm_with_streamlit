@@ -89,12 +89,12 @@ def get_historical_sensor_data(session, hours=24):
         dict: 包含各传感器历史数据的字典
     """
     @st.cache_data(ttl=600)  # 缓存10分钟
-    def _get_historical_sensor_data_cached(session, hours):
+    def _get_historical_sensor_data_cached(_session, hours):
         """
         内部缓存函数，用于获取历史传感器数据
         
         Args:
-            session: 数据库会话对象
+            _session: 数据库会话对象（添加下划线避免Streamlit缓存）
             hours: 获取多少小时的历史数据
             
         Returns:
@@ -103,22 +103,22 @@ def get_historical_sensor_data(session, hours=24):
         since = datetime.now() - timedelta(hours=hours)
 
         # 获取历史空气温湿度数据
-        air_data = session.query(AirTemperatureHumidity).filter(
+        air_data = _session.query(AirTemperatureHumidity).filter(
             AirTemperatureHumidity.timestamp >= since
         ).order_by(AirTemperatureHumidity.timestamp).all()
 
         # 获取历史土壤湿度数据
-        soil_moisture_data = session.query(SoilMoisture).filter(
+        soil_moisture_data = _session.query(SoilMoisture).filter(
             SoilMoisture.timestamp >= since
         ).order_by(SoilMoisture.timestamp).all()
 
         # 获取历史土壤养分数据
-        soil_nutrient_data = session.query(SoilNutrient).filter(
+        soil_nutrient_data = _session.query(SoilNutrient).filter(
             SoilNutrient.timestamp >= since
         ).order_by(SoilNutrient.timestamp).all()
 
         # 获取历史光照强度数据
-        light_data = session.query(LightIntensity).filter(
+        light_data = _session.query(LightIntensity).filter(
             LightIntensity.timestamp >= since
         ).order_by(LightIntensity.timestamp).all()
 

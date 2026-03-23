@@ -3,93 +3,127 @@ from datetime import datetime, timedelta
 import pandas as pd
 import streamlit as st
 
+from sqlalchemy.orm import load_only
 from models import OperationLog
 from utils.database import get_session
 
 
 class LogAnalyzer:
-    def __init__(self):
-        self.session = get_session()
-
     def get_error_stats(self, hours=24):
         """获取错误统计信息"""
-        since = datetime.now() - timedelta(hours=hours)
-        errors = self.session.query(OperationLog).filter(
-            OperationLog.log_time >= since,
-            OperationLog.log_level == 'ERROR'
-        ).all()
+        with get_session() as session:
+            since = datetime.now() - timedelta(hours=hours)
+            errors = session.query(OperationLog).options(
+                load_only(
+                    OperationLog.log_time,
+                    OperationLog.log_level,
+                    OperationLog.username,
+                    OperationLog.action_type,
+                    OperationLog.action_details
+                )
+            ).filter(
+                OperationLog.log_time >= since,
+                OperationLog.log_level == 'ERROR'
+            ).all()
 
-        error_counts = {}
-        for error in errors:
-            action_type = error.action_type
-            error_counts[action_type] = error_counts.get(action_type, 0) + 1
+            error_counts = {}
+            for error in errors:
+                action_type = error.action_type
+                error_counts[action_type] = error_counts.get(action_type, 0) + 1
 
-        return error_counts
+            return error_counts
 
     def get_user_activity(self, hours=24):
         """获取用户活动统计"""
-        since = datetime.now() - timedelta(hours=hours)
-        logs = self.session.query(OperationLog).filter(
-            OperationLog.log_time >= since
-        ).all()
+        with get_session() as session:
+            since = datetime.now() - timedelta(hours=hours)
+            logs = session.query(OperationLog).options(
+                load_only(
+                    OperationLog.log_time,
+                    OperationLog.log_level,
+                    OperationLog.username,
+                    OperationLog.action_type,
+                    OperationLog.action_details
+                )
+            ).filter(
+                OperationLog.log_time >= since
+            ).all()
 
-        user_activities = {}
-        for log in logs:
-            username = log.username
-            if username not in user_activities:
-                user_activities[username] = {
-                    'total_actions': 0,
-                    'error_actions': 0
-                }
-            user_activities[username]['total_actions'] += 1
-            if log.log_level == 'ERROR':
-                user_activities[username]['error_actions'] += 1
+            user_activities = {}
+            for log in logs:
+                username = log.username
+                if username not in user_activities:
+                    user_activities[username] = {
+                        'total_actions': 0,
+                        'error_actions': 0
+                    }
+                user_activities[username]['total_actions'] += 1
+                if log.log_level == 'ERROR':
+                    user_activities[username]['error_actions'] += 1
 
-        return user_activities
+            return user_activities
 
     def get_log_trends(self, days=7):
         """获取日志趋势数据"""
-        since = datetime.now() - timedelta(days=days)
-        logs = self.session.query(OperationLog).filter(
-            OperationLog.log_time >= since
-        ).all()
+        with get_session() as session:
+            since = datetime.now() - timedelta(days=days)
+            logs = session.query(OperationLog).options(
+                load_only(
+                    OperationLog.log_time,
+                    OperationLog.log_level,
+                    OperationLog.username,
+                    OperationLog.action_type,
+                    OperationLog.action_details
+                )
+            ).filter(
+                OperationLog.log_time >= since
+            ).all()
 
-        # 按日期和日志级别统计
-        daily_stats = {}
-        for log in logs:
-            date_key = log.log_time.date()
-            level = log.log_level
+            # 按日期和日志级别统计
+            daily_stats = {}
+            for log in logs:
+                date_key = log.log_time.date()
+                level = log.log_level
 
-            if date_key not in daily_stats:
-                daily_stats[date_key] = {}
+                if date_key not in daily_stats:
+                    daily_stats[date_key] = {}
 
-            if level not in daily_stats[date_key]:
-                daily_stats[date_key][level] = 0
+                if level not in daily_stats[date_key]:
+                    daily_stats[date_key][level] = 0
 
-            daily_stats[date_key][level] += 1
+                daily_stats[date_key][level] += 1
 
-        return daily_stats
+            return daily_stats
 
     def get_top_actions(self, limit=10, hours=24):
         """获取最常见的操作类型"""
-        since = datetime.now() - timedelta(hours=hours)
-        logs = self.session.query(OperationLog).filter(
-            OperationLog.log_time >= since
-        ).all()
+        with get_session() as session:
+            since = datetime.now() - timedelta(hours=hours)
+            logs = session.query(OperationLog).options(
+                load_only(
+                    OperationLog.log_time,
+                    OperationLog.log_level,
+                    OperationLog.username,
+                    OperationLog.action_type,
+                    OperationLog.action_details
+                )
+            ).filter(
+                OperationLog.log_time >= since
+            ).all()
 
-        action_counts = {}
-        for log in logs:
-            action = log.action_type
-            action_counts[action] = action_counts.get(action, 0) + 1
+            action_counts = {}
+            for log in logs:
+                action = log.action_type
+                action_counts[action] = action_counts.get(action, 0) + 1
 
-        # 按次数排序并返回前N个
-        sorted_actions = sorted(action_counts.items(), key=lambda x: x[1], reverse=True)
-        return sorted_actions[:limit]
+            # 按次数排序并返回前N个
+            sorted_actions = sorted(action_counts.items(), key=lambda x: x[1], reverse=True)
+            return sorted_actions[:limit]
 
     def close(self):
         """关闭数据库会话"""
-        if self.session:
-            self.session.close()
+        # 由于使用上下文管理器，不需要手动关闭会话
+        pass
 
 
 def show_log_analysis():

@@ -2,6 +2,10 @@ import plotly.express as px
 import streamlit as st
 
 from utils.logger import log_operation
+from utils.lazy_importer import lazy_import
+
+# 延迟导入分析模块
+utils_analysis_module = lazy_import('utils.analysis')
 
 
 # 函数：数据分析

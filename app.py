@@ -25,6 +25,8 @@ from utils.logger import log_operation
 from utils.module_config_ui import show_module_config_ui, get_enabled_modules_for_sidebar
 from utils.sync_manager import sync_databases_ui
 from utils.user_management import user_management
+# 添加异常处理模块
+from utils.error_handling import exception_handler, safe_execute
 
 # 延迟导入模块
 render_header = lazy_import('utils.data_preview', 'render_header')
@@ -79,32 +81,29 @@ def fetch_latest_data(session):
 
 
 # 函数：数据预览
+@exception_handler
 def data_preview():
     if not st.session_state.get('logged_in'):
         st.query_params.page = "login"
         return
 
     # 获取数据库会话
-    session = get_session()
+    with get_session() as session:
+        # 调用render_header时传入session参数
+        render_header(session)
 
-    # 调用render_header时传入session参数
-    render_header(session)
+        # 渲染数据指标卡片，同时传入session和username参数
+        render_data_metrics(session, st.session_state['username'])
 
-    # 渲染数据指标卡片，同时传入session和username参数
-    render_data_metrics(session, st.session_state['username'])
-
-    # 关闭会话
-    session.close()
-
-    # 优化卡片样式
-    style_metric_cards(
-        background_color="#FFFFFF",
-        border_color="#E0E0E0",
-        border_left_color="#4CAF50",
-        box_shadow=True,
-        border_size_px=2,
-        border_radius_px=10
-    )
+        # 优化卡片样式
+        style_metric_cards(
+            background_color="#FFFFFF",
+            border_color="#E0E0E0",
+            border_left_color="#4CAF50",
+            box_shadow=True,
+            border_size_px=2,
+            border_radius_px=10
+        )
 
 
 # 函数：读取文件
@@ -132,6 +131,7 @@ def read_file(uploaded_file):
 
 
 # 函数：数据概览
+@exception_handler
 def data_overview():
     if not st.session_state.get('logged_in'):
         st.query_params.page = "login"
@@ -165,77 +165,90 @@ def data_overview():
         end_time = st.date_input("选择结束时间")
 
         if st.button("从数据库读取数据"):
-            df = fetch_data_in_bulk(session, start_time, end_time)
-            log_operation(st.session_state['username'], "INFO", "数据概览-数据库读取",
-                          f"时间范围: {start_time}至{end_time} 获取{len(df)}条记录")
-            # 确保timestamp列转换为datetime类型
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
-            st.session_state['data'] = df
+            try:
+                df = fetch_data_in_bulk(session, start_time, end_time)
+                log_operation(st.session_state['username'], "INFO", "数据概览-数据库读取",
+                              f"时间范围: {start_time}至{end_time} 获取{len(df)}条记录")
+                # 确保timestamp列转换为datetime类型
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                st.session_state['data'] = df
+            except Exception as e:
+                # 这里的异常会被装饰器捕获
+                raise
 
     elif data_source == "上传文件":
         uploaded_file = st.file_uploader("选择文件", type=["csv", "xlsx", "xls", "json"])
 
         if uploaded_file is not None:
-            data = read_file(uploaded_file)
-            log_operation(st.session_state['username'], "INFO", "数据概览-文件上传",
-                          f"文件名: {uploaded_file.name} 类型: {uploaded_file.type} 记录数: {len(data)}")
-            if data is not None:
-                # 确保timestamp列类型正确
-                if 'timestamp' in data.columns:
-                    data['timestamp'] = pd.to_datetime(data['timestamp'], errors='coerce')
-                    # 删除无效的datetime数据
-                    data = data[data['timestamp'].notna()]
-                st.session_state['data'] = data
+            try:
+                data = read_file(uploaded_file)
+                if data is not None:
+                    log_operation(st.session_state['username'], "INFO", "数据概览-文件上传",
+                                  f"文件名: {uploaded_file.name} 类型: {uploaded_file.type} 记录数: {len(data)}")
+                    # 确保timestamp列类型正确
+                    if 'timestamp' in data.columns:
+                        data['timestamp'] = pd.to_datetime(data['timestamp'], errors='coerce')
+                        # 删除无效的datetime数据
+                        data = data[data['timestamp'].notna()]
+                    st.session_state['data'] = data
+            except Exception as e:
+                # 这里的异常会被装饰器捕获
+                raise
 
     # 确保数据展示和导出逻辑兼容两种数据读取方式
     if 'data' in st.session_state:
-        data = st.session_state['data'].copy()
+        try:
+            data = st.session_state['data'].copy()
 
-        # 确保所有datetime列都转换为Arrow兼容的格式
-        for col in data.select_dtypes(include=['datetime64']).columns:
-            data[col] = data[col].astype('datetime64[ms]')
+            # 确保所有datetime列都转换为Arrow兼容的格式
+            for col in data.select_dtypes(include=['datetime64']).columns:
+                data[col] = data[col].astype('datetime64[ms]')
 
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("行数", data.shape[0])
-        with col2:
-            st.metric("列数", data.shape[1])
-        with col3:
-            st.metric("缺失值数", data.isnull().sum().sum())
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("行数", data.shape[0])
+            with col2:
+                st.metric("列数", data.shape[1])
+            with col3:
+                st.metric("缺失值数", data.isnull().sum().sum())
 
-        style_metric_cards()
+            style_metric_cards()
 
-        st.subheader("数据预览")
-        st.dataframe(data.head())
+            st.subheader("数据预览")
+            st.dataframe(data.head())
 
-        st.subheader("数据类型")
-        # 显示修改后的数据类型
-        st.dataframe(data.dtypes.astype(str).to_frame('dtype'))
+            st.subheader("数据类型")
+            # 显示修改后的数据类型
+            st.dataframe(data.dtypes.astype(str).to_frame('dtype'))
 
-        # 数据导出
-        st.subheader("数据导出")
-        export_format = st.radio("选择导出格式", ["CSV", "Excel", "JSON"])  # 修改: 新增JSON选项
-        if st.button("📤 导出数据", type="primary"):
-            log_operation(st.session_state['username'], "INFO", "数据概览-数据导出",
-                          f"导出格式: {export_format} 文件名: exported_data.{export_format.lower()}")
-            if export_format == "CSV":
-                csv = data.to_csv(index=False)
-                b64 = base64.b64encode(csv.encode()).decode()
-                href = f'<a href="data:file/csv;base64,{b64}" download="exported_data.csv">下载 CSV 文件</a>'
-            elif export_format == "Excel":
-                towrite = BytesIO()
-                data.to_excel(towrite, index=False, engine="openpyxl")
-                towrite.seek(0)
-                b64 = base64.b64encode(towrite.read()).decode()
-                href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="exported_data.xlsx">下载 Excel 文件</a>'
-            elif export_format == "JSON":  # 新增: JSON导出逻辑
-                json_str = data.to_json(orient='records', force_ascii=False)
-                b64 = base64.b64encode(json_str.encode()).decode()
-                href = f'<a href="data:application/json;base64,{b64}" download="exported_data.json">下载 JSON 文件</a>'
-            st.markdown(href, unsafe_allow_html=True)
+            # 数据导出
+            st.subheader("数据导出")
+            export_format = st.radio("选择导出格式", ["CSV", "Excel", "JSON"])  # 修改: 新增JSON选项
+            if st.button("📤 导出数据", type="primary"):
+                log_operation(st.session_state['username'], "INFO", "数据概览-数据导出",
+                              f"导出格式: {export_format} 文件名: exported_data.{export_format.lower()}")
+                if export_format == "CSV":
+                    csv = data.to_csv(index=False)
+                    b64 = base64.b64encode(csv.encode()).decode()
+                    href = f'<a href="data:file/csv;base64,{b64}" download="exported_data.csv">下载 CSV 文件</a>'
+                elif export_format == "Excel":
+                    towrite = BytesIO()
+                    data.to_excel(towrite, index=False, engine="openpyxl")
+                    towrite.seek(0)
+                    b64 = base64.b64encode(towrite.read()).decode()
+                    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="exported_data.xlsx">下载 Excel 文件</a>'
+                elif export_format == "JSON":  # 新增: JSON导出逻辑
+                    json_str = data.to_json(orient='records', force_ascii=False)
+                    b64 = base64.b64encode(json_str.encode()).decode()
+                    href = f'<a href="data:application/json;base64,{b64}" download="exported_data.json">下载 JSON 文件</a>'
+                st.markdown(href, unsafe_allow_html=True)
+        except Exception as e:
+            # 这里的异常会被装饰器捕获
+            raise
 
 
 # 函数：高级分析
+@exception_handler
 def advanced_analysis():
     """
     显示高级分析页面，提供数据分组和聚合功能
@@ -269,53 +282,57 @@ def advanced_analysis():
         agg_function = st.selectbox("选择聚合函数", ["平均值", "总和", "最大值", "最小值"])
 
         if st.button("开始分析"):
-            log_operation(st.session_state['username'], "INFO", "高级分析-分组聚合",
-                          f"分组列: {group_column} 聚合列: {agg_column} 函数: {agg_function}")
-            grouped_data = utils_analysis_module().group_and_aggregate(data, group_column, agg_column, agg_function)
+            try:
+                log_operation(st.session_state['username'], "INFO", "高级分析-分组聚合",
+                              f"分组列: {group_column} 聚合列: {agg_column} 函数: {agg_function}")
+                grouped_data = utils_analysis_module().group_and_aggregate(data, group_column, agg_column, agg_function)
 
-            # 提供通俗易懂的分析结果
-            st.write("**分组聚合结果解读：**")
+                # 提供通俗易懂的分析结果
+                st.write("**分组聚合结果解读：**")
 
-            # 根据聚合函数提供不同的解释
-            if agg_function == "平均值":
-                st.write(f"• 计算了每组 **{group_column}** 的 **{agg_column}** 平均值")
-                if 'temperature' in agg_column.lower() or '温' in agg_column:
-                    st.write(f"• 平均温度可以帮助了解不同分组条件下温度的整体情况")
-                elif 'humidity' in agg_column.lower() or '湿' in agg_column:
-                    st.write(f"• 平均湿度可以反映不同分组条件下的湿度状况")
-                elif 'moisture' in agg_column.lower() or '土壤' in agg_column:
-                    st.write(f"• 平均土壤湿度有助于判断灌溉效果")
-            elif agg_function == "总和":
-                st.write(f"• 计算了每组 **{group_column}** 的 **{agg_column}** 总和")
-            elif agg_function == "最大值":
-                st.write(f"• 找出了每组 **{group_column}** 的 **{agg_column}** 最大值")
-                st.write(f"• 最大值可以帮助识别极端情况或最佳表现")
-            elif agg_function == "最小值":
-                st.write(f"• 找出了每组 **{group_column}** 的 **{agg_column}** 最小值")
-                st.write(f"• 最小值可以帮助识别潜在问题或最低表现")
+                # 根据聚合函数提供不同的解释
+                if agg_function == "平均值":
+                    st.write(f"• 计算了每组 **{group_column}** 的 **{agg_column}** 平均值")
+                    if 'temperature' in agg_column.lower() or '温' in agg_column:
+                        st.write(f"• 平均温度可以帮助了解不同分组条件下温度的整体情况")
+                    elif 'humidity' in agg_column.lower() or '湿' in agg_column:
+                        st.write(f"• 平均湿度可以反映不同分组条件下的湿度状况")
+                    elif 'moisture' in agg_column.lower() or '土壤' in agg_column:
+                        st.write(f"• 平均土壤湿度有助于判断灌溉效果")
+                elif agg_function == "总和":
+                    st.write(f"• 计算了每组 **{group_column}** 的 **{agg_column}** 总和")
+                elif agg_function == "最大值":
+                    st.write(f"• 找出了每组 **{group_column}** 的 **{agg_column}** 最大值")
+                    st.write(f"• 最大值可以帮助识别极端情况或最佳表现")
+                elif agg_function == "最小值":
+                    st.write(f"• 找出了每组 **{group_column}** 的 **{agg_column}** 最小值")
+                    st.write(f"• 最小值可以帮助识别潜在问题或最低表现")
 
-            # 显示结果表格
-            st.write("**详细结果：**")
-            st.dataframe(grouped_data)
+                # 显示结果表格
+                st.write("**详细结果：**")
+                st.dataframe(grouped_data)
 
-            # 提供洞察和建议
-            if len(grouped_data) > 1:
-                max_group = grouped_data.loc[grouped_data[agg_column].idxmax()][group_column]
-                min_group = grouped_data.loc[grouped_data[agg_column].idxmin()][group_column]
-                st.info(f"💡 **智能洞察**: {agg_column} 最高的分组是 **{max_group}**，最低的是 **{min_group}**")
+                # 提供洞察和建议
+                if len(grouped_data) > 1:
+                    max_group = grouped_data.loc[grouped_data[agg_column].idxmax()][group_column]
+                    min_group = grouped_data.loc[grouped_data[agg_column].idxmin()][group_column]
+                    st.info(f"💡 **智能洞察**: {agg_column} 最高的分组是 **{max_group}**，最低的是 **{min_group}**")
 
-                # 提供基于数据的建议
-                if agg_function in ["平均值", "最大值"] and ('temperature' in agg_column.lower() or '温' in agg_column):
-                    if grouped_data[agg_column].max() > 30:
-                        st.warning(f"⚠️ 最高平均温度达到 {grouped_data[agg_column].max():.2f}°C，可能需要加强通风降温")
-                    elif grouped_data[agg_column].min() < 15:
-                        st.warning(f"⚠️ 最低平均温度仅为 {grouped_data[agg_column].min():.2f}°C，可能需要加强保温措施")
+                    # 提供基于数据的建议
+                    if agg_function in ["平均值", "最大值"] and ('temperature' in agg_column.lower() or '温' in agg_column):
+                        if grouped_data[agg_column].max() > 30:
+                            st.warning(f"⚠️ 最高平均温度达到 {grouped_data[agg_column].max():.2f}°C，可能需要加强通风降温")
+                        elif grouped_data[agg_column].min() < 15:
+                            st.warning(f"⚠️ 最低平均温度仅为 {grouped_data[agg_column].min():.2f}°C，可能需要加强保温措施")
 
-                elif agg_function in ["平均值", "最大值"] and ('humidity' in agg_column.lower() or '湿' in agg_column):
-                    if grouped_data[agg_column].max() > 70:
-                        st.warning(f"⚠️ 最高平均湿度达到 {grouped_data[agg_column].max():.2f}%，可能需要加强通风除湿")
-                    elif grouped_data[agg_column].min() < 40:
-                        st.warning(f"⚠️ 最低平均湿度仅为 {grouped_data[agg_column].min():.2f}%，可能需要增加加湿措施")
+                    elif agg_function in ["平均值", "最大值"] and ('humidity' in agg_column.lower() or '湿' in agg_column):
+                        if grouped_data[agg_column].max() > 70:
+                            st.warning(f"⚠️ 最高平均湿度达到 {grouped_data[agg_column].max():.2f}%，可能需要加强通风除湿")
+                        elif grouped_data[agg_column].min() < 40:
+                            st.warning(f"⚠️ 最低平均湿度仅为 {grouped_data[agg_column].min():.2f}%，可能需要增加加湿措施")
+            except Exception as e:
+                # 这里的异常会被装饰器捕获
+                raise
 
     with tab2:
         st.subheader("可视化图表")
@@ -332,12 +349,16 @@ def advanced_analysis():
         agg_function_viz = st.selectbox("选择聚合函数 (图表)", ["平均值", "总和", "最大值", "最小值"], key="viz_func")
 
         if st.button("生成图表"):
-            grouped_data_viz = utils_analysis_module().group_and_aggregate(data, group_column_viz, agg_column_viz,
-                                                                           agg_function_viz)
+            try:
+                grouped_data_viz = utils_analysis_module().group_and_aggregate(data, group_column_viz, agg_column_viz,
+                                                                               agg_function_viz)
 
-            fig = px.bar(grouped_data_viz, x=group_column_viz, y=agg_column_viz,
-                         title=f"{group_column_viz} 分组的 {agg_column_viz} {agg_function_viz}")
-            st.plotly_chart(fig, use_container_width=True)
+                fig = px.bar(grouped_data_viz, x=group_column_viz, y=agg_column_viz,
+                             title=f"{group_column_viz} 分组的 {agg_column_viz} {agg_function_viz}")
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                # 这里的异常会被装饰器捕获
+                raise
 
 
 # 函数：使用说明
@@ -412,6 +433,7 @@ def data_restore():
     restore_ui(st.session_state['username'])
 
 
+@exception_handler
 def ai_insights_analysis():
     """AI洞察分析页面，结合数据分析和预测结果进行智能解读"""
     if not st.session_state.get('logged_in'):
@@ -428,43 +450,48 @@ def ai_insights_analysis():
     analyzer = st.session_state.ai_analyzer
 
     # 检查模型可用性
-    is_available, available_models = analyzer.chat.check_model_available()
+    try:
+        is_available, available_models = analyzer.chat.check_model_available()
 
-    if not is_available:
-        st.warning(f"⚠️ AI模型 {analyzer.model_name} 未安装或不可用")
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            model_input = st.text_input("输入要使用的AI模型名称:", value=analyzer.model_name)
-        with col2:
-            if st.button("🔄 切换模型"):
-                analyzer.chat.model_name = model_input
-                analyzer.model_name = model_input
-                st.rerun()
+        if not is_available:
+            st.warning(f"⚠️ AI模型 {analyzer.model_name} 未安装或不可用")
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                model_input = st.text_input("输入要使用的AI模型名称:", value=analyzer.model_name)
+            with col2:
+                if st.button("🔄 切换模型"):
+                    analyzer.chat.model_name = model_input
+                    analyzer.model_name = model_input
+                    st.rerun()
 
-        if st.button("📥 拉取AI模型", type="primary"):
-            success = analyzer.chat.pull_model_if_needed()
-            if success:
-                st.rerun()
-    else:
-        st.success(f"✅ AI模型 {analyzer.model_name} 可用")
+            if st.button("📥 拉取AI模型", type="primary"):
+                success = analyzer.chat.pull_model_if_needed()
+                if success:
+                    st.rerun()
+        else:
+            st.success(f"✅ AI模型 {analyzer.model_name} 可用")
 
-        # 选择分析类型
+            # 选择分析类型
 
-        st.markdown("### 数据洞察分析")
+            st.markdown("### 数据洞察分析")
 
-        if 'data' not in st.session_state:
-            st.warning("请先在数据概览页面上传数据")
-            return
+            if 'data' not in st.session_state:
+                st.warning("请先在数据概览页面上传数据")
+                return
 
-        data = st.session_state['data']
-        data_description = st.text_area("数据背景描述（可选）",
-                                            placeholder="请输入关于数据来源、用途或其他相关信息的描述...", height=100)
+            data = st.session_state['data']
+            data_description = st.text_area("数据背景描述（可选）",
+                                                placeholder="请输入关于数据来源、用途或其他相关信息的描述...", height=100)
 
-        if st.button("执行AI数据洞察分析", type="primary"):
-                with st.spinner("AI正在分析数据并生成洞察..."):
-                    ai_insights, data_summary = analyzer.integrate_analysis_with_ai(data, data_description)
+            if st.button("执行AI数据洞察分析", type="primary"):
+                    with st.spinner("AI正在分析数据并生成洞察..."):
+                        ai_insights, data_summary = analyzer.integrate_analysis_with_ai(data, data_description)
+    except Exception as e:
+        # 这里的异常会被装饰器捕获
+        raise
 
 # 函数：主函数
+@exception_handler
 def main():
     """
     应用的主函数，负责页面路由和功能调用
@@ -504,17 +531,17 @@ def main():
 
     # 新增：统一路由处理逻辑
     if page == "login":
-        login(session, st)
+        safe_execute(login, session, st)
     elif page == "register":
-        register(session, st)
+        safe_execute(register, session, st)
     elif page == "module_config":
         if st.session_state.get('role') == 'admin':
-            show_module_config_ui(st.session_state['username'], True)
+            safe_execute(show_module_config_ui, st.session_state['username'], True)
         else:
             st.error("仅管理员可以访问模块配置管理")
     elif page == "dashboard":
         from utils.dashboard import show_dashboard
-        show_dashboard()
+        safe_execute(show_dashboard)
     else:
         # 登录成功后显示欢迎信息
         if st.session_state.get('logged_in'):
@@ -617,16 +644,16 @@ def main():
             "本地数据预测": data_prediction,
             "AI洞察分析": ai_insights_analysis,
 
-            "用户管理": lambda: user_management(session, st.session_state['username'], st.session_state['role']),
+            "用户管理": lambda: safe_execute(user_management, session, st.session_state['username'], st.session_state['role']),
             "系统监控": system_monitoring,
             "日志查看": show_log_viewer,
             "数据备份": data_backup,
             "数据恢复": data_restore,
             "数据库同步": sync_databases_ui,
-            "自动化决策": lambda: show_decision_engine(session, st.session_state['username']),
-            "调试信息": lambda: show_debug_info(st.session_state['username']),  # 添加调试信息路由
+            "自动化决策": lambda: safe_execute(show_decision_engine, session, st.session_state['username']),
+            "调试信息": lambda: safe_execute(show_debug_info, st.session_state['username']),  # 添加调试信息路由
             "使用说明": show_instructions,
-            "模块配置管理": lambda: show_module_config_ui(st.session_state['username'],
+            "模块配置管理": lambda: safe_execute(show_module_config_ui, st.session_state['username'],
                                                           st.session_state.get('role') == 'admin')
         }
 
@@ -636,7 +663,7 @@ def main():
         else:
             # 默认显示综合监控仪表板
             from utils.integrated_dashboard import show_integrated_dashboard
-            show_integrated_dashboard()
+            safe_execute(show_integrated_dashboard)
 
 
 def initialize_app():

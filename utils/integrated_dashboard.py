@@ -677,9 +677,6 @@ def show_integrated_dashboard():
         st.query_params.page = "login"
         return
 
-    # Get database session
-    session = get_session()
-
     # Get user info
     username = st.session_state.get('username', 'Unknown')
     role = get_user_role()
@@ -688,21 +685,21 @@ def show_integrated_dashboard():
     log_operation(username, "INFO", "综合仪表板访问", f"用户 {username} 访问了{role}综合仪表板")
 
     try:
-        # Page title
-        st.title("🌱 智能农场综合监控仪表板")
+        # Get database session
+        with get_session() as session:
+            # Page title
+            st.title("🌱 智能农场综合监控仪表板")
 
-        # Render role-specific controls first
-        if role == 'admin':
-            render_admin_controls(session, username)
-            render_system_status()
-        else:
-            render_user_controls(session, username)
+            # Render role-specific controls first
+            if role == 'admin':
+                render_admin_controls(session, username)
+                render_system_status()
+            else:
+                render_user_controls(session, username)
 
-        # Render real-time metrics section
-        render_realtime_metrics(session, username)
+            # Render real-time metrics section
+            render_realtime_metrics(session, username)
 
     except Exception as e:
         st.error(f"仪表板加载失败: {str(e)}")
         log_operation(username, "ERROR", "综合仪表板错误", f"仪表板加载失败: {str(e)}")
-    finally:
-        session.close()

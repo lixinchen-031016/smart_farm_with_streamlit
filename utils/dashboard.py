@@ -477,9 +477,6 @@ def show_dashboard():
         st.query_params.page = "login"
         return
 
-    # Get database session
-    session = get_session()
-
     # Get user info
     username = st.session_state.get('username', 'Unknown')
     role = get_user_role()
@@ -488,13 +485,13 @@ def show_dashboard():
     log_operation(username, "INFO", "仪表板访问", f"用户 {username} 访问了{role}仪表板")
 
     try:
-        # Render appropriate dashboard based on role
-        if role == 'admin':
-            render_admin_dashboard(session, username)
-        else:
-            render_user_dashboard(session, username)
+        # Get database session
+        with get_session() as session:
+            # Render appropriate dashboard based on role
+            if role == 'admin':
+                render_admin_dashboard(session, username)
+            else:
+                render_user_dashboard(session, username)
     except Exception as e:
         st.error(f"仪表板加载失败: {str(e)}")
         log_operation(username, "ERROR", "仪表板错误", f"仪表板加载失败: {str(e)}")
-    finally:
-        session.close()

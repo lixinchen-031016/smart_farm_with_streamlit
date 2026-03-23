@@ -7,6 +7,7 @@ import plotly.express as px
 import streamlit as st
 from sqlalchemy.orm import Session
 
+from sqlalchemy.orm import load_only
 from models import OperationLog
 from utils.database import get_session
 
@@ -82,44 +83,50 @@ def show_log_viewer():
 
     # 从数据库查询日志
     try:
-        session: Session = get_session()
-        
-        # 转换日期格式并查询
-        if isinstance(start_date, datetime):
-            start_datetime = start_date
-            end_datetime = end_date
-        else:
-            start_datetime = datetime.combine(start_date, datetime.min.time())
-            end_datetime = datetime.combine(end_date, datetime.max.time())
+        with get_session() as session:
+            # 转换日期格式并查询
+            if isinstance(start_date, datetime):
+                start_datetime = start_date
+                end_datetime = end_date
+            else:
+                start_datetime = datetime.combine(start_date, datetime.min.time())
+                end_datetime = datetime.combine(end_date, datetime.max.time())
 
-        # 构建基础查询
-        query = session.query(OperationLog).filter(
-            OperationLog.log_time >= start_datetime,
-            OperationLog.log_time <= end_datetime
-        )
+            # 构建基础查询，只加载需要的字段，排除计算字段details_json
+            query = session.query(OperationLog).options(
+                load_only(
+                    OperationLog.id,
+                    OperationLog.log_time,
+                    OperationLog.log_level,
+                    OperationLog.username,
+                    OperationLog.action_type,
+                    OperationLog.action_details
+                )
+            ).filter(
+                OperationLog.log_time >= start_datetime,
+                OperationLog.log_time <= end_datetime
+            )
 
-        # 添加日志级别过滤
-        if log_level != "ALL":
-            query = query.filter(OperationLog.log_level == log_level)
+            # 添加日志级别过滤
+            if log_level != "ALL":
+                query = query.filter(OperationLog.log_level == log_level)
 
-        # 添加用户过滤
-        if selected_user != "ALL":
-            query = query.filter(OperationLog.username == selected_user)
-        
-        # 添加操作类型过滤
-        if action_type != "ALL":
-            query = query.filter(OperationLog.action_type.contains(action_type))
+            # 添加用户过滤
+            if selected_user != "ALL":
+                query = query.filter(OperationLog.username == selected_user)
+            
+            # 添加操作类型过滤
+            if action_type != "ALL":
+                query = query.filter(OperationLog.action_type.contains(action_type))
 
-        # 获取所有日志用于后续处理
-        logs = query.order_by(OperationLog.log_time.desc()).all()
-        
-        # 动态更新用户列表
-        all_users = session.query(OperationLog.username).distinct().all()
-        user_list = ["ALL"] + [user[0] for user in all_users]
-        if selected_user not in user_list:
-            selected_user = "ALL"
-        
-        session.close()
+            # 获取所有日志用于后续处理
+            logs = query.order_by(OperationLog.log_time.desc()).all()
+            
+            # 动态更新用户列表
+            all_users = session.query(OperationLog.username).distinct().all()
+            user_list = ["ALL"] + [user[0] for user in all_users]
+            if selected_user not in user_list:
+                selected_user = "ALL"
         
         # 关键词搜索和过滤
         filtered_logs = []
@@ -370,5 +377,3 @@ def show_log_viewer():
 
     except Exception as e:
         st.error(f"数据库查询失败: {str(e)}")
-    finally:
-        session.close()

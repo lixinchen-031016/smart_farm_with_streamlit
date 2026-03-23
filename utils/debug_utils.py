@@ -12,6 +12,7 @@ import pandas as pd
 import psutil
 import streamlit as st
 
+from sqlalchemy.orm import load_only
 from models import User, OperationLog
 from utils.database import get_session
 from utils.logger import log_operation
@@ -143,34 +144,38 @@ def show_database_status():
     """显示数据库连接状态"""
     st.subheader("🗄️ 数据库状态")
     try:
-        session = get_session()
-        user_count = session.query(User).count()
-        log_count = session.query(OperationLog).count()
-        st.success(f"✅ 数据库连接正常 - 用户数: {user_count}, 日志数: {log_count}")
+        with get_session() as session:
+            user_count = session.query(User).count()
+            log_count = session.query(OperationLog).count()
+            st.success(f"✅ 数据库连接正常 - 用户数: {user_count}, 日志数: {log_count}")
 
-        # 显示最近的用户活动
-        st.subheader("👥 最近用户活动")
-        recent_users = session.query(User).order_by(User.last_login_time.desc()).limit(5).all()
-        for user in recent_users:
-            st.text(f"{user.username} - {user.last_login_time} - {user.role}")
+            # 显示最近的用户活动
+            st.subheader("👥 最近用户活动")
+            recent_users = session.query(User).options(
+                load_only(
+                    User.username,
+                    User.last_login_time,
+                    User.role
+                )
+            ).order_by(User.last_login_time.desc()).limit(5).all()
+            for user in recent_users:
+                st.text(f"{user.username} - {user.last_login_time} - {user.role}")
 
-        # 显示表信息
-        st.subheader("📋 数据表信息")
-        tables = ['intelligent_farm_airtemperaturehumidity', 'intelligent_farm_soilmoisture',
-                  'intelligent_farm_soilnutrient', 'intelligent_farm_light_intensity']
+            # 显示表信息
+            st.subheader("📋 数据表信息")
+            tables = ['intelligent_farm_airtemperaturehumidity', 'intelligent_farm_soilmoisture',
+                      'intelligent_farm_soilnutrient', 'intelligent_farm_light_intensity']
 
-        table_data = []
-        for table in tables:
-            try:
-                from sqlalchemy import text
-                result = session.execute(text(f"SELECT COUNT(*) as count FROM {table}")).fetchone()
-                table_data.append({'表名': table, '记录数': result[0]})
-            except Exception as e:
-                table_data.append({'表名': table, '记录数': f'错误: {str(e)}'})
+            table_data = []
+            for table in tables:
+                try:
+                    from sqlalchemy import text
+                    result = session.execute(text(f"SELECT COUNT(*) as count FROM {table}")).fetchone()
+                    table_data.append({'表名': table, '记录数': result[0]})
+                except Exception as e:
+                    table_data.append({'表名': table, '记录数': f'错误: {str(e)}'})
 
-        st.dataframe(pd.DataFrame(table_data))
-
-        session.close()
+            st.dataframe(pd.DataFrame(table_data))
     except Exception as e:
         st.error(f"❌ 数据库连接异常: {str(e)}")
 
@@ -697,142 +702,139 @@ def show_database_query_analyzer(username):
     st.info("直接执行SQL查询并分析结果")
 
     try:
-        session = get_session()
+        with get_session() as session:
+            # SQL查询输入区域
+            st.subheader("⌨️ SQL查询")
+            default_query = """SELECT *
+                               FROM intelligent_farm_airtemperaturehumidity LIMIT 10;"""
 
-        # SQL查询输入区域
-        st.subheader("⌨️ SQL查询")
-        default_query = """SELECT *
-                           FROM intelligent_farm_airtemperaturehumidity LIMIT 10;"""
+            # 使用session_state存储当前查询内容
+            if 'current_query' not in st.session_state:
+                st.session_state.current_query = default_query
 
-        # 使用session_state存储当前查询内容
-        if 'current_query' not in st.session_state:
-            st.session_state.current_query = default_query
+            sql_query = st.text_area("输入SQL查询语句:", st.session_state.current_query, height=150, key="sql_query_input")
 
-        sql_query = st.text_area("输入SQL查询语句:", st.session_state.current_query, height=150, key="sql_query_input")
+            # 更新session_state中的查询内容
+            st.session_state.current_query = sql_query
 
-        # 更新session_state中的查询内容
-        st.session_state.current_query = sql_query
+            # 查询执行按钮
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                execute_btn = st.button("▶️ 执行查询")
+            with col2:
+                explain_btn = st.button("🔍 EXPLAIN查询")
+            with col3:
+                format_btn = st.button("✨ 格式化SQL")
 
-        # 查询执行按钮
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            execute_btn = st.button("▶️ 执行查询")
-        with col2:
-            explain_btn = st.button("🔍 EXPLAIN查询")
-        with col3:
-            format_btn = st.button("✨ 格式化SQL")
-
-        # 格式化SQL功能
-        if format_btn:
-            try:
-                import sqlparse
-                formatted_sql = sqlparse.format(sql_query, reindent=True, keyword_case='upper')
-                st.session_state.current_query = formatted_sql
-                st.rerun()
-            except ImportError:
-                st.warning("需要安装sqlparse库来格式化SQL: pip install sqlparse")
-            except Exception as e:
-                st.error(f"格式化SQL时出错: {str(e)}")
-
-        # EXPLAIN查询功能
-        if explain_btn:
-            if sql_query.strip():
+            # 格式化SQL功能
+            if format_btn:
                 try:
-                    # 检查查询是否适用于EXPLAIN（只适用于DML语句）
-                    query_upper = sql_query.strip().upper()
-                    if not any(query_upper.startswith(stmt) for stmt in ['SELECT', 'INSERT', 'UPDATE', 'DELETE']):
-                        st.warning(
-                            "⚠️ EXPLAIN只能用于SELECT、INSERT、UPDATE、DELETE等DML语句，不能用于SHOW、CREATE等DDL语句")
-                    else:
+                    import sqlparse
+                    formatted_sql = sqlparse.format(sql_query, reindent=True, keyword_case='upper')
+                    st.session_state.current_query = formatted_sql
+                    st.rerun()
+                except ImportError:
+                    st.warning("需要安装sqlparse库来格式化SQL: pip install sqlparse")
+                except Exception as e:
+                    st.error(f"格式化SQL时出错: {str(e)}")
+
+            # EXPLAIN查询功能
+            if explain_btn:
+                if sql_query.strip():
+                    try:
+                        # 检查查询是否适用于EXPLAIN（只适用于DML语句）
+                        query_upper = sql_query.strip().upper()
+                        if not any(query_upper.startswith(stmt) for stmt in ['SELECT', 'INSERT', 'UPDATE', 'DELETE']):
+                            st.warning(
+                                "⚠️ EXPLAIN只能用于SELECT、INSERT、UPDATE、DELETE等DML语句，不能用于SHOW、CREATE等DDL语句")
+                        else:
+                            from sqlalchemy import text
+                            explain_query = f"EXPLAIN {sql_query}"
+                            result = session.execute(text(explain_query))
+                            columns = result.keys()
+                            rows = result.fetchall()
+
+                            st.subheader("🔍 EXPLAIN结果")
+                            df = pd.DataFrame(rows, columns=columns)
+                            st.dataframe(df, use_container_width=True)
+                    except Exception as e:
+                        st.error(f"执行EXPLAIN查询失败: {str(e)}")
+                else:
+                    st.warning("⚠️ 请输入SQL查询语句")
+
+            # 查询执行按钮
+            if execute_btn:
+                if sql_query.strip():
+                    log_operation(username, "INFO", "调试信息-数据库查询", f"执行了查询: {sql_query[:100]}...")
+                    st.info("🔍 正在执行查询...")
+
+                    try:
+                        start_time = time.time()
+
+                        # 执行查询
                         from sqlalchemy import text
-                        explain_query = f"EXPLAIN {sql_query}"
-                        result = session.execute(text(explain_query))
+                        result = session.execute(text(sql_query))
+
+                        end_time = time.time()
+                        execution_time = end_time - start_time
+
+                        # 获取列名
                         columns = result.keys()
+
+                        # 获取结果数据
                         rows = result.fetchall()
 
-                        st.subheader("🔍 EXPLAIN结果")
-                        df = pd.DataFrame(rows, columns=columns)
-                        st.dataframe(df, use_container_width=True)
-                except Exception as e:
-                    st.error(f"执行EXPLAIN查询失败: {str(e)}")
-            else:
-                st.warning("⚠️ 请输入SQL查询语句")
+                        # 显示执行时间
+                        st.success(f"✅ 查询执行成功 (耗时: {execution_time:.4f} 秒)")
 
-        # 查询执行按钮
-        if execute_btn:
-            if sql_query.strip():
-                log_operation(username, "INFO", "调试信息-数据库查询", f"执行了查询: {sql_query[:100]}...")
-                st.info("🔍 正在执行查询...")
+                        # 显示结果统计
+                        st.subheader("📈 查询结果统计")
+                        st.write(f"返回行数: {len(rows)}")
+                        st.write(f"列数: {len(columns)}")
 
-                try:
-                    start_time = time.time()
+                        # 显示结果数据
+                        if rows:
+                            st.subheader("📋 查询结果")
+                            # 转换为DataFrame显示
+                            df = pd.DataFrame(rows, columns=columns)
+                            st.dataframe(df, use_container_width=True)
 
-                    # 执行查询
-                    from sqlalchemy import text
-                    result = session.execute(text(sql_query))
+                            # 提供数据导出
+                            csv = df.to_csv(index=False)
+                            st.download_button(
+                                label="📥 下载CSV结果",
+                                data=csv,
+                                file_name="query_result.csv",
+                                mime="text/csv"
+                            )
+                        else:
+                            st.info("ℹ️ 查询执行成功，但没有返回数据")
 
-                    end_time = time.time()
-                    execution_time = end_time - start_time
+                    except Exception as e:
+                        st.error(f"❌ 查询执行失败: {str(e)}")
+                        log_operation(username, "ERROR", "调试信息-数据库查询", f"查询执行失败: {str(e)}")
+                else:
+                    st.warning("⚠️ 请输入SQL查询语句")
 
-                    # 获取列名
-                    columns = result.keys()
+            # 常用查询模板
+            st.subheader("📝 常用查询模板")
+            st.info("选择一个模板，然后点击'应用选中模板'按钮将其加载到查询编辑器中")
 
-                    # 获取结果数据
-                    rows = result.fetchall()
+            templates = {
+                "查看最近的温湿度数据": "SELECT * FROM intelligent_farm_airtemperaturehumidity ORDER BY timestamp DESC LIMIT 10;",
+                "查看最近的土壤湿度数据": "SELECT * FROM intelligent_farm_soilmoisture ORDER BY timestamp DESC LIMIT 10;",
+                "查看最近的光照强度数据": "SELECT * FROM intelligent_farm_light_intensity ORDER BY timestamp DESC LIMIT 10;",
+                "统计数据表行数": "SELECT 'intelligent_farm_airtemperaturehumidity' as table_name, COUNT(*) as count FROM intelligent_farm_airtemperaturehumidity UNION ALL SELECT 'intelligent_farm_soilmoisture' as table_name, COUNT(*) as count FROM intelligent_farm_soilmoisture UNION ALL SELECT 'intelligent_farm_light_intensity' as table_name, COUNT(*) as count FROM intelligent_farm_light_intensity;",
+                "查看表结构": "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE();",
+                "查看索引信息": "SHOW INDEX FROM intelligent_farm_airtemperaturehumidity;",
+                "查看表创建语句": "SHOW CREATE TABLE intelligent_farm_airtemperaturehumidity;"
+            }
 
-                    # 显示执行时间
-                    st.success(f"✅ 查询执行成功 (耗时: {execution_time:.4f} 秒)")
-
-                    # 显示结果统计
-                    st.subheader("📈 查询结果统计")
-                    st.write(f"返回行数: {len(rows)}")
-                    st.write(f"列数: {len(columns)}")
-
-                    # 显示结果数据
-                    if rows:
-                        st.subheader("📋 查询结果")
-                        # 转换为DataFrame显示
-                        df = pd.DataFrame(rows, columns=columns)
-                        st.dataframe(df, use_container_width=True)
-
-                        # 提供数据导出
-                        csv = df.to_csv(index=False)
-                        st.download_button(
-                            label="📥 下载CSV结果",
-                            data=csv,
-                            file_name="query_result.csv",
-                            mime="text/csv"
-                        )
-                    else:
-                        st.info("ℹ️ 查询执行成功，但没有返回数据")
-
-                except Exception as e:
-                    st.error(f"❌ 查询执行失败: {str(e)}")
-                    log_operation(username, "ERROR", "调试信息-数据库查询", f"查询执行失败: {str(e)}")
-            else:
-                st.warning("⚠️ 请输入SQL查询语句")
-
-        # 常用查询模板
-        st.subheader("📝 常用查询模板")
-        st.info("选择一个模板，然后点击'应用选中模板'按钮将其加载到查询编辑器中")
-
-        templates = {
-            "查看最近的温湿度数据": "SELECT * FROM intelligent_farm_airtemperaturehumidity ORDER BY timestamp DESC LIMIT 10;",
-            "查看最近的土壤湿度数据": "SELECT * FROM intelligent_farm_soilmoisture ORDER BY timestamp DESC LIMIT 10;",
-            "查看最近的光照强度数据": "SELECT * FROM intelligent_farm_light_intensity ORDER BY timestamp DESC LIMIT 10;",
-            "统计数据表行数": "SELECT 'intelligent_farm_airtemperaturehumidity' as table_name, COUNT(*) as count FROM intelligent_farm_airtemperaturehumidity UNION ALL SELECT 'intelligent_farm_soilmoisture' as table_name, COUNT(*) as count FROM intelligent_farm_soilmoisture UNION ALL SELECT 'intelligent_farm_light_intensity' as table_name, COUNT(*) as count FROM intelligent_farm_light_intensity;",
-            "查看表结构": "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE();",
-            "查看索引信息": "SHOW INDEX FROM intelligent_farm_airtemperaturehumidity;",
-            "查看表创建语句": "SHOW CREATE TABLE intelligent_farm_airtemperaturehumidity;"
-        }
-
-        selected_template = st.selectbox("选择查询模板", list(templates.keys()))
-        if st.button("📋 应用选中模板"):
-            st.session_state.current_query = templates[selected_template]
-            st.success(f"已应用模板: {selected_template}")
-            st.rerun()
-
-        session.close()
+            selected_template = st.selectbox("选择查询模板", list(templates.keys()))
+            if st.button("📋 应用选中模板"):
+                st.session_state.current_query = templates[selected_template]
+                st.success(f"已应用模板: {selected_template}")
+                st.rerun()
 
     except Exception as e:
         st.error(f"❌ 数据库连接异常: {str(e)}")
