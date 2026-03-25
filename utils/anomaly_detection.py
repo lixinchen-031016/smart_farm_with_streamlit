@@ -6,15 +6,16 @@ from sklearn.preprocessing import StandardScaler
 
 
 def detect_outliers_iqr(data, column):
-    """
-    使用四分位距(IQR)方法检测异常值
-    
-    Parameters:
-    data (pd.DataFrame): 数据集
-    column (str): 列名
-    
+    """使用四分位距(IQR)方法检测异常值
+
+    使用四分位距方法检测数据中的异常值，基于1.5倍IQR的阈值。
+
+    Args:
+        data (pd.DataFrame): 数据集
+        column (str): 列名
+
     Returns:
-    pd.Series: 布尔序列，True表示异常值
+        pd.Series: 布尔序列，True表示异常值
     """
     Q1 = data[column].quantile(0.25)
     Q3 = data[column].quantile(0.75)
@@ -25,16 +26,17 @@ def detect_outliers_iqr(data, column):
 
 
 def detect_outliers_zscore(data, column, threshold=3):
-    """
-    使用Z-Score方法检测异常值
-    
-    Parameters:
-    data (pd.DataFrame): 数据集
-    column (str): 列名
-    threshold (float): Z-Score阈值，默认为3
-    
+    """使用Z-Score方法检测异常值
+
+    使用Z-Score方法检测数据中的异常值，基于指定的阈值。
+
+    Args:
+        data (pd.DataFrame): 数据集
+        column (str): 列名
+        threshold (float, optional): Z-Score阈值，默认为3
+
     Returns:
-    pd.Series: 布尔序列，True表示异常值
+        pd.Series: 布尔序列，True表示异常值
     """
     z_scores = np.abs(stats.zscore(data[column].dropna()))
     return data[column].isin(z_scores[z_scores > threshold].index)
@@ -42,19 +44,20 @@ def detect_outliers_zscore(data, column, threshold=3):
 
 def detect_outliers_isolation_forest(data, columns=None, contamination='auto', n_estimators=100,
                                      max_samples='auto', random_state=42):
-    """
-    使用孤立森林(Isolation Forest)算法检测异常值
-    
-    Parameters:
-    data (pd.DataFrame): 数据集
-    columns (list): 用于检测的列名列表，如果为None则使用所有数值列
-    contamination (float or 'auto'): 异常值比例估计，'auto'表示自动估计
-    n_estimators (int): 孤立树的数量
-    max_samples (int, float or 'auto'): 从训练集中抽取样本的数量
-    random_state (int): 随机种子
-    
+    """使用孤立森林(Isolation Forest)算法检测异常值
+
+    使用孤立森林算法检测数据中的异常值，适用于多维数据的异常检测。
+
+    Args:
+        data (pd.DataFrame): 数据集
+        columns (list, optional): 用于检测的列名列表，如果为None则使用所有数值列
+        contamination (float or 'auto', optional): 异常值比例估计，'auto'表示自动估计
+        n_estimators (int, optional): 孤立树的数量，默认为100
+        max_samples (int, float or 'auto', optional): 从训练集中抽取样本的数量，默认为'auto'
+        random_state (int, optional): 随机种子，默认为42
+
     Returns:
-    pd.Series: 布尔序列，True表示异常值
+        pd.Series: 布尔序列，True表示异常值
     """
     if columns is None:
         columns = data.select_dtypes(include=[np.number]).columns.tolist()
@@ -89,16 +92,17 @@ def detect_outliers_isolation_forest(data, columns=None, contamination='auto', n
 
 
 def detect_anomalies(data, method='iqr', **kwargs):
-    """
-    检测数据中的异常值
-    
-    Parameters:
-    data (pd.DataFrame): 数据集
-    method (str): 检测方法 ('iqr', 'zscore', 'isolation_forest')
-    **kwargs: 方法特定的参数
-    
+    """检测数据中的异常值
+
+    使用指定的方法检测数据中所有数值列的异常值。
+
+    Args:
+        data (pd.DataFrame): 数据集
+        method (str, optional): 检测方法 ('iqr', 'zscore', 'isolation_forest')，默认为'iqr'
+        **kwargs: 方法特定的参数
+
     Returns:
-    dict: 每一列的异常值索引
+        dict: 每一列的异常值索引
     """
     numeric_columns = data.select_dtypes(include=[np.number]).columns
     anomalies = {}
@@ -121,15 +125,16 @@ def detect_anomalies(data, method='iqr', **kwargs):
 
 
 def remove_anomalies(data, anomalies):
-    """
-    移除数据中的异常值
-    
-    Parameters:
-    data (pd.DataFrame): 数据集
-    anomalies (dict): 异常值索引字典
-    
+    """移除数据中的异常值
+
+    根据异常值索引字典移除数据中的异常值。
+
+    Args:
+        data (pd.DataFrame): 数据集
+        anomalies (dict): 异常值索引字典
+
     Returns:
-    pd.DataFrame: 移除异常值后的数据
+        pd.DataFrame: 移除异常值后的数据
     """
     # 获取所有异常值的索引
     all_anomaly_indices = set()
@@ -142,14 +147,15 @@ def remove_anomalies(data, anomalies):
 
 
 def get_anomaly_summary(anomalies):
-    """
-    获取异常值摘要信息
-    
-    Parameters:
-    anomalies (dict): 异常值索引字典
-    
+    """获取异常值摘要信息
+
+    计算每列异常值的数量和比例，生成摘要信息。
+
+    Args:
+        anomalies (dict): 异常值索引字典
+
     Returns:
-    dict: 每列异常值数量和比例的摘要
+        dict: 每列异常值数量和比例的摘要
     """
     summary = {}
     total_rows = len(set().union(*[indices for indices in anomalies.values()])) if anomalies else 0

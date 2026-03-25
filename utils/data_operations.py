@@ -18,7 +18,16 @@ INDEXES = [
 
 
 def create_indexes():
-    """创建必要的索引"""
+    """创建必要的索引
+
+    创建数据库表的索引，提高查询性能。
+
+    Returns:
+        None: 无返回值
+
+    Raises:
+        Exception: 创建索引失败时会捕获并记录错误信息
+    """
     from sqlalchemy import inspect
     inspector = inspect(engine)
 
@@ -36,12 +45,18 @@ def create_indexes():
 
 
 def fetch_data_in_bulk(session, start_time=None, end_time=None):
-    """
-    批量查询多个表的数据，减少数据库调用次数。
-    :param session: 数据库会话对象
-    :param start_time: 查询开始时间（可选）
-    :param end_time: 查询结束时间（可选）
-    :return: 包含多个表数据的DataFrame
+    """批量查询多个表的数据，减少数据库调用次数
+
+    批量查询多个表的数据，使用LEFT JOIN优化查询性能，
+    支持按时间范围过滤，返回包含多个表数据的DataFrame。
+
+    Args:
+        session: 数据库会话对象
+        start_time: 查询开始时间（可选）
+        end_time: 查询结束时间（可选）
+
+    Returns:
+        pd.DataFrame: 包含多个表数据的DataFrame
     """
     # 使用LEFT JOIN替代多个OUTER JOIN，优化查询性能
     query = session.query(

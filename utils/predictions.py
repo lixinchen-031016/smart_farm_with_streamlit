@@ -12,7 +12,25 @@ warnings.filterwarnings('ignore')
 import models
 
 def sarima_validation_prediction(data, prediction_days, params, prophet_forecast):
-    """SARIMA验证/微调模型实现"""
+    """SARIMA验证/微调模型实现
+
+    使用SARIMA模型对Prophet预测结果进行验证和微调，通过权重融合策略提高预测精度。
+
+    Args:
+        data (list): 历史数据列表，每个元素为(timestamp, value)元组
+        prediction_days (int): 预测天数
+        params (dict): 模型参数，包含SARIMA模型的阶数和权重设置
+        prophet_forecast (pd.DataFrame): Prophet模型的预测结果
+
+    Returns:
+        tuple: (forecast_df, rmse, validation_explanation)
+            - forecast_df: 融合后的预测结果DataFrame
+            - rmse: 模型拟合的RMSE值
+            - validation_explanation: 模型验证说明文本
+
+    Raises:
+        Exception: SARIMA模型拟合失败时会捕获并回退到Prophet预测
+    """
     # 参数解析
     order_p = params.get('sarima_order_p', 1)
     order_q = params.get('sarima_order_q', 1)
@@ -116,7 +134,26 @@ def sarima_validation_prediction(data, prediction_days, params, prophet_forecast
 
 
 def prophet_prediction(data, prediction_days, params):
-    """Facebook Prophet模型预测实现"""
+    """Facebook Prophet模型预测实现
+
+    使用Facebook Prophet模型进行时间序列预测，特别针对农业数据进行了优化，
+    支持日周期、周周期检测和异常值处理。
+
+    Args:
+        data (list or pd.DataFrame): 历史数据，包含时间戳和值
+        prediction_days (int): 预测天数
+        params (dict): 模型参数，包含变化点灵敏度、季节性强度等设置
+
+    Returns:
+        tuple: (historical_df, forecast_df, explanation, rmse)
+            - historical_df: 历史数据DataFrame
+            - forecast_df: 预测结果DataFrame
+            - explanation: 模型训练说明文本
+            - rmse: 模型拟合的RMSE值
+
+    Raises:
+        ValueError: 数据量不足或数据方差为0时会抛出异常
+    """
     # 使用 prophet 替代 fbprophet
     from prophet import Prophet
     import pandas as pd
@@ -200,6 +237,25 @@ def prophet_prediction(data, prediction_days, params):
 
 
 def perform_prediction(data, model_type, prediction_days, lstm_params=None):
+    """执行预测操作
+
+    根据选择的模型类型执行预测操作，支持Prophet和SARIMA模型，
+    对农业数据进行预处理，处理异常值和缺失值，提高预测精度。
+
+    Args:
+        data (list or pd.DataFrame): 历史数据，可以是列表或DataFrame格式
+        model_type (str): 模型类型，可选值为"Prophet"或"SARIMA"
+        prediction_days (int): 预测天数
+        lstm_params (dict, optional): 模型参数，默认为None
+
+    Returns:
+        tuple: (historical_data, forecast_data, model_explanation, rmse)
+            - historical_data: 处理后的历史数据
+            - forecast_data: 预测结果
+            - model_explanation: 模型说明文本
+            - rmse: 模型拟合的RMSE值
+    """
+
     # 修改：检查传入的数据类型
     if isinstance(data, list) and len(data) > 0 and isinstance(data[0], tuple):
         # 从数据库获取的原始数据格式
@@ -323,7 +379,30 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
 
 
 def multivariate_prediction(temp_data, humid_data, light_data, prediction_days, params):
-    """多变量耦合预测 - 考虑温度、湿度、光照的相互影响"""
+    """多变量耦合预测 - 考虑温度、湿度、光照的相互影响
+
+    使用随机森林模型进行多变量预测，考虑温度、湿度、光照之间的相互影响，
+    通过特征工程添加滞后特征和交互项，提高预测精度。
+
+    Args:
+        temp_data (list): 温度数据列表
+        humid_data (list): 湿度数据列表
+        light_data (list): 光照数据列表
+        prediction_days (int): 预测天数
+        params (dict): 模型参数，包含随机森林的树数量等设置
+
+    Returns:
+        tuple: (merged_df, rf_temp, rf_humid, feature_importance, explanation)
+            - merged_df: 合并后的多变量数据集
+            - rf_temp: 温度预测模型
+            - rf_humid: 湿度预测模型
+            - feature_importance: 特征重要性分析结果
+            - explanation: 模型说明文本
+
+    Raises:
+        ValueError: 多变量数据量不足时会抛出异常
+        Exception: 预测失败时会捕获并返回None
+    """
     try:
         # 构建多变量数据集
         temp_df = pd.DataFrame([(d.timestamp, d.temperature) for d in temp_data], 
@@ -447,7 +526,17 @@ def multivariate_prediction(temp_data, humid_data, light_data, prediction_days, 
 
 
 def get_historical_data(session, data_type):
-    """获取历史数据"""
+    """获取历史数据
+
+    从数据库中获取指定类型的历史数据，支持空气温度、空气湿度和土壤湿度三种类型。
+
+    Args:
+        session: 数据库会话对象
+        data_type (str): 数据类型，可选值为"空气温度"、"空气湿度"或"土壤湿度"
+
+    Returns:
+        list: 历史数据列表，每个元素为(timestamp, value)元组
+    """
     if data_type == "空气温度":
         query = session.query(models.AirTemperatureHumidity.timestamp,
                               models.AirTemperatureHumidity.temperature).order_by(
@@ -463,7 +552,19 @@ def get_historical_data(session, data_type):
 
 
 def prepare_prediction_ui():
-    """准备预测 UI 组件 - 增强版，支持多变量预测"""
+    """准备预测 UI 组件 - 增强版，支持多变量预测
+
+    生成预测页面的UI组件，包括预测模式选择、数据类型选择、模型类型选择、
+    预测天数设置和模型参数配置等。
+
+    Returns:
+        tuple: (data_type, model_type, prediction_days, params, pred_mode)
+            - data_type: 数据类型，单变量预测模式下有效
+            - model_type: 模型类型，单变量预测模式下有效
+            - prediction_days: 预测天数
+            - params: 模型参数配置
+            - pred_mode: 预测模式，"单变量时间序列预测"或"多变量耦合预测"
+    """
     # 预测模式选择
     pred_mode = st.radio(
         "预测模式",
@@ -516,7 +617,21 @@ def prepare_prediction_ui():
 
 
 def show_prediction_results(historical_data, forecast_data, model_explanation, rmse, data_type):
-    """显示预测结果 - 增强版，包含置信区间和风险评估"""
+    """显示预测结果 - 增强版，包含置信区间和风险评估
+
+    展示预测结果，包括历史数据和预测数据的可视化图表、模型评估指标、
+    置信区间、风险评估和智能决策建议等。
+
+    Args:
+        historical_data (pd.DataFrame): 历史数据
+        forecast_data (pd.DataFrame): 预测结果数据
+        model_explanation (str): 模型训练说明文本
+        rmse (float): 模型拟合的RMSE值
+        data_type (str): 数据类型，用于图表标题
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+    """
     
     # 重新计算更准确的 RMSE 和 MAE
     hist_col = 'y' if 'y' in historical_data.columns else 'value'

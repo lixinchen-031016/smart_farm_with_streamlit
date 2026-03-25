@@ -13,7 +13,21 @@ from utils.database import get_session
 
 
 def show_log_viewer():
-    """显示日志查看器页面 - 增强版"""
+    """显示日志查看器页面 - 增强版
+
+    提供智能日志分析平台，支持时间范围选择、关键词搜索、高级过滤、
+    统计分析、操作链追踪和异常告警等功能，帮助用户快速定位和分析系统运行情况。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Raises:
+        Exception: 数据库查询失败时会捕获并显示错误信息
+
+    Examples:
+        >>> show_log_viewer()
+        # 会在Streamlit页面上显示完整的日志分析平台界面
+    """
     if not st.session_state.get('logged_in'):
         st.query_params.page = "login"
         st.rerun()

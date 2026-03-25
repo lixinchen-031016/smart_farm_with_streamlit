@@ -11,12 +11,17 @@ from utils.logger import log_operation
 
 
 def backup_data(session, start_time, end_time):
-    """
-    备份指定时间范围内的数据
-    :param session: 数据库会话对象
-    :param start_time: 开始时间
-    :param end_time: 结束时间
-    :return: 包含加密密钥和加密 SQL 文件的压缩字节流
+    """备份指定时间范围内的数据
+
+    备份指定时间范围内的数据，将其转换为SQL语句，加密后压缩为zip文件。
+
+    Args:
+        session: 数据库会话对象
+        start_time: 开始时间
+        end_time: 结束时间
+
+    Returns:
+        bytes: 包含加密密钥和加密 SQL 文件的压缩字节流
     """
     # 调用批量查询函数
     df = fetch_data_in_bulk(session, start_time, end_time)
@@ -57,8 +62,18 @@ def backup_data(session, start_time, end_time):
 
 
 def backup_ui(session, start_time, end_time, username):
-    """
-    处理数据备份的用户界面逻辑
+    """处理数据备份的用户界面逻辑
+
+    处理数据备份的用户界面逻辑，调用backup_data函数进行备份并提供下载链接。
+
+    Args:
+        session: 数据库会话对象
+        start_time: 开始时间
+        end_time: 结束时间
+        username (str): 用户名
+
+    Returns:
+        None: 无返回值，直接在页面上显示内容
     """
     zip_buffer = backup_data(session, start_time, end_time)
 
@@ -73,11 +88,19 @@ def backup_ui(session, start_time, end_time, username):
 
 
 def restore_data(uploaded_file, key):
-    """
-    恢复上传的 SQL 文件
-    :param uploaded_file: 上传的加密 SQL 文件
-    :param key: 解密密钥
-    :return: 恢复结果
+    """恢复上传的 SQL 文件
+
+    恢复上传的加密SQL文件，使用提供的密钥解密并执行SQL语句。
+
+    Args:
+        uploaded_file: 上传的加密 SQL 文件
+        key (str): 解密密钥
+
+    Returns:
+        bool: 恢复结果，成功返回True
+
+    Raises:
+        Exception: 恢复过程中发生错误时会抛出异常
     """
     try:
         # 读取上传的 SQL 文件内容

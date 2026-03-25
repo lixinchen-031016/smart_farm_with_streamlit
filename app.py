@@ -1,3 +1,17 @@
+"""智能农场管理系统主应用
+
+智能农场管理系统的主应用文件，负责应用的初始化、页面路由和功能调用。
+
+主要功能：
+- 用户登录与注册
+- 数据预览与概览
+- 数据分析与可视化
+- 数据预测与AI洞察
+- 系统监控与管理
+- 数据备份与恢复
+- 日志管理与分析
+"""
+
 import base64
 import os
 from datetime import datetime
@@ -80,10 +94,17 @@ preload_modules([
 
 # 函数：获取最新数据
 def fetch_latest_data(session):
-    """
-    获取数据库中最新的空气温度、湿度、土壤湿度、土壤养分和光照强度数据
-    :param session: 数据库会话对象
-    :return: 包含最新数据的元组
+    """获取数据库中最新的空气温度、湿度、土壤湿度、土壤养分和光照强度数据
+
+    Args:
+        session: 数据库会话对象
+
+    Returns:
+        tuple: 包含最新数据的元组，顺序为(air_temp_hum, soil_moist, soil_nutri, light_intens)
+
+    Examples:
+        >>> air_temp_hum, soil_moist, soil_nutri, light_intens = fetch_latest_data(session)
+        >>> print(f"最新温度: {air_temp_hum.temperature}")
     """
     air_temp_hum = session.query(models.AirTemperatureHumidity).order_by(
         models.AirTemperatureHumidity.timestamp.desc()).first()
@@ -97,6 +118,17 @@ def fetch_latest_data(session):
 # 函数：数据预览
 @exception_handler
 def data_preview():
+    """显示数据预览页面，展示实时传感器数据和关键指标
+
+    显示实时传感器数据和关键指标，包括空气温度、湿度、土壤湿度、土壤养分和光照强度等。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> data_preview()
+        # 会在Streamlit页面上显示数据预览界面
+    """
     if not st.session_state.get('logged_in'):
         st.query_params.page = "login"
         return
@@ -122,10 +154,21 @@ def data_preview():
 
 # 函数：读取文件
 def read_file(uploaded_file):
-    """
-    读取上传的文件并将其转换为Pandas DataFrame
-    :param uploaded_file: 上传的文件对象
-    :return: Pandas DataFrame
+    """读取上传的文件并将其转换为Pandas DataFrame
+
+    支持读取JSON、CSV和Excel文件，并将其转换为Pandas DataFrame格式。
+
+    Args:
+        uploaded_file: 上传的文件对象
+
+    Returns:
+        pd.DataFrame or None: 转换后的DataFrame，不支持的文件类型返回None
+
+    Examples:
+        >>> uploaded_file = st.file_uploader("选择文件", type=["csv", "xlsx", "json"])
+        >>> if uploaded_file:
+        ...     data = read_file(uploaded_file)
+        ...     print(data.head())
     """
     if uploaded_file.type == "application/json":
         data = pd.read_json(uploaded_file)
@@ -147,6 +190,18 @@ def read_file(uploaded_file):
 # 函数：数据概览
 @exception_handler
 def data_overview():
+    """显示数据概览页面，允许用户从数据库读取或上传文件获取数据
+
+    提供数据来源选择功能，支持从数据库读取或上传文件获取数据，
+    并显示数据的基本信息、预览和导出功能。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> data_overview()
+        # 会在Streamlit页面上显示数据概览界面
+    """
     if not st.session_state.get('logged_in'):
         st.query_params.page = "login"
         return
@@ -264,8 +319,16 @@ def data_overview():
 # 函数：高级分析
 @exception_handler
 def advanced_analysis():
-    """
-    显示高级分析页面，提供数据分组和聚合功能
+    """显示高级分析页面，提供数据分组和聚合功能
+
+    提供数据分组和聚合功能，支持不同聚合函数的选择，并生成相应的图表和分析结果。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> advanced_analysis()
+        # 会在Streamlit页面上显示高级分析界面
     """
     if not st.session_state.get('logged_in'):
         st.query_params.page = "login"
@@ -377,16 +440,32 @@ def advanced_analysis():
 
 # 函数：使用说明
 def show_instructions():
-    """
-    显示使用说明页面
+    """显示使用说明页面
+
+    显示系统的使用说明文档，帮助用户了解系统的功能和使用方法。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> show_instructions()
+        # 会在Streamlit页面上显示使用说明界面
     """
     from utils.instruction_manual import show_instructions as show_full_manual
     show_full_manual()
 
 # 函数：日志分析
 def show_log_analysis():
-    """
-    显示日志分析页面
+    """显示日志分析页面
+
+    显示系统的日志分析界面，帮助用户分析系统运行状态和问题。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> show_log_analysis()
+        # 会在Streamlit页面上显示日志分析界面
     """
     from utils.log_analyzer import show_log_analysis as show_log_analysis_ui
     show_log_analysis_ui()
@@ -394,24 +473,48 @@ def show_log_analysis():
 
 # 函数：系统监控
 def system_monitoring():
-    """
-    显示系统监控页面，实时查看服务器资源使用情况
+    """显示系统监控页面，实时查看服务器资源使用情况
+
+    显示服务器资源使用情况，包括CPU、内存、磁盘和网络等指标的实时监控。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> system_monitoring()
+        # 会在Streamlit页面上显示系统监控界面
     """
     utils.system_monitoring.system_monitoring()
 
 
 # 函数：日志分析
 def log_analysis():
-    """
-    显示日志分析页面
+    """显示日志分析页面
+
+    显示系统的日志分析界面，帮助用户分析系统运行状态和问题。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> log_analysis()
+        # 会在Streamlit页面上显示日志分析界面
     """
     show_log_analysis()
 
 
 # 函数：数据备份
 def data_backup():
-    """
-    显示数据备份页面，允许管理员按时间范围备份数据
+    """显示数据备份页面，允许管理员按时间范围备份数据
+
+    显示数据备份界面，允许管理员选择时间范围并执行数据备份操作。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> data_backup()
+        # 会在Streamlit页面上显示数据备份界面
     """
     if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
         st.query_params.page = "login"
@@ -433,8 +536,16 @@ def data_backup():
 
 # 函数：数据恢复
 def data_restore():
-    """
-    显示数据恢复页面，允许管理员恢复备份的数据
+    """显示数据恢复页面，允许管理员恢复备份的数据
+
+    显示数据恢复界面，允许管理员上传备份文件并执行数据恢复操作。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> data_restore()
+        # 会在Streamlit页面上显示数据恢复界面
     """
     if not st.session_state.get('logged_in') or st.session_state['role'] != 'admin':
         st.query_params.page = "login"
@@ -449,7 +560,17 @@ def data_restore():
 
 @exception_handler
 def ai_insights_analysis():
-    """AI洞察分析页面，结合数据分析和预测结果进行智能解读"""
+    """AI洞察分析页面，结合数据分析和预测结果进行智能解读
+
+    利用AI大模型对数据分析和预测结果进行智能解读和建议，帮助用户获得更深层次的数据分析洞察。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> ai_insights_analysis()
+        # 会在Streamlit页面上显示AI洞察分析界面
+    """
     if not st.session_state.get('logged_in'):
         st.query_params.page = "login"
         return
@@ -507,8 +628,16 @@ def ai_insights_analysis():
 # 函数：主函数
 @exception_handler
 def main():
-    """
-    应用的主函数，负责页面路由和功能调用
+    """应用的主函数，负责页面路由和功能调用
+
+    应用的主函数，负责初始化应用、处理登录状态、管理页面路由和调用相应的功能模块。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> main()
+        # 会启动应用并显示相应的页面
     """
     # 初始化应用，预加载关键模块
     initialize_app()
@@ -751,8 +880,16 @@ def main():
 
 
 def initialize_app():
-    """
-    初始化应用，预加载关键模块
+    """初始化应用，预加载关键模块
+
+    初始化应用，处理自动重定向逻辑，确保未登录用户访问都重定向到登录页面。
+
+    Returns:
+        None: 无返回值
+
+    Examples:
+        >>> initialize_app()
+        # 会初始化应用并处理重定向逻辑
     """
     # 获取当前页面参数
     page = st.query_params.get("page", "login")

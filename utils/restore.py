@@ -4,8 +4,24 @@ from utils.logger import log_operation
 
 
 def restore_ui(username):
-    """
-    处理数据恢复的用户界面逻辑
+    """处理数据恢复的用户界面逻辑
+
+    提供数据恢复的用户界面，允许用户上传加密的SQL备份文件和密钥文件，
+    然后调用restore_data函数进行数据恢复操作。
+
+    Args:
+        username (str): 用户名，用于日志记录
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Raises:
+        ValueError: 密钥文件为空或无效时抛出
+        Exception: 数据恢复过程中出现其他错误时抛出
+
+    Examples:
+        >>> restore_ui("admin")
+        # 会在Streamlit页面上显示文件上传组件和恢复按钮
     """
     uploaded_sql_file = st.file_uploader("选择加密的SQL备份文件", type=["encrypted"])
     uploaded_key_file = st.file_uploader("选择密钥文件", type=["txt"])

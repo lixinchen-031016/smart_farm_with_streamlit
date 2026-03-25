@@ -15,14 +15,17 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 
 def generate_captcha():
-    """
-    生成 4 位随机验证码及图片
-    
+    """生成 4 位随机验证码及图片
+
+    生成包含4位数字的验证码图片，添加干扰线和干扰点，提高安全性。
+
     Returns:
         tuple: (验证码文本，Base64 编码的图片字符串)
-        
-    Example:
-        captcha_text, captcha_image = generate_captcha()
+
+    Examples:
+        >>> captcha_text, captcha_image = generate_captcha()
+        >>> print(len(captcha_text))
+        4
     """
     # 生成随机验证码
     captcha_text = ''.join(random.choices(string.digits, k=4))
@@ -74,22 +77,22 @@ def generate_captcha():
 
 
 def initialize_captcha_session(session_key='captcha'):
-    """
-    初始化验证码会话状态
-    
+    """初始化验证码会话状态
+
+    初始化验证码会话状态，生成新的验证码并存储到会话中。
+
     Args:
-        session_key: 会话状态的键名前缀，默认为'captcha'
-                    实际会存储 {session_key} 和 {session_key}_image
-        
+        session_key (str, optional): 会话状态的键名前缀，默认为'captcha'
+                                    实际会存储 {session_key} 和 {session_key}_image
+
     Returns:
         tuple: (验证码文本，Base64 编码的图片字符串)
-        
-    Example:
-        # 登录页面
-        captcha_text, captcha_image = initialize_captcha_session('login_captcha')
-        
-        # 注册页面
-        captcha_text, captcha_image = initialize_captcha_session('register_captcha')
+
+    Examples:
+        >>> # 登录页面
+        >>> captcha_text, captcha_image = initialize_captcha_session('login_captcha')
+        >>> # 注册页面
+        >>> captcha_text, captcha_image = initialize_captcha_session('register_captcha')
     """
     if session_key not in st.session_state or f'{session_key}_image' not in st.session_state:
         captcha_text, captcha_image = generate_captcha()
@@ -101,17 +104,18 @@ def initialize_captcha_session(session_key='captcha'):
 
 
 def refresh_captcha(session_key='captcha'):
-    """
-    刷新验证码（生成新的验证码并更新会话状态）
-    
+    """刷新验证码（生成新的验证码并更新会话状态）
+
+    生成新的验证码并更新会话状态中的验证码信息。
+
     Args:
-        session_key: 会话状态的键名前缀
-        
+        session_key (str, optional): 会话状态的键名前缀，默认为'captcha'
+
     Returns:
         tuple: (新的验证码文本，新的 Base64 编码图片字符串)
-        
-    Example:
-        new_captcha_text, new_captcha_image = refresh_captcha('login_captcha')
+
+    Examples:
+        >>> new_captcha_text, new_captcha_image = refresh_captcha('login_captcha')
     """
     captcha_text, captcha_image = generate_captcha()
     st.session_state[session_key] = captcha_text
@@ -120,21 +124,22 @@ def refresh_captcha(session_key='captcha'):
 
 
 def verify_captcha(user_input, session_key='captcha'):
-    """
-    验证用户输入的验证码是否正确
-    
+    """验证用户输入的验证码是否正确
+
+    验证用户输入的验证码是否与会话中存储的验证码匹配。
+
     Args:
         user_input: 用户输入的验证码字符串
-        session_key: 会话状态的键名前缀
-        
+        session_key (str, optional): 会话状态的键名前缀，默认为'captcha'
+
     Returns:
         bool: 验证码是否正确
-        
-    Example:
-        if verify_captcha(user_input, 'login_captcha'):
-            st.success("验证码正确")
-        else:
-            st.error("验证码错误")
+
+    Examples:
+        >>> if verify_captcha(user_input, 'login_captcha'):
+        ...     st.success("验证码正确")
+        ... else:
+        ...     st.error("验证码错误")
     """
     if session_key not in st.session_state:
         return False
@@ -146,22 +151,22 @@ def verify_captcha(user_input, session_key='captcha'):
 
 
 def create_captcha_widget(session_key='captcha', show_refresh_button=True):
-    """
-    创建验证码 UI 组件（包含图片和可选的刷新按钮）
-    
+    """创建验证码 UI 组件（包含图片和可选的刷新按钮）
+
+    创建验证码UI组件，显示验证码图片和可选的刷新按钮。
+
     Args:
-        session_key: 会话状态的键名前缀
-        show_refresh_button: 是否显示刷新按钮
-        
+        session_key (str, optional): 会话状态的键名前缀，默认为'captcha'
+        show_refresh_button (bool, optional): 是否显示刷新按钮，默认为True
+
     Returns:
-        None
-        
-    Example:
-        # 在登录页面使用
-        create_captcha_widget('login_captcha')
-        
-        # 在注册页面使用（带刷新按钮）
-        create_captcha_widget('register_captcha', show_refresh_button=True)
+        None: 无返回值，直接在页面上显示内容
+
+    Examples:
+        >>> # 在登录页面使用
+        >>> create_captcha_widget('login_captcha')
+        >>> # 在注册页面使用（带刷新按钮）
+        >>> create_captcha_widget('register_captcha', show_refresh_button=True)
     """
     import streamlit as st
     
@@ -188,20 +193,21 @@ def create_captcha_widget(session_key='captcha', show_refresh_button=True):
 
 
 def validate_captcha_input(user_input, session_key='captcha', field_name="验证码"):
-    """
-    验证验证码输入并提供友好的错误提示
-    
+    """验证验证码输入并提供友好的错误提示
+
+    验证用户输入的验证码是否正确，并在验证失败时显示友好的错误提示。
+
     Args:
         user_input: 用户输入的验证码
-        session_key: 会话状态的键名前缀
-        field_name: 字段名称，用于错误提示
-        
+        session_key (str, optional): 会话状态的键名前缀，默认为'captcha'
+        field_name (str, optional): 字段名称，用于错误提示，默认为"验证码"
+
     Returns:
         bool: 验证是否通过
-        
-    Example:
-        if not validate_captcha_input(captcha_input, 'login_captcha', "登录验证码"):
-            return False  # 验证失败，中断后续操作
+
+    Examples:
+        >>> if not validate_captcha_input(captcha_input, 'login_captcha', "登录验证码"):
+        ...     return False  # 验证失败，中断后续操作
     """
     import streamlit as st
     

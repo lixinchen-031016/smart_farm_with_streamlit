@@ -10,12 +10,27 @@ from utils.logger import log_operation
 
 
 def get_user_role():
-    """Get current user role from session state"""
+    """获取当前用户角色
+
+    从会话状态中获取当前用户的角色。
+
+    Returns:
+        str: 用户角色，默认为'user'
+    """
     return st.session_state.get('role', 'user')
 
 
 def get_user_preferences(username):
-    """Get user dashboard preferences"""
+    """获取用户仪表板偏好设置
+
+    获取用户的仪表板偏好设置，包括布局、显示的指标和时间范围。
+
+    Args:
+        username (str): 用户名
+
+    Returns:
+        dict: 用户仪表板偏好设置
+    """
     # In a real implementation, this would fetch from a database
     # For now, we'll use session state
     pref_key = f"dashboard_pref_{username}"
@@ -29,13 +44,33 @@ def get_user_preferences(username):
 
 
 def save_user_preferences(username, preferences):
-    """Save user dashboard preferences"""
+    """保存用户仪表板偏好设置
+
+    保存用户的仪表板偏好设置到会话状态中。
+
+    Args:
+        username (str): 用户名
+        preferences (dict): 用户仪表板偏好设置
+
+    Returns:
+        None: 无返回值
+    """
     pref_key = f"dashboard_pref_{username}"
     st.session_state[pref_key] = preferences
 
 
 def fetch_sensor_data(session, hours=24):
-    """Fetch sensor data for the specified time range"""
+    """获取指定时间范围内的传感器数据
+
+    获取指定时间范围内的传感器数据，包括温度、湿度、土壤湿度、土壤养分和光照强度。
+
+    Args:
+        session: 数据库会话对象
+        hours (int, optional): 时间范围（小时），默认为24
+
+    Returns:
+        dict: 传感器数据字典，包含温度、土壤湿度、土壤养分和光照强度数据
+    """
     end_time = datetime.now()
     start_time = end_time - timedelta(hours=hours)
 
@@ -86,7 +121,19 @@ def fetch_sensor_data(session, hours=24):
 
 
 def create_trend_chart(data, title, y_label, thresholds=None):
-    """Create a trend chart for sensor data"""
+    """创建传感器数据趋势图表
+
+    创建传感器数据的趋势图表，支持添加阈值线。
+
+    Args:
+        data: 传感器数据列表
+        title (str): 图表标题
+        y_label (str): Y轴标签
+        thresholds (dict, optional): 阈值字典，默认为None
+
+    Returns:
+        plotly.graph_objects.Figure or None: 图表对象，如果数据为空则返回None
+    """
     if not data:
         return None
 
@@ -137,7 +184,17 @@ def create_trend_chart(data, title, y_label, thresholds=None):
 
 
 def render_admin_dashboard(session, username):
-    """Render the admin dashboard"""
+    """渲染管理员仪表板
+
+    渲染管理员仪表板，包括关键指标、快捷操作、数据趋势和系统状态。
+
+    Args:
+        session: 数据库会话对象
+        username (str): 用户名
+
+    Returns:
+        None: 无返回值，直接在页面上显示内容
+    """
     st.title("🎛️ 管理员仪表板")
 
     # User preferences
@@ -313,7 +370,17 @@ def render_admin_dashboard(session, username):
 
 
 def render_user_dashboard(session, username):
-    """Render the regular user dashboard"""
+    """渲染普通用户仪表板
+
+    渲染普通用户仪表板，包括环境指标、快捷操作和数据趋势。
+
+    Args:
+        session: 数据库会话对象
+        username (str): 用户名
+
+    Returns:
+        None: 无返回值，直接在页面上显示内容
+    """
     st.title("🌿 用户仪表板")
 
     # User preferences
@@ -472,7 +539,16 @@ def render_user_dashboard(session, username):
 
 
 def show_dashboard():
-    """Main dashboard function"""
+    """主仪表板函数
+
+    主仪表板函数，根据用户角色显示相应的仪表板。
+
+    Returns:
+        None: 无返回值，直接在页面上显示内容
+
+    Raises:
+        Exception: 仪表板加载失败时会捕获并显示错误信息
+    """
     if not st.session_state.get('logged_in'):
         st.query_params.page = "login"
         return

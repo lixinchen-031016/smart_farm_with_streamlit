@@ -20,9 +20,18 @@ from utils.anomaly_detection import (
 
 
 class DataCleaningRule:
-    """数据清洗规则类"""
+    """数据清洗规则类
+
+    用于定义和管理数据清洗规则，包括异常值检测、缺失值处理、重复行删除和列删除等配置。
+    """
     
     def __init__(self, name: str, description: str = ""):
+        """初始化数据清洗规则
+
+        Args:
+            name (str): 规则名称
+            description (str, optional): 规则描述，默认为空字符串
+        """
         self.name = name
         self.description = description
         self.created_at = datetime.now()
@@ -34,14 +43,29 @@ class DataCleaningRule:
         }
     
     def configure_outlier_detection(self, method: str, params: Dict[str, Any]):
-        """配置异常值检测"""
+        """配置异常值检测
+
+        配置异常值检测方法和参数。
+
+        Args:
+            method (str): 异常值检测方法，如'iqr'、'zscore'或'isolation_forest'
+            params (Dict[str, Any]): 检测方法的参数
+        """
         self.rules['outlier_detection'] = {
             'method': method,
             'params': params
         }
     
     def configure_missing_value(self, column: str, method: str, fill_value: Any = None):
-        """配置缺失值处理"""
+        """配置缺失值处理
+
+        配置指定列的缺失值处理方法。
+
+        Args:
+            column (str): 列名
+            method (str): 处理方法，如'delete'、'mean'、'median'或'mode'
+            fill_value (Any, optional): 填充值，默认为None
+        """
         if self.rules['missing_value_handling'] is None:
             self.rules['missing_value_handling'] = {}
         
@@ -51,16 +75,34 @@ class DataCleaningRule:
         }
     
     def set_duplicate_removal(self, enabled: bool):
-        """设置是否删除重复行"""
+        """设置是否删除重复行
+
+        设置是否在清洗过程中删除重复行。
+
+        Args:
+            enabled (bool): 是否启用重复行删除
+        """
         self.rules['duplicate_removal'] = enabled
     
     def add_column_to_drop(self, column: str):
-        """添加要删除的列"""
+        """添加要删除的列
+
+        添加要在清洗过程中删除的列。
+
+        Args:
+            column (str): 列名
+        """
         if column not in self.rules['column_dropping']:
             self.rules['column_dropping'].append(column)
     
     def to_dict(self) -> Dict:
-        """转换为字典"""
+        """转换为字典
+
+        将规则对象转换为字典格式。
+
+        Returns:
+            Dict: 规则的字典表示
+        """
         return {
             'name': self.name,
             'description': self.description,
@@ -70,29 +112,60 @@ class DataCleaningRule:
     
     @classmethod
     def from_dict(cls, data: Dict) -> 'DataCleaningRule':
-        """从字典创建"""
+        """从字典创建
+
+        从字典创建规则对象。
+
+        Args:
+            data (Dict): 规则的字典表示
+
+        Returns:
+            DataCleaningRule: 创建的规则对象
+        """
         rule = cls(data['name'], data.get('description', ''))
         rule.created_at = datetime.fromisoformat(data['created_at'])
         rule.rules = data['rules']
         return rule
     
     def save(self, filepath: str):
-        """保存规则到文件"""
+        """保存规则到文件
+
+        将规则保存到指定文件。
+
+        Args:
+            filepath (str): 文件路径
+        """
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
     
     @classmethod
     def load(cls, filepath: str) -> 'DataCleaningRule':
-        """从文件加载规则"""
+        """从文件加载规则
+
+        从指定文件加载规则。
+
+        Args:
+            filepath (str): 文件路径
+
+        Returns:
+            DataCleaningRule: 加载的规则对象
+        """
         with open(filepath, 'r', encoding='utf-8') as f:
             data = json.load(f)
         return cls.from_dict(data)
 
 
 class DataCleaner:
-    """数据清洗器"""
+    """数据清洗器
+
+    用于执行数据清洗操作，应用清洗规则并生成清洗报告。
+    """
     
     def __init__(self):
+        """初始化数据清洗器
+
+        初始化清洗历史和统计信息。
+        """
         self.cleaning_history = []
         self.statistics = {
             'total_operations': 0,
@@ -102,7 +175,17 @@ class DataCleaner:
         }
     
     def apply_rule(self, df: pd.DataFrame, rule: DataCleaningRule) -> Tuple[pd.DataFrame, Dict]:
-        """应用清洗规则"""
+        """应用清洗规则
+
+        应用清洗规则到数据框，执行清洗操作并生成清洗报告。
+
+        Args:
+            df (pd.DataFrame): 要清洗的数据框
+            rule (DataCleaningRule): 清洗规则
+
+        Returns:
+            Tuple[pd.DataFrame, Dict]: (清洗后的数据框, 清洗报告)
+        """
         report = {
             'original_shape': df.shape,
             'operations': [],
@@ -230,7 +313,16 @@ class DataCleaner:
         return df, report
     
     def _assess_data_quality(self, df: pd.DataFrame) -> Dict:
-        """评估数据质量"""
+        """评估数据质量
+
+        评估数据框的数据质量，包括缺失值统计等。
+
+        Args:
+            df (pd.DataFrame): 要评估的数据框
+
+        Returns:
+            Dict: 数据质量评估结果
+        """
         total_cells = df.size
         missing_cells = df.isnull().sum().sum()
         
@@ -253,7 +345,17 @@ class DataCleaner:
         }
     
     def _calculate_improvement(self, before: Dict, after: Dict) -> Dict:
-        """计算清洗前后的改善情况"""
+        """计算清洗前后的改善情况
+
+        计算数据清洗前后的数据质量改善情况。
+
+        Args:
+            before (Dict): 清洗前的数据质量评估结果
+            after (Dict): 清洗后的数据质量评估结果
+
+        Returns:
+            Dict: 改善情况统计
+        """
         completeness_improvement = after['completeness'] - before['completeness']
         missing_rate_reduction = before['missing_rate'] - after['missing_rate']
         
@@ -265,7 +367,16 @@ class DataCleaner:
         }
     
     def generate_report(self, report: Dict) -> str:
-        """生成清洗报告"""
+        """生成清洗报告
+
+        根据清洗报告生成格式化的文本报告。
+
+        Args:
+            report (Dict): 清洗报告
+
+        Returns:
+            str: 格式化的清洗报告
+        """
         lines = [
             "=" * 60,
             "数据清洗报告",
@@ -305,7 +416,17 @@ class DataCleaner:
         return "\n".join(lines)
     
     def create_template_rule(self, template_name: str, df: pd.DataFrame) -> DataCleaningRule:
-        """基于数据分析创建模板规则"""
+        """基于数据分析创建模板规则
+
+        根据数据框的分析结果创建清洗模板规则。
+
+        Args:
+            template_name (str): 模板名称
+            df (pd.DataFrame): 要分析的数据框
+
+        Returns:
+            DataCleaningRule: 创建的模板规则
+        """
         rule = DataCleaningRule(
             name=template_name,
             description=f"基于{len(df)}行数据自动生成的清洗模板"
@@ -333,7 +454,13 @@ class DataCleaner:
 
 # 预定义的清洗模板
 def create_agricultural_standard_template() -> DataCleaningRule:
-    """创建农业数据标准清洗流程模板"""
+    """创建农业数据标准清洗流程模板
+
+    创建适用于智能农场传感器数据的标准清洗流程模板。
+
+    Returns:
+        DataCleaningRule: 农业数据标准清洗流程模板
+    """
     rule = DataCleaningRule(
         name="农业数据标准清洗流程",
         description="适用于智能农场传感器数据的标准清洗流程"
@@ -364,7 +491,16 @@ def create_agricultural_standard_template() -> DataCleaningRule:
 
 
 def create_machine_learning_template(df: pd.DataFrame) -> DataCleaningRule:
-    """创建机器学习导向的清洗模板"""
+    """创建机器学习导向的清洗模板
+
+    创建为机器学习模型准备的高质量数据集清洗模板。
+
+    Args:
+        df (pd.DataFrame): 要分析的数据框
+
+    Returns:
+        DataCleaningRule: 机器学习数据清洗模板
+    """
     rule = DataCleaningRule(
         name="机器学习数据清洗模板",
         description="为机器学习模型准备的高质量数据集"

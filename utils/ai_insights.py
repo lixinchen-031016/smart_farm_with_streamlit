@@ -9,21 +9,32 @@ from .ollama_chat import OllamaChat
 
 
 class AIInsightsAnalyzer:
+    """AI洞察分析器类
+
+    用于利用AI大模型对农业数据进行智能分析和解读，提供数据洞察和农业建议。
+    支持流式输出分析结果，并自动保存分析报告。
+    """
     def __init__(self, model_name="qwen3.5:4b"):
-        """
-        初始化AI洞察分析器
-        :param model_name: 要使用的模型名称，默认为qwen3.5:4b
+        """初始化AI洞察分析器
+
+        Args:
+            model_name (str, optional): 要使用的模型名称，默认为"qwen3.5:4b"
         """
         self.chat = OllamaChat(model_name)
         self.model_name = model_name
 
     def save_ai_insights_to_md(self, ai_insights, data_summary, data_description=None):
-        """
-        将 AI 洞察分析结果保存为 markdown 文件
-        :param ai_insights: AI 生成的分析结果
-        :param data_summary: 数据摘要信息
-        :param data_description: 数据背景描述
-        :return: 保存的文件路径
+        """将 AI 洞察分析结果保存为 markdown 文件
+
+        将AI生成的分析结果和数据摘要保存为格式化的Markdown报告，便于后续查看和分享。
+
+        Args:
+            ai_insights (str): AI 生成的分析结果
+            data_summary (dict): 数据摘要信息
+            data_description (str, optional): 数据背景描述，默认为None
+
+        Returns:
+            str: 保存的文件路径
         """
         # 创建保存目录（如果不存在）
         save_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ai_insights_exports')
@@ -78,9 +89,23 @@ class AIInsightsAnalyzer:
         return filepath
 
     def analyze_data_insights_stream(self, data, data_description=None, on_chunk_callback=None, on_think_callback=None):
-        """
-        分析数据洞察并使用 AI 进行智能解读（流式输出）
-        直接将原始数据传递给 AI，由 AI 自行分析
+        """分析数据洞察并使用 AI 进行智能解读（流式输出）
+
+        直接将原始数据传递给 AI，由 AI 自行分析，支持流式输出分析结果和思考过程。
+
+        Args:
+            data (pd.DataFrame): 要分析的数据
+            data_description (str, optional): 数据背景描述，默认为None
+            on_chunk_callback (callable, optional): 接收分析结果的回调函数，默认为None
+            on_think_callback (callable, optional): 接收思考过程的回调函数，默认为None
+
+        Returns:
+            tuple: (ai_response, data_summary)
+                - ai_response: AI 生成的分析结果
+                - data_summary: 数据摘要信息
+
+        Raises:
+            Exception: 分析过程中发生错误时会捕获并返回错误信息
         """
         try:
             # 准备数据摘要 - 包含所有列信息，特别是时间列
@@ -138,8 +163,18 @@ class AIInsightsAnalyzer:
             return f"AI 分析失败：{str(e)}", {}
 
     def _generate_data_analysis_prompt(self, raw_data, data_summary, data_description=None):
-        """
-        生成数据分析的 AI 提示 - 直接传递原始数据
+        """生成数据分析的 AI 提示 - 直接传递原始数据
+
+        生成详细的AI分析提示，包含数据基本信息、预览、统计信息和相关性矩阵，
+        引导AI模型进行全面的农业数据分析。
+
+        Args:
+            raw_data (pd.DataFrame): 原始数据
+            data_summary (dict): 数据摘要信息
+            data_description (str, optional): 数据背景描述，默认为None
+
+        Returns:
+            str: 生成的AI分析提示
         """
         # 准备数据预览文本 - 只显示前 5 行数据，并正确处理时间戳
         preview_rows = []
@@ -206,8 +241,19 @@ class AIInsightsAnalyzer:
         return base_prompt
 
     def integrate_analysis_with_ai(self, data, data_description=None):
-        """
-        整合数据分析与 AI 洞察（流式输出版本）
+        """整合数据分析与 AI 洞察（流式输出版本）
+
+        整合数据分析与AI洞察，在Streamlit页面上显示AI分析过程和结果，
+        包括思考过程和最终分析结果。
+
+        Args:
+            data (pd.DataFrame): 要分析的数据
+            data_description (str, optional): 数据背景描述，默认为None
+
+        Returns:
+            tuple: (ai_insights, data_summary)
+                - ai_insights: AI 生成的分析结果
+                - data_summary: 数据摘要信息
         """
         st.subheader("🤖 AI 驱动的数据分析洞察")
     
@@ -277,15 +323,32 @@ class AIInsightsAnalyzer:
         return ai_insights, data_summary
 
     def _show_basic_analysis(self, data):
-        """
-        显示基本分析结果
+        """显示基本分析结果
+
+        调用增强数据分析模块显示基本的数据分析结果。
+
+        Args:
+            data (pd.DataFrame): 要分析的数据
+
+        Returns:
+            Any: 增强数据分析的结果
         """
         from .enhanced_analysis import enhanced_data_analysis
         return enhanced_data_analysis(data)
 
     def _show_basic_prediction_results(self, historical_data, forecast_data, model_explanation, rmse):
-        """
-        显示基本预测结果
+        """显示基本预测结果
+
+        在Streamlit页面上显示预测结果，包括模型性能指标、模型解释和预测数据预览。
+
+        Args:
+            historical_data: 历史数据
+            forecast_data: 预测数据
+            model_explanation (str): 模型解释
+            rmse (float): 均方根误差
+
+        Returns:
+            None: 无返回值，直接在页面上显示内容
         """
         st.markdown(f"**模型性能指标**：")
         st.write(f"- RMSE: {rmse:.4f}")
@@ -298,8 +361,12 @@ class AIInsightsAnalyzer:
 
     
     def show_ai_insights_page(self):
-        """
-        显示 AI 洞察分析页面（完整 UI 页面）
+        """显示 AI 洞察分析页面（完整 UI 页面）
+
+        在Streamlit中显示完整的AI洞察分析页面，包括模型选择、数据上传提示和分析执行按钮。
+
+        Returns:
+            None: 无返回值，直接在页面上显示内容
         """
         if not st.session_state.get('logged_in'):
             st.query_params.page = "login"
@@ -352,8 +419,12 @@ class AIInsightsAnalyzer:
 
 
 def show_ai_insights():
-    """
-    模块入口函数：显示 AI 洞察分析页面
+    """模块入口函数：显示 AI 洞察分析页面
+
+    创建AI分析器实例并显示完整的AI洞察分析页面。
+
+    Returns:
+        None: 无返回值，直接在页面上显示内容
     """
     # 创建分析器实例并显示页面
     analyzer = AIInsightsAnalyzer("qwen3.5:4b")

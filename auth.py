@@ -1,3 +1,15 @@
+"""用户认证模块
+
+提供用户登录、注册、密码管理和验证码功能，确保系统的安全性和用户身份验证。
+
+主要功能：
+- 用户登录与身份验证
+- 新用户注册
+- 密码强度评估与检查
+- 登录尝试限制与锁定
+- 验证码生成与验证
+"""
+
 import base64
 import os
 import random
@@ -5,6 +17,7 @@ import re
 import string
 from datetime import datetime
 from io import BytesIO
+from typing import Tuple, List, Optional
 
 import bcrypt
 import jwt
@@ -32,12 +45,21 @@ login_attempts = {}
 
 # 添加检查登录尝试的函数
 def check_login_attempts(username, max_attempts=10, lockout_time=30):
-    """
-    检查用户登录尝试次数
-    :param username: 用户名
-    :param max_attempts: 最大尝试次数
-    :param lockout_time: 锁定时间(秒)
-    :return: (是否允许登录, 剩余锁定时间)
+    """检查用户登录尝试次数
+
+    检查用户的登录尝试次数，防止暴力破解。当尝试次数超过上限时，会暂时锁定用户。
+
+    Args:
+        username (str): 用户名
+        max_attempts (int, optional): 最大尝试次数，默认为10
+        lockout_time (int, optional): 锁定时间(秒)，默认为30
+
+    Returns:
+        Tuple[bool, int]: (是否允许登录, 剩余锁定时间)
+
+    Examples:
+        >>> can_login, remaining_time = check_login_attempts("admin")
+        >>> print(f"是否允许登录: {can_login}, 剩余锁定时间: {remaining_time}秒")
     """
     current_time = datetime.now()
 
@@ -61,9 +83,15 @@ def check_login_attempts(username, max_attempts=10, lockout_time=30):
 
 # 添加记录登录失败的函数
 def record_failed_login(username):
-    """
-    记录登录失败尝试
-    :param username: 用户名
+    """记录登录失败尝试
+
+    记录用户的登录失败尝试，用于后续的登录尝试限制。
+
+    Args:
+        username (str): 用户名
+
+    Examples:
+        >>> record_failed_login("admin")
     """
     current_time = datetime.now()
     if username not in login_attempts:
@@ -75,19 +103,39 @@ def record_failed_login(username):
 
 # 添加重置登录尝试记录的函数
 def reset_login_attempts(username):
-    """
-    重置用户的登录尝试记录
-    :param username: 用户名
+    """重置用户的登录尝试记录
+
+    当用户成功登录后，重置其登录尝试记录。
+
+    Args:
+        username (str): 用户名
+
+    Examples:
+        >>> reset_login_attempts("admin")
     """
     if username in login_attempts:
         del login_attempts[username]
 
 
 def evaluate_password_strength(password):
-    """
-    评估密码强度并返回详细信息
-    返回: (强度等级, 分数, 详细反馈)
-    强度等级: low(红色), medium(黄色), high(绿色)
+    """评估密码强度并返回详细信息
+
+    评估密码的强度，包括长度、字符类型、复杂性等因素，并返回详细的反馈信息。
+
+    Args:
+        password (str): 要评估的密码
+
+    Returns:
+        Tuple[str, int, List[str]]: (强度等级, 分数, 详细反馈)
+            - 强度等级: low(红色), medium(黄色), high(绿色)
+            - 分数: 0-100之间的分数
+            - 详细反馈: 包含密码强度评估的详细信息列表
+
+    Examples:
+        >>> strength, score, feedback = evaluate_password_strength("StrongPass123!")
+        >>> print(f"密码强度: {strength}, 分数: {score}")
+        >>> for item in feedback:
+        ...     print(f"- {item}")
     """
     if not password:
         return "low", 0, []
@@ -155,13 +203,21 @@ def evaluate_password_strength(password):
 
 
 def check_password_complexity(password):
-    """
-    检查密码复杂度:
-    - 长度至少8位
-    - 包含大写字母
-    - 包含小写字母
-    - 包含数字
-    - 包含特殊字符
+    """检查密码复杂度
+
+    检查密码是否满足复杂度要求，包括长度、字符类型等。
+
+    Args:
+        password (str): 要检查的密码
+
+    Returns:
+        Tuple[bool, str]: (是否满足复杂度要求, 错误信息)
+            - 如果满足要求，返回 (True, "")
+            - 如果不满足要求，返回 (False, 错误信息)
+
+    Examples:
+        >>> is_complex, msg = check_password_complexity("StrongPass123!")
+        >>> print(f"密码是否复杂: {is_complex}, 消息: {msg}")
     """
     if len(password) < 8:
         return False, "密码长度至少为8个字符"
@@ -178,8 +234,17 @@ def check_password_complexity(password):
 
 # 添加生成验证码的函数
 def generate_captcha():
-    """
-    生成4位随机验证码及图片
+    """生成4位随机验证码及图片
+
+    生成包含4位数字的验证码图片，用于登录和注册时的安全验证。
+
+    Returns:
+        Tuple[str, str]: (验证码文本, 验证码图片的base64编码)
+
+    Examples:
+        >>> captcha_text, captcha_image = generate_captcha()
+        >>> print(f"验证码: {captcha_text}")
+        >>> # captcha_image 可以直接用于HTML中的img标签
     """
     # 生成随机验证码
     captcha_text = ''.join(random.choices(string.digits, k=4))
@@ -230,6 +295,18 @@ def generate_captcha():
 
 
 def login(session, st):
+    """用户登录函数
+
+    显示登录表单，处理用户登录请求，包括验证码验证、密码验证和登录尝试限制。
+
+    Args:
+        session (sqlalchemy.orm.Session): 数据库会话
+        st (streamlit): Streamlit 实例
+
+    Examples:
+        >>> # 在 Streamlit 应用中使用
+        >>> login(session, st)
+    """
     # 使用公共 CSS 样式模块 (TD-001 优化)
     render_login_styles()
 
@@ -334,6 +411,18 @@ def login(session, st):
 
 
 def register(session, st):
+    """用户注册函数
+
+    显示注册表单，处理用户注册请求，包括密码强度评估、验证码验证和用户创建。
+
+    Args:
+        session (sqlalchemy.orm.Session): 数据库会话
+        st (streamlit): Streamlit 实例
+
+    Examples:
+        >>> # 在 Streamlit 应用中使用
+        >>> register(session, st)
+    """
     # 使用公共 CSS 样式模块 (TD-001 优化)
     render_register_styles()
 

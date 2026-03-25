@@ -15,8 +15,21 @@ from utils.visualization import visualize_data
 
 # 函数：数据可视化
 def data_visualization():
-    """
-    显示数据可视化页面，允许用户创建各种图表
+    """显示数据可视化页面，允许用户创建各种图表
+
+    提供智能数据可视化功能，支持基础图表和高级图表的创建，
+    包括散点图、线图、柱状图、箱线图、直方图、饼图、热力图、双轴图和多子图等，
+    并提供智能推荐和图表解读功能。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Raises:
+        Exception: 数据处理或图表生成过程中出现错误时会捕获并显示错误信息
+
+    Examples:
+        >>> data_visualization()
+        # 会在Streamlit页面上显示数据可视化界面
     """
     if not st.session_state.get('logged_in'):
         st.query_params.page = "login"

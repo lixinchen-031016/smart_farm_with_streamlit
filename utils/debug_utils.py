@@ -19,8 +19,19 @@ from utils.logger import log_operation
 
 
 def show_debug_info(username):
-    """
-    显示调试信息，仅在DEBUG_MODE环境变量设置时可用
+    """显示调试信息，仅在DEBUG_MODE环境变量设置时可用
+
+    显示完整的调试信息面板，包括环境信息、系统资源、数据库状态、性能分析等多个标签页。
+
+    Args:
+        username (str): 用户名，用于日志记录
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> show_debug_info("admin")
+        # 会在Streamlit页面上显示调试信息面板
     """
     if not os.getenv('DEBUG_MODE', 'False').lower() == 'true':
         st.error("🚫 调试模式未启用")
@@ -66,7 +77,17 @@ def show_debug_info(username):
 
 
 def show_environment_info():
-    """显示环境信息"""
+    """显示环境信息
+
+    显示系统环境信息，包括运行路径、Python版本、环境变量和已安装的Python包。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> show_environment_info()
+        # 会在Streamlit页面上显示环境信息
+    """
     st.subheader("🖥️ 环境信息")
 
     # 修改:将运行路径单独一行显示
@@ -109,7 +130,20 @@ def show_environment_info():
 
 
 def show_system_resources(username):
-    """显示系统资源使用情况"""
+    """显示系统资源使用情况
+
+    显示系统资源使用情况，包括CPU、内存、磁盘和网络等指标。
+
+    Args:
+        username (str): 用户名，用于日志记录
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> show_system_resources("admin")
+        # 会在Streamlit页面上显示系统资源使用情况
+    """
     st.subheader("📊 系统资源监控")
     cpu_percent = psutil.cpu_percent(interval=1)
     memory = psutil.virtual_memory()
@@ -141,7 +175,17 @@ def show_system_resources(username):
 
 
 def show_database_status():
-    """显示数据库连接状态"""
+    """显示数据库连接状态
+
+    显示数据库连接状态，包括用户数、日志数、最近用户活动和数据表信息。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> show_database_status()
+        # 会在Streamlit页面上显示数据库连接状态
+    """
     st.subheader("🗄️ 数据库状态")
     try:
         with get_session() as session:
@@ -181,7 +225,20 @@ def show_database_status():
 
 
 def show_performance_analysis(username):
-    """显示性能分析工具"""
+    """显示性能分析工具
+
+    显示性能分析工具，包括垃圾回收状态、内存分析、函数性能分析和性能趋势监控。
+
+    Args:
+        username (str): 用户名，用于日志记录
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> show_performance_analysis("admin")
+        # 会在Streamlit页面上显示性能分析工具
+    """
     st.subheader("⚡ 性能分析工具")
 
     # 垃圾回收信息
@@ -284,7 +341,20 @@ def show_performance_analysis(username):
 
 
 def show_debug_tools(username):
-    """显示调试工具"""
+    """显示调试工具
+
+    显示调试工具箱，包括日志级别调整、性能监控开关、系统信息刷新、调试日志记录和异常模拟等功能。
+
+    Args:
+        username (str): 用户名，用于日志记录
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> show_debug_tools("admin")
+        # 会在Streamlit页面上显示调试工具
+    """
     st.subheader("🛠️ 调试工具箱")
 
     # 日志级别调整
@@ -330,16 +400,32 @@ def show_debug_tools(username):
 
 
 def debug_mode_warning():
-    """
-    显示调试模式警告信息
+    """显示调试模式警告信息
+
+    当系统处于调试模式时，显示警告信息，提醒用户调试模式仅用于开发和故障排查。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> debug_mode_warning()
+        # 会在Streamlit页面上显示调试模式警告信息
     """
     if os.getenv('DEBUG_MODE', 'False').lower() == 'true':
         st.warning("⚠️ 系统处于调试模式，仅用于开发和故障排查")
 
 
 def show_debug_config():
-    """
-    显示调试配置选项
+    """显示调试配置选项
+
+    显示调试配置选项，包括日志级别调整和性能监控开关。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> show_debug_config()
+        # 会在Streamlit页面上显示调试配置选项
     """
     if not os.getenv('DEBUG_MODE', 'False').lower() == 'true':
         return
@@ -359,16 +445,44 @@ def show_debug_config():
 
 # 添加新的调试工具函数
 def log_debug_event(username, event_type, details):
-    """
-    记录调试事件到专门的日志表（如果存在）或普通日志
+    """记录调试事件到专门的日志表（如果存在）或普通日志
+
+    记录调试事件到专门的日志表（如果存在）或普通日志，仅在调试模式下生效。
+
+    Args:
+        username (str): 用户名
+        event_type (str): 事件类型
+        details (str): 事件详情
+
+    Returns:
+        None: 无返回值
+
+    Examples:
+        >>> log_debug_event("admin", "测试", "测试调试事件")
+        # 会记录调试事件到日志
     """
     if os.getenv('DEBUG_MODE', 'False').lower() == 'true':
         log_operation(username, "DEBUG", f"调试-{event_type}", details)
 
 
 def measure_execution_time(func):
-    """
-    装饰器：测量函数执行时间
+    """装饰器：测量函数执行时间
+
+    测量函数执行时间并在调试模式下显示执行时间和平均执行时间。
+
+    Args:
+        func (callable): 要测量执行时间的函数
+
+    Returns:
+        callable: 装饰后的函数
+
+    Examples:
+        >>> @measure_execution_time
+        ... def my_function():
+        ...     time.sleep(1)
+        ...
+        >>> my_function()
+        # 会显示执行时间
     """
     execution_times = []
 
@@ -395,8 +509,16 @@ def measure_execution_time(func):
 
 # 添加新的应用状态显示功能
 def show_application_state():
-    """
-    显示应用状态信息
+    """显示应用状态信息
+
+    显示应用状态信息，包括Streamlit会话状态、查询参数、缓存信息、Widget状态、内存使用情况和应用运行时间。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> show_application_state()
+        # 会在Streamlit页面上显示应用状态信息
     """
     st.subheader("应用查看")
 
@@ -443,7 +565,20 @@ def show_application_state():
 
 # 新增：网络与异常监控功能
 def show_network_and_exceptions(username):
-    """显示网络和异常监控信息"""
+    """显示网络和异常监控信息
+
+    显示网络连接状态、网络接口信息、网络连接统计和最近的异常信息。
+
+    Args:
+        username (str): 用户名，用于日志记录
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> show_network_and_exceptions("admin")
+        # 会在Streamlit页面上显示网络和异常监控信息
+    """
     st.subheader("🌐 网络连接状态")
 
     # 显示网络接口信息
@@ -584,7 +719,17 @@ def show_network_and_exceptions(username):
 
 
 def show_config_management():
-    """显示配置管理面板"""
+    """显示配置管理面板
+
+    显示配置管理面板，允许查看和修改应用程序配置，包括程序配置和全局配置。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> show_config_management()
+        # 会在Streamlit页面上显示配置管理面板
+    """
     st.subheader("⚙️ 配置管理")
     st.info("查看和修改应用程序配置")
 
@@ -697,7 +842,20 @@ def show_config_management():
 
 
 def show_database_query_analyzer(username):
-    """显示数据库查询分析器"""
+    """显示数据库查询分析器
+
+    显示数据库查询分析器，允许直接执行SQL查询并分析结果，包括EXPLAIN查询、SQL格式化和常用查询模板。
+
+    Args:
+        username (str): 用户名，用于日志记录
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> show_database_query_analyzer("admin")
+        # 会在Streamlit页面上显示数据库查询分析器
+    """
     st.subheader("🔍 数据库查询分析器")
     st.info("直接执行SQL查询并分析结果")
 
@@ -842,7 +1000,17 @@ def show_database_query_analyzer(username):
 
 
 def show_system_info_viewer():
-    """显示系统详细信息查看器"""
+    """显示系统详细信息查看器
+
+    显示系统详细信息查看器，包括基本系统信息、CPU详细信息、内存详细信息、磁盘信息和网络信息。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> show_system_info_viewer()
+        # 会在Streamlit页面上显示系统详细信息查看器
+    """
     st.subheader("🖥️ 系统信息查看器")
     st.info("查看详细的系统硬件和软件信息")
 

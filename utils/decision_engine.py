@@ -8,7 +8,26 @@ from utils.sensor_data import get_latest_sensor_data, get_historical_sensor_data
 
 
 class DecisionEngine:
+    """自动化决策引擎
+
+    基于传感器数据和历史趋势分析，生成智能农业决策建议，
+    包括灌溉、温度控制、湿度调节和光照管理等方面的建议。
+
+    Attributes:
+        session: 数据库会话对象
+        username: 用户名，用于日志记录
+        default_rules: 默认规则配置，包含各项指标的阈值和建议消息
+    """
     def __init__(self, session, username):
+        """初始化决策引擎
+
+        Args:
+            session: 数据库会话对象，用于查询传感器数据
+            username (str): 用户名，用于日志记录
+
+        Returns:
+            None
+        """
         self.session = session
         self.username = username
         # 默认规则配置
@@ -47,11 +66,27 @@ class DecisionEngine:
         }
 
     def get_historical_data(self, hours=24):
-        """获取历史传感器数据用于趋势分析"""
+        """获取历史传感器数据用于趋势分析
+
+        Args:
+            hours (int, optional): 历史数据的时间范围，默认为24小时
+
+        Returns:
+            dict: 包含各类传感器历史数据的字典
+        """
         return get_historical_sensor_data(self.session, hours)
 
     def calculate_trend(self, data_points):
-        """计算数据趋势"""
+        """计算数据趋势
+
+        使用简单线性回归计算数据的趋势斜率，用于判断数据是上升还是下降。
+
+        Args:
+            data_points (list): 数据点列表，每个元素为(timestamp, value)元组
+
+        Returns:
+            float: 趋势斜率，正数表示上升趋势，负数表示下降趋势
+        """
         if len(data_points) < 2:
             return 0
 
@@ -64,7 +99,16 @@ class DecisionEngine:
         return slope
 
     def analyze_trends(self, historical_data):
-        """分析各项指标的趋势"""
+        """分析各项指标的趋势
+
+        分析温度、湿度、土壤湿度和光照强度的历史数据趋势。
+
+        Args:
+            historical_data (dict): 包含各类传感器历史数据的字典
+
+        Returns:
+            dict: 包含各项指标趋势斜率的字典
+        """
         trends = {}
 
         # 分析温度趋势
@@ -88,7 +132,13 @@ class DecisionEngine:
         return trends
 
     def evaluate_conditions(self):
-        """评估所有传感器数据并生成建议"""
+        """评估所有传感器数据并生成建议
+
+        评估当前环境条件，分析历史趋势，生成智能决策建议。
+
+        Returns:
+            list: 包含决策建议的列表，每个建议包含类型、消息、原因、优先级等信息
+        """
         # 使用优化版本获取最新数据
         latest_data = self.get_latest_sensor_data_optimized()
         historical_data = self.get_historical_data()
@@ -259,16 +309,38 @@ class DecisionEngine:
         return recommendations
 
     def get_latest_sensor_data(self):
-        """获取最新的传感器数据 - 优化版本，使用单次查询提高性能"""
+        """获取最新的传感器数据 - 优化版本，使用单次查询提高性能
+
+        Returns:
+            dict: 包含最新传感器数据的字典
+        """
         return get_latest_sensor_data(self.session)
 
     def get_latest_sensor_data_optimized(self):
-        """获取最新的传感器数据 - 进一步优化版本"""
+        """获取最新的传感器数据 - 进一步优化版本
+
+        Returns:
+            dict: 包含最新传感器数据的字典
+        """
         return get_latest_sensor_data(self.session)
 
 
 def show_decision_engine(session, username):
-    """显示决策引擎UI"""
+    """显示决策引擎UI
+
+    显示自动化决策引擎的用户界面，允许用户评估当前环境条件并查看决策建议。
+
+    Args:
+        session: 数据库会话对象
+        username (str): 用户名
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Examples:
+        >>> show_decision_engine(session, "admin")
+        # 会在Streamlit页面上显示决策引擎界面
+    """
     st.title("🤖 自动化决策引擎")
 
     st.markdown("""

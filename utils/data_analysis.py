@@ -10,8 +10,13 @@ utils_analysis_module = lazy_import('utils.analysis')
 
 # 函数：数据分析
 def data_analysis():
-    """
-    显示数据分析页面，提供描述性统计和相关性分析功能
+    """显示数据分析页面，提供描述性统计和相关性分析功能
+
+    显示数据分析页面，包括智能分析解读和详细数据图表两个标签页，
+    提供描述性统计、相关性分析和智能推荐功能。
+
+    Returns:
+        None: 无返回值，直接在页面上显示内容
     """
     if not st.session_state.get('logged_in'):
         st.query_params.page = "login"

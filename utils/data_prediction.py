@@ -12,7 +12,17 @@ from utils.prediction_auto_save import auto_save_prediction, get_prediction_hist
 
 
 def show_prediction_history():
-    """显示预测历史记录"""
+    """显示预测历史记录
+
+    展示系统中存储的预测历史记录，包括总预测次数、今日预测次数和平均RMSE等统计信息，
+    并以表格形式展示详细的历史预测数据。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Raises:
+        Exception: 加载历史记录失败时会捕获并显示错误信息
+    """
     st.subheader("📚 预测历史记录")
 
     try:
@@ -54,7 +64,18 @@ def show_prediction_history():
 
 
 def data_prediction():
-    """显示数据预测页面，允许用户进行本地数据预测"""
+    """显示数据预测页面，允许用户进行本地数据预测
+
+    提供数据预测功能，支持单变量时间序列预测和多变量耦合预测两种模式。
+    用户可以选择预测数据类型、模型类型和预测天数，系统会根据选择执行相应的预测
+    并展示预测结果、特征重要性分析和趋势图表。同时提供预测历史记录查看功能。
+
+    Returns:
+        None: 无返回值，直接在Streamlit页面上显示内容
+
+    Raises:
+        Exception: 预测过程中出现错误时会捕获并显示错误信息
+    """
     if not st.session_state.get('logged_in'):
         st.query_params.page = "login"
         return

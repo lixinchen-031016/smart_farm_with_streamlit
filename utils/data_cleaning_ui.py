@@ -10,9 +10,13 @@ from utils.logger import log_operation
 
 
 def data_cleaning():
-    """
-    显示数据清洗页面，提供删除重复行、处理缺失值和删除列的功能
-    使用新的数据清洗模块，支持规则模板和效果评估
+    """显示数据清洗页面，提供删除重复行、处理缺失值和删除列的功能
+
+    显示数据清洗页面，使用新的数据清洗模块，支持规则模板和效果评估，
+    包括规则模板、基础清洗、缺失值处理、异常值检测和数据导出五个标签页。
+
+    Returns:
+        None: 无返回值，直接在页面上显示内容
     """
     if not st.session_state.get('logged_in'):
         st.query_params.page = "login"

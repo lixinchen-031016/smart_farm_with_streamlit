@@ -22,7 +22,17 @@ DATABASE_CONFIG = {
 
 # 创建引擎时添加异常处理和重试机制
 def create_db_engine():
-    """创建数据库引擎，带重试机制"""
+    """创建数据库引擎，带重试机制
+
+    创建SQLAlchemy数据库引擎，支持连接池配置和连接重试机制，
+    确保数据库连接的可靠性。
+
+    Returns:
+        sqlalchemy.engine.Engine or None: 数据库引擎对象，失败时返回None
+
+    Raises:
+        Exception: 连接失败时会捕获并在达到最大重试次数后返回None
+    """
     retry_count = 3
     retry_delay = 2
     
@@ -58,12 +68,21 @@ from utils.error_handling import DatabaseError
 
 @contextmanager
 def get_session():
-    """
-    数据库会话上下文管理器
-    
-    用法:
-        with get_session() as session:
-            # 数据库操作
+    """数据库会话上下文管理器
+
+    提供数据库会话的上下文管理，自动处理会话的创建、提交、回滚和关闭，
+    确保数据库操作的原子性和资源的正确释放。
+
+    Yields:
+        sqlalchemy.orm.Session: 数据库会话对象
+
+    Raises:
+        DatabaseError: 数据库连接未初始化或操作失败时抛出
+
+    Examples:
+        >>> with get_session() as session:
+        ...     # 执行数据库操作
+        ...     result = session.query(Model).all()
     """
     if not engine:
         raise DatabaseError("数据库连接未初始化")
@@ -85,14 +104,23 @@ def get_session():
                 pass
 
 def safe_db_operation(func):
-    """
-    数据库操作安全装饰器
-    
+    """数据库操作安全装饰器
+
+    为数据库操作函数提供安全的执行环境，自动管理数据库会话，
+    确保操作的原子性和异常处理。
+
     Args:
-        func: 数据库操作函数
-    
+        func (callable): 数据库操作函数，第一个参数应为session
+
     Returns:
-        装饰后的函数
+        callable: 装饰后的函数，会自动注入数据库会话
+
+    Examples:
+        >>> @safe_db_operation
+        ... def get_user(session, user_id):
+        ...     return session.query(User).filter_by(id=user_id).first()
+        ...
+        >>> user = get_user(123)  # 无需手动传递session
     """
     def wrapper(*args, **kwargs):
         with get_session() as session:
