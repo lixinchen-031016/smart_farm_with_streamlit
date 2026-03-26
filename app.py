@@ -79,8 +79,10 @@ create_smart_chart_recommendation = lazy_import('utils.enhanced_visualization', 
 user_management = lazy_import('utils.user_management', 'user_management')
 system_monitoring = lazy_import('utils.system_monitoring', 'system_monitoring')
 
-# AI洞察模块导入
+# AI 洞察模块导入
 from utils.ai_insights import AIInsightsAnalyzer
+# 添加历史报告查看器模块
+from utils.history_report_viewer import show_history_reports_ui
 
 # 预加载频繁使用的模块以提高性能
 preload_modules([
@@ -745,6 +747,8 @@ def main():
                 "data_visualization": "可视化",
                 "advanced_analysis": "高级分析",
                 "data_prediction": "本地数据预测",
+                "ai_insights_analysis": "AI 洞察分析",
+                "history_reports": "历史报告查看",
                 "user_management": "用户管理",
                 "system_monitoring": "系统监控",
                 "data_backup": "数据备份",
@@ -770,11 +774,16 @@ def main():
             insert_index = next((i for i, module in enumerate(enabled_modules) if module[0] == "数据概览"), 1)
             enabled_modules.insert(insert_index, integrated_dashboard_option)
 
-            # 添加AI洞察分析选项
-            ai_insights_option = ("AI洞察分析", "brain")
-            # 将AI洞察分析插入到数据分析和可视化之间
+            # 添加 AI 洞察分析选项
+            ai_insights_option = ("AI 洞察分析", "brain")
+            # 将 AI 洞察分析插入到数据分析和可视化之间
             analysis_insert_index = next((i for i, module in enumerate(enabled_modules) if module[0] == "数据分析"), 3)
             enabled_modules.insert(analysis_insert_index + 1, ai_insights_option)
+                        
+            # 添加历史报告查看选项
+            history_reports_option = ("历史报告查看", "file-text")
+            # 将历史报告查看插入到 AI 洞察分析之后
+            enabled_modules.insert(analysis_insert_index + 2, history_reports_option)
 
             # 根据用户角色过滤菜单项
             menu_options = []
@@ -821,7 +830,8 @@ def main():
                 "可视化": "data_visualization",
                 "高级分析": "advanced_analysis",
                 "本地数据预测": "data_prediction",
-                "AI洞察分析": "ai_insights_analysis",
+                "AI 洞察分析": "ai_insights_analysis",
+                "历史报告查看": "history_reports",
                 "用户管理": "user_management",
                 "系统监控": "system_monitoring",
                 "日志查看": "log_viewer",
@@ -857,6 +867,7 @@ def main():
             "advanced_analysis": advanced_analysis,
             "data_prediction": data_prediction,
             "ai_insights_analysis": ai_insights_analysis,
+            "history_reports": show_history_reports_ui,
             "user_management": lambda: safe_execute(user_management, session, st.session_state['username'], st.session_state['role']),
             "system_monitoring": system_monitoring,
             "log_viewer": show_log_viewer,
