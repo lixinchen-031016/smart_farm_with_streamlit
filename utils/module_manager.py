@@ -214,6 +214,26 @@ class ModuleManager:
                 icon="question-circle",
                 admin_only=False,
                 dependencies=[]
+            ),
+            ModuleConfig(
+                name="history_report_viewer",
+                enabled=True,
+                display_name="历史报告查看",
+                description="查看和管理 AI 洞察与数据预测的历史报告",
+                category="智能分析",
+                icon="file-earmark-text",
+                admin_only=False,
+                dependencies=[]
+            ),
+            ModuleConfig(
+                name="ai_insights",
+                enabled=True,
+                display_name="AI 数据洞察",
+                description="使用 AI 大模型对农业数据进行智能分析和解读",
+                category="智能分析",
+                icon="cpu",
+                admin_only=False,
+                dependencies=["data_overview"]
             )
         ]
 
