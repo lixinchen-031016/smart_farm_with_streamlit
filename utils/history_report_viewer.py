@@ -343,11 +343,11 @@ def show_history_reports_ui():
             
             # 预览内容（前 50 行）
             st.markdown("#### 📖 内容预览")
-            preview_content = viewer.read_file_content(report['filepath'], max_lines=50)
+            preview_content = viewer.read_file_content(report['filepath'])
             st.markdown(preview_content)
             
             # 操作按钮
-            col1, col2, col3 = st.columns(3)
+            col1,col2 = st.columns(2)
             with col1:
                 # 下载按钮
                 with open(report['filepath'], 'r', encoding='utf-8') as f:
@@ -359,14 +359,8 @@ def show_history_reports_ui():
                     mime="text/markdown",
                     use_container_width=True
                 )
+
             with col2:
-                # 在新窗口打开
-                st.link_button(
-                    label="🔗 在新窗口打开",
-                    url=f"file://{report['filepath']}",
-                    use_container_width=True
-                )
-            with col3:
                 # 删除按钮
                 if st.button("🗑️ 删除报告", use_container_width=True, key=f"delete_{idx}"):
                     if viewer.delete_report(report['filepath']):
