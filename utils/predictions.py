@@ -10,6 +10,8 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 warnings.filterwarnings('ignore')
 
 import models
+from utils.hybrid_prediction import HybridPredictor, grid_search_sarima_params
+from utils.gpu_accelerator import get_gpu_accelerator
 
 def sarima_validation_prediction(data, prediction_days, params, prophet_forecast):
     """SARIMA验证/微调模型实现
@@ -236,6 +238,233 @@ def prophet_prediction(data, prediction_days, params):
     return df.set_index('ds'), forecast_df, explanation, rmse
 
 
+def hybrid_sarima_prophet_prediction(data, prediction_days, params, use_gpu=False):
+    """SARIMA + Prophet 混合预测模型（基于残差分解）
+    
+    实现原理:
+    1. SARIMA捕获线性趋势和季节性，得到初步预测 Ŷ_SARIMA(t)
+    2. 计算残差 e(t) = Y(t) - Ŷ_SARIMA(t)
+    3. Prophet学习残差中的非线性模式，预测残差 Ŷ_Prophet_residuals(t)
+    4. 最终预测: Ŷ_Hybrid(t) = Ŷ_SARIMA(t) + Ŷ_Prophet_residuals(t)
+    
+    Args:
+        data (list or pd.DataFrame): 历史数据
+        prediction_days (int): 预测天数
+        params (dict): 模型参数配置
+        use_gpu (bool): 是否使用GPU加速
+        
+    Returns:
+        tuple: (historical_df, forecast_df, explanation, rmse, evaluation_metrics)
+    """
+    import time
+    
+    # 初始化GPU加速器
+    if use_gpu:
+        gpu_accelerator = get_gpu_accelerator()
+        device_info = gpu_accelerator.get_device_info()
+        st.info(f"🖥️ 使用设备: {device_info['device_name']}")
+    else:
+        gpu_accelerator = None
+    
+    # 数据预处理
+    if isinstance(data, list) and len(data) > 0 and isinstance(data[0], tuple):
+        df = pd.DataFrame(data, columns=['timestamp', 'value'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df.set_index('timestamp', inplace=True)
+    else:
+        df = data.copy()
+        if not isinstance(df, pd.DataFrame):
+            df = pd.DataFrame(df)
+        if 'value' not in df.columns and len(df.columns) >= 1:
+            value_col = df.columns[-1]
+            df = df.rename(columns={value_col: 'value'})
+        df.index = pd.to_datetime(df.index)
+    
+    # 农业数据预处理
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_columns) > 0:
+        df[numeric_columns] = df[numeric_columns].interpolate(method='linear')
+    
+    if 'value' in df.columns:
+        df['value'] = np.where(df['value'] > df['value'].quantile(0.99),
+                               df['value'].median(),
+                               df['value'])
+    
+    # 只选择最近60天的数据
+    df = df[df.index >= (df.index.max() - pd.Timedelta(days=60))]
+    
+    if len(df) < 48:
+        raise ValueError("数据量不足，至少需要48个数据点")
+    
+    # 提取时间序列
+    time_series = df['value']
+    
+    # 开始训练
+    st.write("🚀 正在启动混合预测模型...")
+    overall_start = time.time()
+    
+    try:
+        # 创建混合预测器
+        predictor = HybridPredictor(use_gpu=use_gpu)
+        
+        # 步骤1: 网格搜索最优SARIMA参数（可选）
+        use_grid_search = params.get('use_grid_search', False)
+        if use_grid_search:
+            st.write("🔍 正在进行SARIMA参数网格搜索...")
+            best_params = grid_search_sarima_params(
+                time_series,
+                p_range=params.get('p_range', range(0, 3)),
+                q_range=params.get('q_range', range(0, 3)),
+                P_range=params.get('P_range', range(0, 2)),
+                Q_range=params.get('Q_range', range(0, 2)),
+                seasonal_period=24
+            )
+            order = best_params['order']
+            seasonal_order = best_params['seasonal_order']
+            st.success(f"✅ 最优参数: order={order}, seasonal_order={seasonal_order}")
+        else:
+            order = (
+                params.get('sarima_order_p', 1),
+                params.get('sarima_order_d', 1),
+                params.get('sarima_order_q', 1)
+            )
+            seasonal_order = (
+                params.get('sarima_seasonal_P', 1),
+                params.get('sarima_seasonal_D', 1),
+                params.get('sarima_seasonal_Q', 1),
+                24
+            )
+        
+        # 步骤2: 训练SARIMA模型
+        progress_bar = st.progress(0)
+        st.write("📊 步骤1/3: 训练SARIMA模型...")
+        sarima_result = predictor.train_sarima(
+            time_series,
+            order=order,
+            seasonal_order=seasonal_order,
+            maxiter=params.get('maxiter', 200)
+        )
+        progress_bar.progress(33)
+        
+        # 步骤3: 训练Prophet残差模型
+        st.write("📊 步骤2/3: 训练Prophet残差模型...")
+        prophet_result = predictor.train_prophet_on_residuals(
+            sarima_result['residuals'],
+            changepoint_prior_scale=params.get('changepoint_prior_scale', 0.05),
+            seasonality_prior_scale=params.get('seasonality_prior_scale', 10.0)
+        )
+        progress_bar.progress(66)
+        
+        # 步骤4: 进行预测
+        st.write("📊 步骤3/3: 生成预测结果...")
+        total_steps = prediction_days * 8  # 每天8个时间点
+        predictions = predictor.predict(steps=total_steps, frequency='3H')
+        progress_bar.progress(90)
+        
+        # 步骤5: 模型评估
+        st.write("📈 评估模型性能...")
+        # 使用最后20%的数据作为测试集进行评估
+        test_size = min(int(len(time_series) * 0.2), 48)
+        if test_size > 0:
+            train_data = time_series[:-test_size]
+            test_data = time_series[-test_size:]
+            
+            # 重新训练并评估
+            eval_predictor = HybridPredictor(use_gpu=use_gpu)
+            eval_predictor.train_sarima(train_data, order=order, seasonal_order=seasonal_order)
+            eval_predictor.train_prophet_on_residuals(
+                eval_predictor.residuals_train,  # 修复：使用残差序列而不是index
+                changepoint_prior_scale=params.get('changepoint_prior_scale', 0.05)
+            )
+            evaluation = eval_predictor.evaluate(test_data, steps=len(test_data))
+        else:
+            evaluation = None
+        
+        overall_time = time.time() - overall_start
+        progress_bar.progress(100)
+        
+        # 准备返回数据
+        forecast_dates = predictions['forecast_dates']
+        forecast_values = predictions['hybrid_forecast']
+        
+        forecast_df = pd.DataFrame({
+            'timestamp': forecast_dates,
+            'value': forecast_values
+        })
+        
+        # 获取训练摘要
+        training_summary = predictor.get_training_summary()
+        
+        # 构建详细说明
+        explanation = f"""
+### 🔬 SARIMA + Prophet 混合预测模型（残差分解法）
+
+#### 📋 模型架构
+
+**第一阶段 - SARIMA（线性建模）**
+- 捕获数据中的线性趋势、季节性和自相关性
+- 模型阶数: order={order}, seasonal_order={seasonal_order}
+- 训练RMSE: {sarima_result['rmse']:.4f}
+- 训练耗时: {sarima_result['training_time']:.2f}秒
+
+**第二阶段 - Prophet（非线性残差建模）**
+- 学习SARIMA未能解释的残差模式
+- 捕捉非线性趋势、异常波动和复杂季节性
+- 残差拟合RMSE: {prophet_result['rmse']:.4f}
+- 训练耗时: {prophet_result['training_time']:.2f}秒
+
+**第三阶段 - 结果叠加**
+- 最终预测 = SARIMA预测 + Prophet残差预测
+- 结合两种模型的优势，提高预测精度
+
+#### ⏱️ 性能统计
+- 总训练时间: {overall_time:.2f}秒
+- 预测步数: {total_steps}步 ({prediction_days}天)
+- GPU加速: {'是' if use_gpu else '否'}
+- 使用设备: {gpu_accelerator.device_name if gpu_accelerator else 'CPU'}
+
+#### 📊 模型评估指标
+"""
+        
+        if evaluation:
+            explanation += f"""
+**混合模型 vs 纯SARIMA对比:**
+
+| 指标 | 混合模型 | 纯SARIMA | 改进幅度 |
+|------|---------|----------|----------|
+| RMSE | {evaluation['hybrid']['rmse']:.4f} | {evaluation['sarima_only']['rmse']:.4f} | {evaluation['improvement']['rmse_percent']:+.2f}% |
+| MAE | {evaluation['hybrid']['mae']:.4f} | {evaluation['sarima_only']['mae']:.4f} | {evaluation['improvement']['mae_percent']:+.2f}% |
+| MAPE | {evaluation['hybrid']['mape']:.2f}% | {evaluation['sarima_only']['mape']:.2f}% | - |
+
+**结论:** 混合模型相比纯SARIMA在RMSE上{('提升' if evaluation['improvement']['rmse_percent'] > 0 else '下降')}了{abs(evaluation['improvement']['rmse_percent']):.2f}%
+"""
+        
+        explanation += f"""
+#### 💡 模型优势
+
+1. **双重保障**: SARIMA处理线性成分，Prophet处理非线性成分
+2. **残差利用**: 充分利用SARIMA的残差信息，不浪费任何模式
+3. **自适应性强**: 能够应对复杂的时间序列模式
+4. **可解释性好**: 每个组件的作用清晰可见
+
+#### 🌾 农业应用价值
+
+- 更准确地预测温度、湿度等环境参数
+- 提前发现异常波动，支持精准农业决策
+- 为灌溉、温控系统提供可靠依据
+        """
+        
+        # 返回结果
+        rmse = sarima_result['rmse']
+        return df, forecast_df, explanation, rmse, evaluation
+        
+    except Exception as e:
+        st.error(f"❌ 混合模型训练失败: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
+        raise
+
+
 def perform_prediction(data, model_type, prediction_days, lstm_params=None):
     """执行预测操作
 
@@ -306,62 +535,77 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
         return prophet_prediction(prophet_data, prediction_days, lstm_params or {})
 
     elif model_type == "SARIMA":
-        # 使用SARIMA作为验证/微调模型
-        # 首先调用Prophet作为主干模型获取基础预测
-        prophet_data = df.reset_index()
-        if 'value' in prophet_data.columns:
-            prophet_data = prophet_data[['timestamp', 'value']].rename(columns={'timestamp': 'ds', 'value': 'y'})
-        else:
-            prophet_data = prophet_data.iloc[:, [0, -1]]
-            prophet_data.columns = ['ds', 'y']
+        # 使用新的混合模型（SARIMA + Prophet残差分解）
+        use_gpu = (lstm_params or {}).get('use_gpu', False)
+        
+        try:
+            historical_data, forecast_data, model_explanation, rmse, evaluation = hybrid_sarima_prophet_prediction(
+                data, prediction_days, lstm_params or {}, use_gpu=use_gpu
+            )
+            
+            # 如果有评估结果，添加到说明中
+            if evaluation:
+                st.success(f"✅ 混合模型训练成功！RMSE改进: {evaluation['improvement']['rmse_percent']:+.2f}%")
+            
+            return historical_data, forecast_data, model_explanation, rmse
+            
+        except Exception as e:
+            st.warning(f"混合模型失败，回退到传统方法: {str(e)}")
+            # 回退到原来的实现
+            prophet_data = df.reset_index()
+            if 'value' in prophet_data.columns:
+                prophet_data = prophet_data[['timestamp', 'value']].rename(columns={'timestamp': 'ds', 'value': 'y'})
+            else:
+                prophet_data = prophet_data.iloc[:, [0, -1]]
+                prophet_data.columns = ['ds', 'y']
 
-        # 获取Prophet基础预测
-        _, prophet_forecast, prophet_explanation, prophet_rmse = prophet_prediction(prophet_data, prediction_days,
-                                                                                    lstm_params or {})
+            # 获取Prophet基础预测
+            _, prophet_forecast, prophet_explanation, prophet_rmse = prophet_prediction(prophet_data, prediction_days,
+                                                                                        lstm_params or {})
 
-        # 使用增强的SARIMA验证函数
-        sarima_forecast_df, sarima_rmse, validation_explanation = sarima_validation_prediction(
-            [(idx, row['value']) for idx, row in df.iterrows()],
-            prediction_days,
-            lstm_params or {},
-            prophet_forecast
-        )
+            # 使用增强的SARIMA验证函数
+            sarima_forecast_df, sarima_rmse, validation_explanation = sarima_validation_prediction(
+                [(idx, row['value']) for idx, row in df.iterrows()],
+                prediction_days,
+                lstm_params or {},
+                prophet_forecast
+            )
 
-        # 选择最终RMSE（取较好的那个）
-        final_rmse = min(prophet_rmse, sarima_rmse)
+            # 选择最终RMSE（取较好的那个）
+            final_rmse = min(prophet_rmse, sarima_rmse)
 
-        model_explanation = f"""
-        **Prophet + SARIMA混合预测模型**
-        
-        本次预测采用双模型融合策略：
-        
-        **主干模型 - Prophet:**
-        1. Facebook开源的时间序列预测模型
-        2. 自动处理季节性和趋势成分
-        3. 对异常值和缺失值具有鲁棒性
-        4. 内置节假日效应处理
-        
-        **验证模型 - SARIMA:**
-        1. 季节性自回归积分滑动平均模型
-        2. 专门针对农业数据的24小时周期优化
-        3. 经典统计学方法，理论基础扎实
-        
-        {validation_explanation}
-        
-        **性能指标:**
-        - Prophet RMSE: {prophet_rmse:.4f}
-        - SARIMA RMSE: {sarima_rmse:.4f}
-        - 最终RMSE: {final_rmse:.4f}
-        - 使用的数据范围: 最近60天数据
-        - 预测天数: {prediction_days}天
-        
-        **农业数据优化:**
-        - 24小时昼夜周期建模
-        - 多模型交叉验证提升可靠性
-        - 动态权重调整适应数据特性
-        """
+            model_explanation = f"""
+            **Prophet + SARIMA混合预测模型（传统方法）**
+            
+            本次预测采用双模型融合策略：
+            
+            **主干模型 - Prophet:**
+            1. Facebook开源的时间序列预测模型
+            2. 自动处理季节性和趋势成分
+            3. 对异常值和缺失值具有鲁棒性
+            4. 内置节假日效应处理
+            
+            **验证模型 - SARIMA:**
+            1. 季节性自回归积分滑动平均模型
+            2. 专门针对农业数据的24小时周期优化
+            3. 经典统计学方法，理论基础扎实
+            
+            {validation_explanation}
+            
+            **性能指标:**
+            - Prophet RMSE: {prophet_rmse:.4f}
+            - SARIMA RMSE: {sarima_rmse:.4f}
+            - 最终RMSE: {final_rmse:.4f}
+            - 使用的数据范围: 最近60天数据
+            - 预测天数: {prediction_days}天
+            
+            **农业数据优化:**
+            - 24小时昼夜周期建模
+            - 多模型交叉验证提升可靠性
+            - 动态权重调整适应数据特性
+            """
 
-        return df, sarima_forecast_df, model_explanation, final_rmse
+            return df, sarima_forecast_df, model_explanation, final_rmse
 
     elif model_type == "Prophet":
         # 准备Prophet需要的输入格式
@@ -592,6 +836,58 @@ def prepare_prediction_ui():
                                                                    help="控制趋势灵活性的参数")
                 lstm_params['seasonality_prior_scale'] = st.slider("季节性强度", 0.1, 20.0, 10.0, step=0.1,
                                                                    help="控制季节性效应强度的参数")
+        
+        elif model_type == "SARIMA":
+            with st.expander("混合模型高级配置", expanded=True):
+                st.markdown("**🔬 SARIMA + Prophet 残差分解混合模型**")
+                st.info("该模型先使用SARIMA提取线性模式，再用Prophet学习残差中的非线性成分")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    lstm_params['use_gpu'] = st.checkbox(
+                        "启用GPU加速 (Apple MPS)",
+                        value=False,
+                        help="使用Apple M系列芯片的Metal Performance Shaders加速计算"
+                    )
+                    lstm_params['use_grid_search'] = st.checkbox(
+                        "启用参数网格搜索",
+                        value=False,
+                        help="自动搜索最优SARIMA参数（耗时较长）"
+                    )
+                
+                with col2:
+                    lstm_params['sarima_order_p'] = st.selectbox("SARIMA p值", [0, 1, 2, 3], index=1)
+                    lstm_params['sarima_order_q'] = st.selectbox("SARIMA q值", [0, 1, 2, 3], index=1)
+                    lstm_params['sarima_seasonal_P'] = st.selectbox("季节性P值", [0, 1, 2], index=1)
+                    lstm_params['sarima_seasonal_Q'] = st.selectbox("季节性Q值", [0, 1, 2], index=1)
+                
+                st.markdown("**Prophet残差模型参数:**")
+                col3, col4 = st.columns(2)
+                with col3:
+                    lstm_params['changepoint_prior_scale'] = st.slider(
+                        "变化点灵敏度", 0.001, 0.5, 0.05, step=0.01,
+                        help="控制Prophet对残差变化的敏感度"
+                    )
+                with col4:
+                    lstm_params['seasonality_prior_scale'] = st.slider(
+                        "季节性强度", 0.1, 20.0, 10.0, step=0.1,
+                        help="控制Prophet季节性效应的强度"
+                    )
+                
+                # GPU信息展示
+                from utils.gpu_accelerator import check_gpu_availability, get_gpu_accelerator
+                if lstm_params['use_gpu']:
+                    if check_gpu_availability():
+                        accelerator = get_gpu_accelerator()
+                        device_info = accelerator.get_device_info()
+                        st.success(f"✅ GPU可用: {device_info['device_name']}")
+                        
+                        if st.button("运行性能基准测试"):
+                            from utils.gpu_accelerator import run_benchmark_test
+                            run_benchmark_test()
+                    else:
+                        st.warning("⚠️ GPU不可用，将使用CPU")
+                        lstm_params['use_gpu'] = False
         
         return data_type, model_type, prediction_days, lstm_params, pred_mode
     
