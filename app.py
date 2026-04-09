@@ -758,8 +758,7 @@ def main():
                 "automated_decision": "自动化决策",
                 "debug_info": "调试信息",
                 "module_config": "模块配置管理",
-                "integrated_dashboard": "综合监控仪表板",
-                "ai_insights_analysis": "AI洞察分析"
+                "integrated_dashboard": "综合监控仪表板"
             }
             
             # 根据当前page获取对应的菜单项
