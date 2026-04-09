@@ -747,7 +747,7 @@ def main():
                 "data_visualization": "可视化",
                 "advanced_analysis": "高级分析",
                 "data_prediction": "本地数据预测",
-                "ai_insights_analysis": "AI 洞察分析",
+                "ai_insights_analysis": "AI 数据洞察",
                 "history_reports": "历史报告查看",
                 "user_management": "用户管理",
                 "system_monitoring": "系统监控",
@@ -772,17 +772,6 @@ def main():
             # 将综合监控仪表板插入到实时数据预览和数据概览之间
             insert_index = next((i for i, module in enumerate(enabled_modules) if module[0] == "数据概览"), 1)
             enabled_modules.insert(insert_index, integrated_dashboard_option)
-
-            # 添加 AI 洞察分析选项
-            ai_insights_option = ("AI 洞察分析", "brain")
-            # 将 AI 洞察分析插入到数据分析和可视化之间
-            analysis_insert_index = next((i for i, module in enumerate(enabled_modules) if module[0] == "数据分析"), 3)
-            enabled_modules.insert(analysis_insert_index + 1, ai_insights_option)
-                        
-            # 添加历史报告查看选项
-            history_reports_option = ("历史报告查看", "file-text")
-            # 将历史报告查看插入到 AI 洞察分析之后
-            enabled_modules.insert(analysis_insert_index + 2, history_reports_option)
 
             # 根据用户角色过滤菜单项
             menu_options = []
@@ -829,7 +818,7 @@ def main():
                 "可视化": "data_visualization",
                 "高级分析": "advanced_analysis",
                 "本地数据预测": "data_prediction",
-                "AI 洞察分析": "ai_insights_analysis",
+                "AI 数据洞察": "ai_insights_analysis",
                 "历史报告查看": "history_reports",
                 "用户管理": "user_management",
                 "系统监控": "system_monitoring",

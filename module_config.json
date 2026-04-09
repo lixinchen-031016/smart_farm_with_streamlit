@@ -161,7 +161,7 @@
   },
   "decision_engine": {
     "name": "decision_engine",
-    "enabled": true,
+    "enabled": false,
     "display_name": "自动化决策",
     "description": "基于数据分析生成决策建议",
     "category": "智能分析",
