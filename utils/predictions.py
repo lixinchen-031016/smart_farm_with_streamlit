@@ -828,16 +828,16 @@ def prepare_prediction_ui():
             "纯 Prophet": "Prophet",
             "纯 SARIMA": "SARIMA",
         }
-        model_mapping.get(model_type, model_type)
+        actual_model_type = model_mapping.get(model_type, model_type)
 
-        if model_type == "Prophet":
+        if actual_model_type == "Prophet":
             with st.expander("Prophet 模型参数配置"):
                 lstm_params['changepoint_prior_scale'] = st.slider("变化点灵敏度", 0.001, 0.5, 0.05, step=0.01,
                                                                    help="控制趋势灵活性的参数")
                 lstm_params['seasonality_prior_scale'] = st.slider("季节性强度", 0.1, 20.0, 10.0, step=0.1,
                                                                    help="控制季节性效应强度的参数")
         
-        elif model_type == "SARIMA":
+        elif actual_model_type == "SARIMA":
             with st.expander("混合模型高级配置", expanded=True):
                 st.markdown("**🔬 SARIMA + Prophet 残差分解混合模型**")
                 st.info("该模型先使用SARIMA提取线性模式，再用Prophet学习残差中的非线性成分")
@@ -846,12 +846,12 @@ def prepare_prediction_ui():
                 with col1:
                     lstm_params['use_gpu'] = st.checkbox(
                         "启用GPU加速 (Apple MPS)",
-                        value=False,
+                        value=True,
                         help="使用Apple M系列芯片的Metal Performance Shaders加速计算"
                     )
                     lstm_params['use_grid_search'] = st.checkbox(
                         "启用参数网格搜索",
-                        value=False,
+                        value=True,
                         help="自动搜索最优SARIMA参数（耗时较长）"
                     )
                 
@@ -1224,35 +1224,139 @@ def show_prediction_results(historical_data, forecast_data, model_explanation, r
     
     # 综合评估
     overall_score = 0
+    score_details = []
+    
+    # RMSE 评分
     if train_rmse < 1.0:
         overall_score += 2
+        score_details.append(f"✅ RMSE={train_rmse:.4f} (优秀)")
     elif train_rmse < 2.0:
         overall_score += 1
+        score_details.append(f"⚠️ RMSE={train_rmse:.4f} (良好)")
+    else:
+        score_details.append(f"❌ RMSE={train_rmse:.4f} (需改进)")
     
+    # 波动率评分
     if volatility < 0.05:
         overall_score += 2
+        score_details.append(f"✅ 波动率={volatility*100:.2f}% (稳定)")
     elif volatility < 0.1:
         overall_score += 1
+        score_details.append(f"⚠️ 波动率={volatility*100:.2f}% (中等)")
+    else:
+        score_details.append(f"❌ 波动率={volatility*100:.2f}% (不稳定)")
     
+    # R² 评分
     if r_squared > 0.7:
         overall_score += 2
+        score_details.append(f"✅ R²={r_squared:.4f} (拟合度优)")
     elif r_squared > 0.5:
         overall_score += 1
+        score_details.append(f"⚠️ R²={r_squared:.4f} (拟合度中等)")
+    else:
+        score_details.append(f"❌ R²={r_squared:.4f} (拟合度差)")
     
+    # 显示评分详情
+    with st.expander("📊 评分详情", expanded=False):
+        for detail in score_details:
+            st.markdown(f"- {detail}")
+        st.markdown(f"\n**综合得分**: {overall_score}/6 分")
+    
+    # 根据数据类型生成个性化建议
+    data_type_advice = {
+        "空气温度": {
+            "high_confidence": [
+                "🌡️ **温度控制建议**:",
+                "- 可基于预测结果提前调整温室通风系统",
+                "- 建议在预测高温时段前开启遮阳网",
+                "- 低温预警时提前启动加热设备（提前2-3小时）",
+                "- 昼夜温差大时注意保温措施"
+            ],
+            "medium_confidence": [
+                "🌡️ **温度监控建议**:",
+                "- 结合实时监测数据，每小时校准一次",
+                "- 设置±2°C的安全缓冲区间",
+                "- 重点关注极端天气前后的温度变化",
+                "- 建议增加温度传感器密度提高准确性"
+            ],
+            "low_confidence": [
+                "🌡️ **温度数据改进建议**:",
+                "- 检查温度传感器是否校准准确",
+                "- 增加数据采集频率（建议每15分钟一次）",
+                "- 考虑季节性因素，分别建立不同季节的模型",
+                "- 仅作为参考趋势，不作为自动控制依据"
+            ]
+        },
+        "空气湿度": {
+            "high_confidence": [
+                "💧 **湿度调控建议**:",
+                "- 可根据预测提前安排灌溉时间",
+                "- 高湿预警时加强通风除湿",
+                "- 低湿时适时喷雾增湿，预防作物蒸腾过度",
+                "- 注意温湿度耦合关系，综合调控"
+            ],
+            "medium_confidence": [
+                "💧 **湿度监控建议**:",
+                "- 设置湿度报警阈值（建议60%-80%）",
+                "- 结合土壤湿度数据综合判断灌溉需求",
+                "- 注意清晨和傍晚的湿度峰值",
+                "- 定期校准湿度传感器"
+            ],
+            "low_confidence": [
+                "💧 **湿度数据改进建议**:",
+                "- 检查湿度传感器位置和校准状态",
+                "- 避免传感器直接接触水源或热源",
+                "- 增加采样点数量，取平均值",
+                "- 考虑使用多变量模型提升精度"
+            ]
+        },
+        "土壤湿度": {
+            "high_confidence": [
+                "🌱 **灌溉决策建议**:",
+                "- 可实施精准灌溉，节约水资源20%-30%",
+                "- 根据预测在土壤湿度降至临界值前灌溉",
+                "- 不同作物生长阶段采用不同灌溉策略",
+                "- 结合天气预报优化灌溉计划"
+            ],
+            "medium_confidence": [
+                "🌱 **灌溉监控建议**:",
+                "- 设置土壤湿度安全范围（如40%-70%）",
+                "- 每次灌溉后监测湿度回升情况",
+                "- 注意不同土层的湿度差异",
+                "- 结合气象数据调整灌溉频率"
+            ],
+            "low_confidence": [
+                "🌱 **土壤监测改进建议**:",
+                "- 增加土壤湿度传感器深度分层布设",
+                "- 检查传感器与土壤接触是否良好",
+                "- 考虑土壤类型对湿度的影响",
+                "- 建议人工实地验证后再决策"
+            ]
+        }
+    }
+    
+    # 根据综合得分和数据类型生成建议
     if overall_score >= 5:
         st.success("""
         ### ✅ **强烈推荐**
         
         **优势**:
-        - 🎯 模型预测精度高 (RMSE < 1.0)
-        - 📊 数据稳定性好 (波动率 < 5%)
-        - 🔬 模型拟合度优 (R² > 0.7)
+        - 🎯 模型预测精度高 
+        - 📊 数据稳定性好 
+        - 🔬 模型拟合度优
         
         **应用建议**:
         - ✅ 可直接用于自动化控制系统
         - ✅ 支持精准农业决策
         - ✅ 可作为灌溉、温控等系统的核心参考
         """)
+        
+        # 添加数据类型特定的高置信度建议
+        if data_type in data_type_advice:
+            st.markdown("---")
+            for line in data_type_advice[data_type]["high_confidence"]:
+                st.markdown(line)
+    
     elif overall_score >= 3:
         st.info("""
         ### ✓ **推荐使用 (需谨慎)**
@@ -1268,6 +1372,13 @@ def show_prediction_results(historical_data, forecast_data, model_explanation, r
         - ✓ 定期校准模型参数
         - ✓ 与其他监测数据配合使用
         """)
+        
+        # 添加数据类型特定的中等置信度建议
+        if data_type in data_type_advice:
+            st.markdown("---")
+            for line in data_type_advice[data_type]["medium_confidence"]:
+                st.markdown(line)
+    
     else:
         st.warning("""
         ### ⚠️ **谨慎参考**
@@ -1284,6 +1395,12 @@ def show_prediction_results(historical_data, forecast_data, model_explanation, r
         4. 🔄 尝试其他预测模型
         5. ⚠️ 仅作为辅助参考，不用于自动决策
         """)
+        
+        # 添加数据类型特定的低置信度建议
+        if data_type in data_type_advice:
+            st.markdown("---")
+            for line in data_type_advice[data_type]["low_confidence"]:
+                st.markdown(line)
     
     # 多变量相关性提示
     if data_type in ["空气温度", "空气湿度"]:
