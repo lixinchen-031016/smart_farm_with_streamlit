@@ -441,7 +441,7 @@ def data_visualization():
             # 添加智能推荐
             if chart_type == "散点图" and x_column and y_column:
                 corr = filtered_data[[x_column, y_column]].corr().iloc[0, 1]
-            if abs(corr) > 0.7:
-                st.success(f"💡 **智能洞察**: {x_column} 和 {y_column} 之间存在强相关性 (相关系数: {corr:.2f})")
-            elif abs(corr) > 0.3:
-                st.info(f"💡 **智能洞察**: {x_column} 和 {y_column} 之间存在中等相关性 (相关系数: {corr:.2f})")
+                if abs(corr) > 0.7:
+                    st.success(f"💡 **智能洞察**: {x_column} 和 {y_column} 之间存在强相关性 (相关系数: {corr:.2f})")
+                elif abs(corr) > 0.3:
+                    st.info(f"💡 **智能洞察**: {x_column} 和 {y_column} 之间存在中等相关性 (相关系数: {corr:.2f})")
