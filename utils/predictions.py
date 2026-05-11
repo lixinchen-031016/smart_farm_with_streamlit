@@ -622,6 +622,114 @@ def perform_prediction(data, model_type, prediction_days, lstm_params=None):
     return df, pd.DataFrame(), model_explanation, rmse
 
 
+def generate_multivariate_forecast(merged_df, rf_temp, rf_humid, prediction_days):
+    """基于已训练的多变量模型生成未来预测结果
+    
+    使用递归预测策略，结合历史周期性模式，生成具有时序波动的预测数据。
+    通过引入时间特征和历史同期数据，保持预测结果的周期性变化。
+    
+    Args:
+        merged_df (pd.DataFrame): 历史合并数据集（包含温度、湿度、光照）
+        rf_temp: 已训练的温度预测随机森林模型
+        rf_humid: 已训练的湿度预测随机森林模型
+        prediction_days (int): 预测天数
+        
+    Returns:
+        pd.DataFrame: 包含未来预测结果的DataFrame，包含timestamp、temperature、humidity、light列
+    """
+    try:
+        # 获取最后一个时间点
+        last_timestamp = merged_df.index[-1]
+        
+        # 计算需要生成的时间点数（每3小时一个点）
+        total_points = prediction_days * 8
+        
+        # 初始化预测结果列表
+        forecast_results = []
+        
+        # 复制历史数据用于周期性参考
+        historical_data = merged_df.copy()
+        current_data = merged_df.copy()
+        
+        # 递归预测每个未来时间点
+        for i in range(total_points):
+            # 计算下一个时间戳
+            next_timestamp = last_timestamp + pd.Timedelta(hours=3*(i+1))
+            
+            # 获取前一个时间点的预测值（用于滞后特征）
+            if len(current_data) > 0:
+                prev_row = current_data.iloc[-1]
+                temp_lag1 = prev_row['temperature']
+                humid_lag1 = prev_row['humidity']
+            else:
+                temp_lag1 = historical_data['temperature'].iloc[-1]
+                humid_lag1 = historical_data['humidity'].iloc[-1]
+            
+            # 关键改进：从历史数据中获取相同时刻的统计特征
+            # 例如：如果预测的是明天凌晨3点，就使用历史上所有凌晨3点的数据
+            same_hour_mask = historical_data.index.hour == next_timestamp.hour
+            if same_hour_mask.sum() > 0:
+                same_hour_data = historical_data[same_hour_mask]
+                hist_temp_mean = same_hour_data['temperature'].mean()
+                hist_humid_mean = same_hour_data['humidity'].mean()
+                hist_light_mean = same_hour_data['light'].mean() if 'light' in same_hour_data.columns else 0
+            else:
+                # 如果没有相同小时的历史数据，使用整体平均
+                hist_temp_mean = historical_data['temperature'].mean()
+                hist_humid_mean = historical_data['humidity'].mean()
+                hist_light_mean = historical_data['light'].mean() if 'light' in historical_data.columns else 0
+            
+            # 构建特征向量 - 关键改进：区分当前值和滞后值
+            # 使用历史同期的均值作为“当前”特征的估计
+            features = pd.DataFrame({
+                'temperature': [hist_temp_mean],  # 使用历史同期均值作为当前温度的估计
+                'humidity': [hist_humid_mean],    # 使用历史同期均值作为当前湿度的估计
+                'light': [hist_light_mean],       # 使用历史同期光照均值
+                'temp_lag1': [temp_lag1],         # 使用前一时段的实际预测值
+                'humid_lag1': [humid_lag1],       # 使用前一时段的实际预测值
+                'temp_humid_interaction': [hist_temp_mean * hist_humid_mean]
+            })
+            
+            # 预测下一个时间点的温度和湿度
+            predicted_temp = rf_temp.predict(features)[0]
+            predicted_humid = rf_humid.predict(features)[0]
+            
+            # 对湿度进行合理性约束（0-100%）
+            predicted_humid = max(0, min(100, predicted_humid))
+            
+            # 光照预测：使用历史同期的光照模式
+            predicted_light = hist_light_mean
+            
+            # 将预测结果添加到当前数据集
+            new_row = pd.DataFrame({
+                'temperature': [predicted_temp],
+                'humidity': [predicted_humid],
+                'light': [predicted_light]
+            }, index=[next_timestamp])
+            
+            current_data = pd.concat([current_data, new_row])
+            
+            # 保存预测结果
+            forecast_results.append({
+                'timestamp': next_timestamp,
+                'temperature': predicted_temp,
+                'humidity': predicted_humid,
+                'light': predicted_light
+            })
+        
+        # 转换为DataFrame
+        forecast_df = pd.DataFrame(forecast_results)
+        forecast_df.set_index('timestamp', inplace=True)
+        
+        return forecast_df
+        
+    except Exception as e:
+        st.error(f"生成未来预测失败: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
+        return None
+
+
 def multivariate_prediction(temp_data, humid_data, light_data, prediction_days, params):
     """多变量耦合预测 - 考虑温度、湿度、光照的相互影响
 
@@ -636,12 +744,13 @@ def multivariate_prediction(temp_data, humid_data, light_data, prediction_days, 
         params (dict): 模型参数，包含随机森林的树数量等设置
 
     Returns:
-        tuple: (merged_df, rf_temp, rf_humid, feature_importance, explanation)
+        tuple: (merged_df, rf_temp, rf_humid, feature_importance, explanation, forecast_df)
             - merged_df: 合并后的多变量数据集
             - rf_temp: 温度预测模型
             - rf_humid: 湿度预测模型
             - feature_importance: 特征重要性分析结果
             - explanation: 模型说明文本
+            - forecast_df: 未来预测结果DataFrame
 
     Raises:
         ValueError: 多变量数据量不足时会抛出异常
@@ -677,8 +786,8 @@ def multivariate_prediction(temp_data, humid_data, light_data, prediction_days, 
         y_humid = merged_df['humidity']
         
         # 训练模型
-        rf_temp = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
-        rf_humid = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+        rf_temp = RandomForestRegressor(n_estimators=params.get('n_estimators', 100), random_state=42, n_jobs=-1)
+        rf_humid = RandomForestRegressor(n_estimators=params.get('n_estimators', 100), random_state=42, n_jobs=-1)
         
         rf_temp.fit(X, y_temp)
         rf_humid.fit(X, y_humid)
@@ -762,11 +871,14 @@ def multivariate_prediction(temp_data, humid_data, light_data, prediction_days, 
 - 通过调控关键因子实现精准管理
         """
         
-        return merged_df, rf_temp, rf_humid, feature_importance, explanation
+        # 生成未来预测结果
+        forecast_df = generate_multivariate_forecast(merged_df, rf_temp, rf_humid, prediction_days)
+        
+        return merged_df, rf_temp, rf_humid, feature_importance, explanation, forecast_df
         
     except Exception as e:
         st.warning(f"多变量预测失败：{str(e)}，使用单变量预测结果")
-        return None, None, None, None, "多变量预测不可用"
+        return None, None, None, None, "多变量预测不可用", None
 
 
 def get_historical_data(session, data_type):

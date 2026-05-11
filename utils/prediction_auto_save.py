@@ -309,6 +309,10 @@ class PredictionSaveManager:
         hist_values = historical_data.iloc[:, 0] if len(historical_data.columns) > 0 else historical_data
         forecast_values = forecast_data['value'] if 'value' in forecast_data.columns else forecast_data.iloc[:, 0]
         
+        # 确保数值类型为浮点数，避免格式化错误
+        rmse = float(rmse) if rmse is not None else 0.0
+        r_squared = float(r_squared) if r_squared is not None else 0.0
+        
         md_content = f"""# 📊 农业数据预测报告
 
 ## 基本信息
@@ -360,7 +364,12 @@ class PredictionSaveManager:
         for _, row in preview_df.iterrows():
             time_val = row.get('timestamp', row.get('ds', 'N/A'))
             value_val = row.get('value', row.get('yhat', 'N/A'))
-            md_content += f"| {time_val} | {value_val:.2f} |\n"
+            # 确保value_val是数值类型
+            try:
+                value_formatted = f"{float(value_val):.2f}"
+            except (ValueError, TypeError):
+                value_formatted = str(value_val)
+            md_content += f"| {time_val} | {value_formatted} |\n"
         
         md_content += f"""
 
