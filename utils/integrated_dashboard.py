@@ -688,7 +688,7 @@ def show_integrated_dashboard():
         # Get database session
         with get_session() as session:
             # Page title
-            st.title("🌱 智能农场综合监控仪表板")
+            st.title("🌱 智能大棚综合监控仪表板")
 
             # Render role-specific controls first
             if role == 'admin':

@@ -24,7 +24,7 @@ import streamlit as st
 
 # 配置页面，隐藏默认顶栏
 st.set_page_config(
-    page_title="智能农场管理系统",
+    page_title="智能大棚管理系统",
     page_icon="🌱",
     layout="wide",
     initial_sidebar_state="auto",
