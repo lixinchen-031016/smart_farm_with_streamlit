@@ -24,7 +24,7 @@ import streamlit as st
 
 # 配置页面，隐藏默认顶栏
 st.set_page_config(
-    page_title="智能大棚管理系统",
+    page_title="智慧大棚数据管理系统",
     page_icon="🌱",
     layout="wide",
     initial_sidebar_state="auto",
@@ -709,7 +709,7 @@ def main():
         if st.session_state.get('logged_in'):
             # 只在刚登录时显示欢迎信息
             if st.session_state.get('just_logged_in', False):
-                st.success(f"欢迎您，{st.session_state['username']}！您已成功登录智能农场管理系统。")
+                st.success(f"欢迎您，{st.session_state['username']}！您已成功登录智慧大棚管理系统。")
                 st.session_state['just_logged_in'] = False
 
         # 重构侧边栏菜单逻辑

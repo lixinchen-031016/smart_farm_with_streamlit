@@ -315,7 +315,7 @@ def login(session, st):
         with col2:
             st.markdown("""
             <h2 class="auth-header">
-            🚜 智能农场管理系统
+            🚜 智慧大棚数据管理系统
             </h2>
             <h3 class="auth-header">用户登录</h3>
             """, unsafe_allow_html=True)
